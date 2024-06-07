@@ -59,7 +59,7 @@ jobs:
       run: bandit -r ./aiocamedomotic
 
     - name: GitGuardian scan
-      uses: GitGuardian/ggshield-action@v1
+      uses: GitGuardian/ggshield-action@v1.28.0
       env:
         GITHUB_PUSH_BEFORE_SHA: ${{ github.event.before }}
         GITHUB_PUSH_BASE_SHA: ${{ github.event.base }}
