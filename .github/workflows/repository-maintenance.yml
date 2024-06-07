@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Apply stale policy
-        uses: actions/stale@v7
+        uses: actions/stale@v9
         with:
           days-before-stale: 90
           stale-issue-message: >
