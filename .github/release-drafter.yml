@@ -1,0 +1,59 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+include-paths:
+  - "came_domotic_unofficial/"
+autolabeler:
+  - label: 'chore'
+    files:
+      - 'pyproject.toml'
+    branch:
+      - '/actions{0,1}\/.+/'
+      - '/tests{0,1}\/.+/'
+      - '/chore\/.+/'
+  - label: 'documentation'
+    files:
+      - '*.md'
+    branch:
+      - '/docs{0,1}\/.+/'
+  - label: 'bug'
+    branch:
+      - '/fix\/.+/'
+      - '/bug\/.+/'
+    title:
+      - '/fix/i'
+      - '/bug/i'
+  - label: 'enhancement'
+    branch:
+      - '/features{0,1}\/.+/'
+      - '/enhancements{0,1}\/.+/'
+categories:
+  - title: 'Features'
+    labels:
+      - 'enhancement'
+  - title: 'Bug Fixes'
+    labels:
+      - 'bug'
+      - 'fix'
+  - title: 'Maintenance'
+    labels: 
+      - 'chore'
+      - 'documentation'
+change-template: '- $TITLE @$AUTHOR'
+change-title-escapes: '\<*_&' # You can add # and @ to disable mentions, and add ` to disable code blocks.
+version-resolver:
+  major:
+    labels:
+      - 'major'
+  minor:
+    labels:
+      - 'minor'
+  patch:
+    labels:
+      - 'patch'
+  default: patch
+template: |
+  # Changelog
+
+  $CHANGES
+footer: |
+  $REPOSITORY

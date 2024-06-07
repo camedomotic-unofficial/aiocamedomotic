@@ -1,0 +1,83 @@
+# Copyright 2024 - GitHub user: fredericks1982
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License. 
+
+name: Code quality check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'came_domotic_unofficial/**/*.py'
+      - 'pyproject.toml'
+      - '.github/workflows/code-quality.yml'
+      # - 'mypy.ini'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'came_domotic_unofficial/**/*.py'
+      - 'pyproject.toml'
+      - '.github/workflows/code-quality.yml'
+      # - 'mypy.ini'
+  schedule:
+    # At 06:30 on day-of-month 24.
+    - cron: '30 6 24 * *'
+  workflow_dispatch:
+
+jobs:
+  lint-and-type-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install Poetry
+      run: |
+        pip install pipx
+        pipx ensurepath
+        pipx install poetry
+
+    - name: Install package and its dependencies
+      run: poetry install --with code-quality
+
+    - name: Check formatting with black
+      run: poetry run black came_domotic_unofficial --check
+      
+    - name: Run mypy
+      run: poetry run mypy came_domotic_unofficial
+
+    - name: Run pylint      
+      run: poetry run pylint --disable=W,R,C came_domotic_unofficial
+
+    # - name: Run flake8    
+    #   # The Black formatter uses 88 chars wide lines and conflicts whit E203
+    #   run: poetry run flake8 . --max-line-length=88 --extend-ignore=E203
+    # #   run: |
+    # #     # stop the build if there are Python syntax errors or undefined names
+    # #     poetry run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+    # #     # exit-zero treats all errors as warnings. The Black formatter uses 88 chars wide lines and conflicts whit E203
+    # #     poetry run flake8 . --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics --extend-ignore=E203
+
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

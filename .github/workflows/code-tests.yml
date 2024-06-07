@@ -1,0 +1,71 @@
+# Copyright 2024 - GitHub user: fredericks1982
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License. 
+
+name: Unit tests and coverage report
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'came_domotic_unofficial/**/*.py'
+      - 'tests/**/*.py'
+      - 'pyproject.toml'
+      - '.github/workflows/code-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'came_domotic_unofficial/**/*.py'
+      - 'tests/**/*.py'
+      - 'pyproject.toml'
+      - '.github/workflows/code-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.12']
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        allow-prereleases: true
+        # cache: pip
+
+    - name: Install Poetry
+      run: |
+        pip install pipx
+        pipx ensurepath
+        pipx install poetry
+
+    - name: Install package and its dependencies
+      run: poetry install --with tests
+
+    - name: Run pytest with coverage
+      run: poetry run pytest --timeout 10 --cov=came_domotic_unofficial --cov-report xml --cov-report term-missing
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        name: "pytest-${{ matrix.python-version }}"
+        flags: "pytest-coverage,python-${{ matrix.python-version }}"
+        fail_ci_if_error: false
+        file: ./coverage.xml
+ 

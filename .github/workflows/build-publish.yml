@@ -1,0 +1,181 @@
+# Copyright 2024 - GitHub user: fredericks1982
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License. 
+
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Build and publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version update type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prepatch # update patch number and adds a0
+          - preminor # update minor number and adds a0
+          - premajor # update major number and adds a0
+          - prerelease # if final updates patch and adds a0, otherwise add +1 to the pre-release number
+          - prerelease –next-phase # steps a > b > rc > final
+          - none
+        default: prerelease
+      publish_to_test:
+        description: 'Publish to test?'
+        required: true
+        type: boolean
+        default: true
+      publish_to_production:
+        description: 'Publish to production?'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build_test:
+    if: ${{ github.event.inputs.publish_to_test == 'true' || github.event.inputs.publish_to_production == 'true' }}
+    environment: test
+    permissions:
+      contents: write  # Needed to update the version number in pyproject.toml
+    
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Debug
+        run: |
+          echo "github.event.inputs.publish_to_test || github.event.inputs.publish_to_production > ${{ github.event.inputs.publish_to_test || github.event.inputs.publish_to_production }}"
+          echo "github.event.inputs.publish_to_test > ${{ github.event.inputs.publish_to_test }}"
+          echo "github.event.inputs.publish_to_production > ${{ github.event.inputs.publish_to_production  }}"
+          echo "github.event.inputs.publish_to_test == true > ${{ github.event.inputs.publish_to_test == true }}"
+          echo "github.event.inputs.publish_to_test == 'true' > ${{ github.event.inputs.publish_to_test == 'true'}}"
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+  
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+  
+      - name: Install Poetry
+        run: |
+          pip install --upgrade pip
+          pip install pipx
+          pipx ensurepath
+          pipx install poetry
+  
+      - name: Validate pyproject.toml
+        run: poetry check
+
+      - name: Update version
+        id: update_version
+        if: ${{ github.event.inputs.version != 'none' }}
+        run: |
+          poetry version ${{ github.event.inputs.version }}
+          version=$(poetry version -s)
+          echo "version=v$version" >> $GITHUB_OUTPUT
+          git config user.name "camedomotic-unofficial"
+          git config user.email "actions@github.com"
+          git add pyproject.toml
+          git commit -m "chore: bump version to $version"
+          git push origin main
+          git tag "v$version"
+          git push origin main --tags
+
+      # The new pyproject.toml is needed by the production build too
+      - name: Archive the new pyproject.toml as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyproject
+          path: pyproject.toml
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
+
+      - name: Install package dependencies    
+        run: poetry install --no-root
+        
+      - name: Build with poetry
+        run: poetry build
+
+      - name: Upload built package as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-package
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
+      - name: Show version value
+        run: echo "The version is ${{ steps.update_version.outputs.version }}"
+
+    outputs:
+      version: ${{ steps.update_version.outputs.version }}
+
+
+  publish_test:
+    needs: build_test
+    if: ${{ github.event.inputs.publish_to_test == 'true' }}
+    environment: testpypi
+    runs-on: ubuntu-latest
+    permissions:
+      # IMPORTANT: this permission is mandatory for trusted publishing
+      id-token: write
+    steps:
+      - name: Download built package
+        uses: actions/download-artifact@v4
+        with:
+          name: built-package
+          path: dist
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  publish_production:
+    needs: [build_test]
+    if: ${{ github.event.inputs.publish_to_production == 'true' }}
+    environment: pypi
+    runs-on: ubuntu-latest
+    permissions:
+      # IMPORTANT: this permission is mandatory for trusted publishing
+      id-token: write
+      # Needed to create a release
+      contents: write
+
+    steps:
+      - name: Download built package
+        uses: actions/download-artifact@v4
+        with:
+          name: built-package
+          path: dist
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build_test.outputs.version }}
+          draft: true
+          generate_release_notes: true # see https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes
+          make_latest: true
