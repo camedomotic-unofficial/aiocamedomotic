@@ -8,7 +8,7 @@ Babel==2.15.0
 black==24.4.2
 build==1.2.1
 CacheControl==0.14.0
--e git+https://github.com/camedomotic-unofficial/aiocamedomotic.git@5d03f05c5522f93b67337d9379ccf99da3f0480f#egg=came_domotic_unofficial
+-e git+https://github.com/camedomotic-unofficial/aiocamedomotic.git@5752c811c234158ea3de4f05c36715a5504fb209#egg=came_domotic_unofficial
 certifi==2024.6.2
 cffi==1.16.0
 charset-normalizer==3.3.2

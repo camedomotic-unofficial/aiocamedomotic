@@ -13,12 +13,12 @@
 # limitations under the License.
 
 """
-This module contains the exceptions that can be raised by the Came Domotic API.
+This module contains the exceptions that can be raised by the CAME Domotic API.
 """
 
 
 class CameDomoticError(Exception):
-    """Base exception class for the Came Domotic package."""
+    """Base exception class for the CAME Domotic package."""
 
 
 class CameDomoticServerNotFoundError(CameDomoticError):
@@ -33,7 +33,7 @@ class CameDomoticAuthError(CameDomoticError):
 # Server exception class
 class CameDomoticServerError(CameDomoticError):
     """
-    Raised if an error occurs while interacting with the remote Came Domotic server
+    Raised if an error occurs while interacting with the remote CAME Domotic server
     """
 
     @staticmethod

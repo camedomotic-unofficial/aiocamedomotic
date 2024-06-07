@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-This module manages the HTTP interaction with the Came Domotic API.
+This module manages the HTTP interaction with the CAME Domotic API.
 
 Note:
    As a consumer of the CAME Domotic Unofficial library, **it's quite unlikely that you
@@ -21,7 +21,7 @@ Note:
    CameEntity classes instead.
 
    In case of special needs, consider requesting the implementation of the desired
-   feature in the Came Domotic Unofficial library, or forking the library and implement
+   feature in the CAME Domotic Unofficial library, or forking the library and implement
    the feature yourself.
 """
 
@@ -116,7 +116,7 @@ class Auth:
 
         Args:
             websession (ClientSession): the aiohttp client session.
-            host (str): the host of the Came Domotic server.
+            host (str): the host of the CAME Domotic server.
             username (str): the username to use for the authentication.
             password (str): the password to use for the authentication.
             close_websession_on_disposal (bool, optional): whether to close the
@@ -163,7 +163,7 @@ class Auth:
 
         Args:
             websession (ClientSession): the aiohttp client session.
-            host (str): the host of the Came Domotic server.
+            host (str): the host of the CAME Domotic server.
             username (str): the username to use for the authentication.
             password (str): the password to use for the authentication.
             close_websession_on_disposal (bool, optional, default True): whether to
@@ -251,7 +251,7 @@ class Auth:
         timeout: Optional[int] = 10,
         skip_ack_check: bool = False,
     ) -> aiohttp.ClientResponse:
-        """Send a command to the Came Domotic server.
+        """Send a command to the CAME Domotic server.
 
         Args:
             payload (dict): the payload to send.
@@ -339,7 +339,7 @@ class Auth:
             ) from e
 
     async def async_login(self) -> None:
-        """Login to the Came Domotic server.
+        """Login to the CAME Domotic server.
 
         Raises:
             CameDomoticAuthError: if an error occurs during the login.
@@ -409,7 +409,7 @@ class Auth:
 
     @handle_came_domotic_errors
     async def async_logout(self) -> None:
-        """Logout from the Came Domotic server.
+        """Logout from the CAME Domotic server.
 
         Raises:
             CameDomoticServerError: if an error occurs during the logout.
@@ -457,7 +457,7 @@ class Auth:
 
         Raises:
             CameDomoticServerError: if there is an error interacting with
-                the remote Came Domotic server.
+                the remote CAME Domotic server.
         """
         try:
             response.raise_for_status()

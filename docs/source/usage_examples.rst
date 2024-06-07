@@ -20,7 +20,7 @@ CAME Domotic Unofficial library.
 
 .. note::
     The examples assume you have already installed the library (``pip
-    install came-domotic-unofficial``) and are familiar with the basics of Python
+    install aiocamedomotic``) and are familiar with the basics of Python
     programming.
 
 Essential imports for working with this library

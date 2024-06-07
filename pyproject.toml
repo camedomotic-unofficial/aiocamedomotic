@@ -23,7 +23,7 @@ readme = "README.rst"
 
 homepage = "https://github.com/camedomotic-unofficial/aiocamedomotic"
 repository = "https://github.com/camedomotic-unofficial/aiocamedomotic.git"
-documentation = "https://came-domotic-unofficial.readthedocs.io/en/latest/index.html"
+documentation = "https://aiocamedomotic.readthedocs.io/latest/index.html"
 
 keywords = [
     "CAME",

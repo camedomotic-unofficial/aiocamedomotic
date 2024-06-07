@@ -15,7 +15,7 @@ Domotic Unofficial library and its dependencies:
 
 .. code-block:: bash
 
-    pip install came-domotic-unofficial
+    pip install aiocamedomotic
 
 Basic usage examples
 --------------------

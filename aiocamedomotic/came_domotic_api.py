@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-This module exposes the Came Domotic API to the end-users.
+This module exposes the CAME Domotic API to the end-users.
 """
 
 from typing import List, Optional
@@ -27,14 +27,14 @@ from .models import CameServerInfo, CameUser, CameLight, CameUpdateList
 
 
 class CameDomoticAPI:
-    """Main class, exposes all the public methods of the Came Domotic API."""
+    """Main class, exposes all the public methods of the CAME Domotic API."""
 
     def __init__(self, auth: Auth):
-        """Initialize the Came Domotic API object.
+        """Initialize the CAME Domotic API object.
 
         Args:
             auth (Auth): the authentication object used to interact with
-                the Came Domotic API.
+                the CAME Domotic API.
         """
         self.auth = auth
 
@@ -175,7 +175,7 @@ class CameDomoticAPI:
         """Create a CameDomoticAPI object.
 
         Args:
-            host (str): The host of the Came Domotic server.
+            host (str): The host of the CAME Domotic server.
             username (str): The username to use for the API.
             password (str): The password to use for the API.
             websession (aiohttp.ClientSession, optional): The aiohttp session to use for
