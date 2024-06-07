@@ -24,37 +24,37 @@ API Reference
 CAME Domotic API
 ----------------
 
-.. automodule:: came_domotic_unofficial.came_domotic_api
+.. automodule:: aiocamedomotic.came_domotic_api
    :members:
 
 
 Entity models
 -------------
 
-.. automodule:: came_domotic_unofficial.models
+.. automodule:: aiocamedomotic.models
    :members:
 
-.. automodule:: came_domotic_unofficial.models.base
+.. automodule:: aiocamedomotic.models.base
    :members:
 
-.. automodule:: came_domotic_unofficial.models.light
+.. automodule:: aiocamedomotic.models.light
    :members:
 
-.. automodule:: came_domotic_unofficial.models.update
+.. automodule:: aiocamedomotic.models.update
    :members:
 
 
 Errors
 ------
 
-.. automodule:: came_domotic_unofficial.errors
+.. automodule:: aiocamedomotic.errors
    :members:
 
 
 Auth module
 -----------
 
-.. automodule:: came_domotic_unofficial.auth
+.. automodule:: aiocamedomotic.auth
    :members:
 ..    :undoc-members:
 ..    :show-inheritance:

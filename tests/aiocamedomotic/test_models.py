@@ -23,8 +23,8 @@ from unittest.mock import AsyncMock, patch
 from aiohttp import ClientSession
 import pytest
 import pytest_asyncio
-from came_domotic_unofficial import Auth
-from came_domotic_unofficial.models import (
+from aiocamedomotic import Auth
+from aiocamedomotic.models import (
     CameServerInfo,
     CameUser,
     CameLight,
@@ -33,7 +33,7 @@ from came_domotic_unofficial.models import (
     LightType,
 )
 
-from tests.came_domotic_unofficial.mocked_responses import STATUS_UPDATE_RESP
+from tests.aiocamedomotic.mocked_responses import STATUS_UPDATE_RESP
 
 
 @pytest_asyncio.fixture

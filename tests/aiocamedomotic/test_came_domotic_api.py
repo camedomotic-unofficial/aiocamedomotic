@@ -21,19 +21,19 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 # from .mocked_responses import SL_USERS_LIST_RESP
-from came_domotic_unofficial import Auth, CameDomoticAPI
-from came_domotic_unofficial.models import (
+from aiocamedomotic import Auth, CameDomoticAPI
+from aiocamedomotic.models import (
     CameServerInfo,
     CameUser,
     CameLight,
 )
-from came_domotic_unofficial.errors import (
+from aiocamedomotic.errors import (
     CameDomoticServerNotFoundError,
     CameDomoticError,
 )
 
 
-from tests.came_domotic_unofficial.const import (
+from tests.aiocamedomotic.const import (
     auth_instance,  # noqa: F401
     auth_instance_not_logged_in,  # noqa: F401
 )

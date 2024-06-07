@@ -29,13 +29,13 @@ from aiohttp import ClientSession, ClientTimeout
 import pytest
 import freezegun
 
-from came_domotic_unofficial.auth import Auth
-from came_domotic_unofficial.errors import (
+from aiocamedomotic import Auth
+from aiocamedomotic.errors import (
     CameDomoticServerError,
     CameDomoticAuthError,
     CameDomoticServerNotFoundError,
 )
-from tests.came_domotic_unofficial.const import (
+from tests.aiocamedomotic.const import (
     auth_instance,  # noqa: F401
     auth_instance_not_logged_in,  # noqa: F401
 )

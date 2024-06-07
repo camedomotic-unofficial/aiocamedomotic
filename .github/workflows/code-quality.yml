@@ -18,14 +18,14 @@ on:
   push:
     branches: [main]
     paths:
-      - 'came_domotic_unofficial/**/*.py'
+      - 'aiocamedomotic/**/*.py'
       - 'pyproject.toml'
       - '.github/workflows/code-quality.yml'
       # - 'mypy.ini'
   pull_request:
     branches: [main]
     paths:
-      - 'came_domotic_unofficial/**/*.py'
+      - 'aiocamedomotic/**/*.py'
       - 'pyproject.toml'
       - '.github/workflows/code-quality.yml'
       # - 'mypy.ini'
@@ -59,13 +59,13 @@ jobs:
       run: poetry install --with code-quality
 
     - name: Check formatting with black
-      run: poetry run black came_domotic_unofficial --check
+      run: poetry run black aiocamedomotic --check
       
     - name: Run mypy
-      run: poetry run mypy came_domotic_unofficial
+      run: poetry run mypy aiocamedomotic
 
     - name: Run pylint      
-      run: poetry run pylint --disable=W,R,C came_domotic_unofficial
+      run: poetry run pylint --disable=W,R,C aiocamedomotic
 
     # - name: Run flake8    
     #   # The Black formatter uses 88 chars wide lines and conflicts whit E203

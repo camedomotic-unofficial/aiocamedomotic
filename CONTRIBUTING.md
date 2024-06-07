@@ -19,10 +19,10 @@ limitations under the License.  -->
 ![Type checker: mypy](https://img.shields.io/badge/type%20checking-mypy-yellowgreen.svg)
 ![Security: Bandit](https://img.shields.io/badge/security-bandit-0cc.svg)
 ![Unit testing: pytest](https://img.shields.io/badge/testing-pytest-0A0.svg)
-![Code quality checks](https://github.com/camedomotic-unofficial/came_domotic_unofficial/actions/workflows/code-quality.yml/badge.svg)
-[![Code coverage: codecov](https://codecov.io/gh/camedomotic-unofficial/came_domotic_unofficial/graph/badge.svg?token=0QSJYP7EP3)](https://codecov.io/gh/camedomotic-unofficial/came_domotic_unofficial)
-[![SonarCloud - Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_came_domotic_unofficial&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=camedomotic-unofficial_came_domotic_unofficial)
-[![SonarCloud - Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_came_domotic_unofficial&metric=sqale_index)](https://sonarcloud.io/summary/new_code?id=camedomotic-unofficial_came_domotic_unofficial)
+![Code quality checks](https://github.com/camedomotic-unofficial/aiocamedomotic/actions/workflows/code-quality.yml/badge.svg)
+[![Code coverage: codecov](https://codecov.io/gh/camedomotic-unofficial/aiocamedomotic/graph/badge.svg?token=0QSJYP7EP3)](https://codecov.io/gh/camedomotic-unofficial/aiocamedomotic)
+[![SonarCloud - Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_aiocamedomotic&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=camedomotic-unofficial_aiocamedomotic)
+[![SonarCloud - Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_aiocamedomotic&metric=sqale_index)](https://sonarcloud.io/summary/new_code?id=camedomotic-unofficial_aiocamedomotic)
 
 Thank you for your interest in contributing to our project! ❤️
 
@@ -58,7 +58,7 @@ To allow proper autolabeling of changes, please name your branches as follows:
 ## Reporting a bug
 
 We use GitHub issues to track bugs. Report a bug by
-[opening a new issue](https://github.com/camedomotic-unofficial/came_domotic_unofficial/issues)
+[opening a new issue](https://github.com/camedomotic-unofficial/aiocamedomotic/issues)
 it's that easy!
 
 ## Versioning strategy

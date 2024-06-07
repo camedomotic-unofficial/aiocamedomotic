@@ -26,8 +26,8 @@ Here's a simple example to demonstrate how to use the library to turn on or off 
 
     import asyncio
 
-    from came_domotic_unofficial import CameDomoticAPI
-    from came_domotic_unofficial.models import LightStatus
+    from aiocamedomotic import CameDomoticAPI
+    from aiocamedomotic.models import LightStatus
 
     async def main():
         async with await CameDomoticAPI.async_create(
@@ -84,8 +84,8 @@ Let's go step by step:
 
         import asyncio
 
-        from came_domotic_unofficial import CameDomoticAPI
-        from came_domotic_unofficial.models import LightStatus
+        from aiocamedomotic import CameDomoticAPI
+        from aiocamedomotic.models import LightStatus
 
         async def main():
             async with await CameDomoticAPI.async_create(

@@ -23,16 +23,16 @@ Welcome!
     :target: https://www.python.org
     :alt: Python 3.12
 
-.. image:: https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_came_domotic_unofficial&metric=security_rating
-   :target: https://sonarcloud.io/project/overview?id=camedomotic-unofficial_came_domotic_unofficial
+.. image:: https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_aiocamedomotic&metric=security_rating
+   :target: https://sonarcloud.io/project/overview?id=camedomotic-unofficial_aiocamedomotic
    :alt: SonarCloud - Security Rating
 
-.. image:: https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_came_domotic_unofficial&metric=vulnerabilities
-   :target: https://sonarcloud.io/project/overview?id=camedomotic-unofficial_came_domotic_unofficial
+.. image:: https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_aiocamedomotic&metric=vulnerabilities
+   :target: https://sonarcloud.io/project/overview?id=camedomotic-unofficial_aiocamedomotic
    :alt: SonarCloud - Vulnerabilities
 
-.. image:: https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_came_domotic_unofficial&metric=bugs
-   :target: https://sonarcloud.io/project/overview?id=camedomotic-unofficial_came_domotic_unofficial
+.. image:: https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_aiocamedomotic&metric=bugs
+   :target: https://sonarcloud.io/project/overview?id=camedomotic-unofficial_aiocamedomotic
    :alt: SonarCloud - Bugs
 
 .. image:: https://readthedocs.org/projects/came-domotic-unofficial/badge/?version=latest
@@ -90,10 +90,10 @@ Once you are a bit more familiar with the library, you may want to explore the f
 resources too:
 
 - `API reference <https://came-domotic-unofficial.readthedocs.io/en/latest/api_reference.html>`_
-- `What's new (releases) <https://github.com/camedomotic-unofficial/came_domotic_unofficial/releases>`_
-- `Development roadmap <https://github.com/camedomotic-unofficial/came_domotic_unofficial/blob/main/ROADMAP.md#development-roadmap>`_
-- `Security Policy <https://github.com/camedomotic-unofficial/came_domotic_unofficial/blob/main/SECURITY.md#security-policy>`_
-- `Contributing to Our Project <https://github.com/camedomotic-unofficial/came_domotic_unofficial/blob/main/CONTRIBUTING.md#contributing-to-our-project>`_
+- `What's new (releases) <https://github.com/camedomotic-unofficial/aiocamedomotic/releases>`_
+- `Development roadmap <https://github.com/camedomotic-unofficial/aiocamedomotic/blob/main/ROADMAP.md#development-roadmap>`_
+- `Security Policy <https://github.com/camedomotic-unofficial/aiocamedomotic/blob/main/SECURITY.md#security-policy>`_
+- `Contributing to Our Project <https://github.com/camedomotic-unofficial/aiocamedomotic/blob/main/CONTRIBUTING.md#contributing-to-our-project>`_
 
 
 Acknowledgments
@@ -108,5 +108,5 @@ Assistant document
 License
 =======
 This project is licensed under the Apache License 2.0. For more details, see the
-`LICENSE file <https://github.com/camedomotic-unofficial/came_domotic_unofficial/blob/main/LICENSE>`_
+`LICENSE file <https://github.com/camedomotic-unofficial/aiocamedomotic/blob/main/LICENSE>`_
 on GitHub.

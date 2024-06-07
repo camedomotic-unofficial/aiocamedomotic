@@ -22,11 +22,11 @@ from unittest.mock import patch
 import aiohttp
 import pytest
 
-from came_domotic_unofficial import Auth, CameDomoticAPI
+from aiocamedomotic import Auth, CameDomoticAPI
 
 
 @pytest.fixture
-@patch("came_domotic_unofficial.Auth.async_validate_host", return_value=True)
+@patch("aiocamedomotic.Auth.async_validate_host", return_value=True)
 async def auth_instance_not_logged_in(
     mock_async_validate_host,  # pylint: disable=unused-argument
 ) -> AsyncGenerator[Auth, None]:
@@ -38,7 +38,7 @@ async def auth_instance_not_logged_in(
 
 
 @pytest.fixture
-@patch("came_domotic_unofficial.Auth.async_validate_host", return_value=True)
+@patch("aiocamedomotic.Auth.async_validate_host", return_value=True)
 async def auth_instance(
     mock_async_validate_host,  # pylint: disable=unused-argument
 ) -> AsyncGenerator[Auth, None]:
@@ -53,7 +53,7 @@ async def auth_instance(
 
 
 @pytest.fixture
-@patch("came_domotic_unofficial.Auth.async_validate_host", return_value=True)
+@patch("aiocamedomotic.Auth.async_validate_host", return_value=True)
 async def api_instance(
     mock_async_validate_host,  # pylint: disable=unused-argument
 ) -> AsyncGenerator[CameDomoticAPI, None]:

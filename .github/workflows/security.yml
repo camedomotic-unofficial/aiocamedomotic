@@ -56,7 +56,7 @@ jobs:
         pip install bandit
 
     - name: Run Bandit
-      run: bandit -r ./came_domotic_unofficial
+      run: bandit -r ./aiocamedomotic
 
     - name: GitGuardian scan
       uses: GitGuardian/ggshield-action@v1.25.0

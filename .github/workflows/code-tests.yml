@@ -18,14 +18,14 @@ on:
   push:
     branches: [main]
     paths:
-      - 'came_domotic_unofficial/**/*.py'
+      - 'aiocamedomotic/**/*.py'
       - 'tests/**/*.py'
       - 'pyproject.toml'
       - '.github/workflows/code-tests.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'came_domotic_unofficial/**/*.py'
+      - 'aiocamedomotic/**/*.py'
       - 'tests/**/*.py'
       - 'pyproject.toml'
       - '.github/workflows/code-tests.yml'
@@ -58,7 +58,7 @@ jobs:
       run: poetry install --with tests
 
     - name: Run pytest with coverage
-      run: poetry run pytest --timeout 10 --cov=came_domotic_unofficial --cov-report xml --cov-report term-missing
+      run: poetry run pytest --timeout 10 --cov=aiocamedomotic --cov-report xml --cov-report term-missing
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v4

@@ -39,7 +39,7 @@ you must import the following:
 
     import asyncio
 
-    from came_domotic_unofficial import CameDomoticAPI
+    from aiocamedomotic import CameDomoticAPI
 
 Working with entities
 ^^^^^^^^^^^^^^^^^^^^^
@@ -48,7 +48,7 @@ To work with the CAME devices you may need one or more of the following imports:
 
 .. code-block:: python
 
-    from came_domotic_unofficial.models import LightStatus
+    from aiocamedomotic.models import LightStatus
 
 
 Handling Exceptions
@@ -58,7 +58,7 @@ To properly manage potential errors you can add these imports:
 
 .. code-block:: python
 
-    from came_domotic_unofficial.errors import (
+    from aiocamedomotic.errors import (
         CameDomoticError, # Generic error raised by the library
         CameDomoticServerNotFoundError, # Raised by the constructor (bad IP/hostname?)
         CameDomoticAuthError, # Authentication failure (bad credentials?)
@@ -78,7 +78,7 @@ optimizing resource use and security.
     import asyncio
     from aiohttp import ClientSession
 
-    from came_domotic_unofficial import Auth, CameDomoticAPI
+    from aiocamedomotic import Auth, CameDomoticAPI
 
     async def async_my_usage_example():
         async with await CameDomoticAPI.async_create(

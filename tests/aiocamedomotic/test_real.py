@@ -16,15 +16,16 @@
 # pylint: disable=missing-function-docstring
 # pylint: disable=redefined-outer-name
 
+# flake8: noqa: F811
 
 import asyncio
 import pytest
 
-from came_domotic_unofficial import CameDomoticAPI
-from came_domotic_unofficial.models import LightStatus
+from aiocamedomotic import CameDomoticAPI
+from aiocamedomotic.models import LightStatus
 
-from tests.came_domotic_unofficial.const import (
-    api_instance_real as api,  # pylint: disable=unused-import
+from tests.aiocamedomotic.const import (
+    api_instance_real as api,  # pylint: disable=unused-import  # noqa: F401
 )
 
 
@@ -98,11 +99,18 @@ async def test_async_usage_example():
         lights = await api.async_get_lights()
 
         # Get a specific light by ID
-        bedroom_dimmable_lamp = next((l for l in lights if l.act_id == 13), None)
+        bedroom_dimmable_lamp = next(
+            (light for light in lights if light.act_id == 13), None
+        )
 
         # Get a specific light by name
         kitchen_lamp = next(
-            (l for l in lights if l.name == "Lampada cabina armadio camera m"), None
+            (
+                light
+                for light in lights
+                if light.name == "Lampada cabina armadio camera m"
+            ),
+            None,
         )
 
         # Ensure the light is found (dimmable)
