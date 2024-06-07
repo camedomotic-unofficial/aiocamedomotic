@@ -14,7 +14,7 @@
 
 [tool.poetry]
 name = "aiocamedomotic"
-version = "1.0.0a1"
+version = "1.0.0a2"
 description = "Python library to interact with a CAME ETI/Domo domotic server."
 license = "Apache-2.0"
 authors = ["camedomotic-unofficial <camedomotic-unofficial@gmail.com>"]
