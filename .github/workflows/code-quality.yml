@@ -16,14 +16,14 @@ name: Code quality check
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'aiocamedomotic/**/*.py'
       - 'pyproject.toml'
       - '.github/workflows/code-quality.yml'
       # - 'mypy.ini'
   pull_request:
-    branches: [main]
+    branches: [master]
     paths:
       - 'aiocamedomotic/**/*.py'
       - 'pyproject.toml'

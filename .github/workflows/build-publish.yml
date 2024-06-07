@@ -96,9 +96,9 @@ jobs:
           git config user.email "actions@github.com"
           git add pyproject.toml
           git commit -m "chore: bump version to $version"
-          git push origin main
+          git push origin master
           git tag "v$version"
-          git push origin main --tags
+          git push origin master --tags
 
       # The new pyproject.toml is needed by the production build too
       - name: Archive the new pyproject.toml as an artifact

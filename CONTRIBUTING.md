@@ -48,7 +48,7 @@ To allow proper autolabeling of changes, please name your branches as follows:
 
 ## Submitting a Pull Request
 
-1. Fork the repository and create your branch from `main`.
+1. Fork the repository and create your branch from `master`.
 2. If you've added code, add tests. Make sure all tests pass.
 3. If you've changed the public interface of this library, update the documentation.
 4. Ensure your code is formatted with Black, linted with Pylint, and type-checked with

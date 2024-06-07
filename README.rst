@@ -91,9 +91,9 @@ resources too:
 
 - `API reference <https://came-domotic-unofficial.readthedocs.io/en/latest/api_reference.html>`_
 - `What's new (releases) <https://github.com/camedomotic-unofficial/aiocamedomotic/releases>`_
-- `Development roadmap <https://github.com/camedomotic-unofficial/aiocamedomotic/blob/main/ROADMAP.md#development-roadmap>`_
-- `Security Policy <https://github.com/camedomotic-unofficial/aiocamedomotic/blob/main/SECURITY.md#security-policy>`_
-- `Contributing to Our Project <https://github.com/camedomotic-unofficial/aiocamedomotic/blob/main/CONTRIBUTING.md#contributing-to-our-project>`_
+- `Development roadmap <https://github.com/camedomotic-unofficial/aiocamedomotic/blob/master/ROADMAP.md#development-roadmap>`_
+- `Security Policy <https://github.com/camedomotic-unofficial/aiocamedomotic/blob/master/SECURITY.md#security-policy>`_
+- `Contributing to Our Project <https://github.com/camedomotic-unofficial/aiocamedomotic/blob/master/CONTRIBUTING.md#contributing-to-our-project>`_
 
 
 Acknowledgments
@@ -108,5 +108,5 @@ Assistant document
 License
 =======
 This project is licensed under the Apache License 2.0. For more details, see the
-`LICENSE file <https://github.com/camedomotic-unofficial/aiocamedomotic/blob/main/LICENSE>`_
+`LICENSE file <https://github.com/camedomotic-unofficial/aiocamedomotic/blob/master/LICENSE>`_
 on GitHub.
