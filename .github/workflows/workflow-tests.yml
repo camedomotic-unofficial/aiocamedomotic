@@ -21,7 +21,7 @@ on:
 
 jobs:
   job1:
-    environment: test
+    environment: unit-testing
     
     runs-on: ubuntu-latest
 
