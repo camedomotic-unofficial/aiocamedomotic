@@ -61,7 +61,7 @@ async def test_async_get_server_info(api: CameDomoticAPI):
     print(f"Server Info - Serial: {server_info.serial}")
     print(f"Server Info - Board: {server_info.board}")
     print(f"Server Info - Type: {server_info.type}")
-    for feature in server_info.features:
+    for feature in server_info.list:
         print(f"Feature Name: {feature}")
 
 
