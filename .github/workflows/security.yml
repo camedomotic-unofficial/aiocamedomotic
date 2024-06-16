@@ -16,14 +16,14 @@ name: Security checks
 
 on:
   push:
-    branches: [ master ]
+    branches: [master,update-version]
     paths-ignore:
       - '**.rst'
       - '**.md'
       - 'docs/**'
       - '.github/**'
   pull_request:
-    branches: [ master ]
+    branches: [master]
     paths-ignore:
       - '**.rst'
       - '**.md'

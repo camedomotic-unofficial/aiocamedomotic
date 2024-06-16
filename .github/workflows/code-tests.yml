@@ -23,7 +23,7 @@ on:
       - 'pyproject.toml'
       - '.github/workflows/code-tests.yml'
   pull_request:
-    branches: [master]
+    branches: [master,update-version]
     paths:
       - 'aiocamedomotic/**/*.py'
       - 'tests/**/*.py'
