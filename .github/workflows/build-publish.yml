@@ -119,12 +119,14 @@ jobs:
       - name: Remove new version tag on PR merging failure
         if: always() && steps.create_pr.outcome == 'failure'
         run: |
+          git checkout master  # Needed in case of failure of previous steps
           git tag -d "v$version"
           git push origin --delete "v$version"
         
       - name: Delete temporary branch
         if: always() && steps.create_branch_tag.outcome == 'success'
         run: |
+          git checkout master  # Needed in case of failure of previous steps
           git branch -d update-version
           git push origin --delete update-version        
 
