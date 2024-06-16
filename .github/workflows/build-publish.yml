@@ -87,13 +87,18 @@ jobs:
       - name: Validate pyproject.toml
         run: poetry check
 
-      - name: Update version and create branch and tag
+      - name: Update version with poetry
         id: update_version
         if: ${{ github.event.inputs.version != 'none' }}
         run: |
           poetry version ${{ github.event.inputs.version }}
           version=$(poetry version -s)
           echo "version=v$version" >> $GITHUB_OUTPUT
+
+      - name: Create branch and version tag
+        id: create_branch_tag
+        if: steps.update_version.outcome == 'success'
+        run: |
           git config user.name "camedomotic-unofficial"
           git config user.email "actions@github.com"
           git checkout -b update-version
@@ -103,29 +108,25 @@ jobs:
           git push origin update-version --tags
 
       - name: Create and merge pull request
-        if: ${{ github.event.inputs.version != 'none' }}
+        id: create_pr
+        if: steps.create_branch_tag.outcome == 'success'
         run: |
           gh pr create --title "Update version to $version" --body "This pull request updates the library version to $version." --base master --head update-version
           git checkout master
           git merge --no-ff update-version
-        
-      - name: Push changes and delete temporary branch
-        if: ${{ github.event.inputs.version != 'none' }}
-        run: |
           git push origin master
+
+      - name: Remove new version tag on PR merging failure
+        if: always() && steps.create_pr.outcome == 'failure'
+        run: |
+          git tag -d "v$version"
+          git push origin --delete "v$version"
+        
+      - name: Delete temporary branch
+        if: always() && steps.create_branch_tag.outcome == 'success'
+        run: |
           git branch -d update-version
           git push origin --delete update-version        
-
-      # The new pyproject.toml is needed by the production build too
-      - name: Archive the new pyproject.toml as an artifact
-        if: ${{ github.event.inputs.version != 'none' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: pyproject
-          path: pyproject.toml
-          if-no-files-found: error
-          retention-days: 1
-          overwrite: true
 
       - name: Install package dependencies    
         run: poetry install --no-root
@@ -134,6 +135,7 @@ jobs:
         run: poetry build
 
       - name: Upload built package as artifact
+        if: ${{ github.event.inputs.publish_to_test == 'true' || github.event.inputs.publish_to_production == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: built-package
@@ -141,6 +143,7 @@ jobs:
           if-no-files-found: error
           retention-days: 1
           overwrite: true
+
       - name: Show version value
         run: echo "The version is ${{ steps.update_version.outputs.version }}"
 
