@@ -112,8 +112,8 @@ jobs:
         if: steps.create_branch_tag.outcome == 'success'
         run: |
           gh pr create --title "Update version to ${{ steps.update_version.outputs.version }}" --body "This pull request updates the library version to ${{ steps.update_version.outputs.version }}." --base master --head update-version
+          gh pr merge --auto --squash --delete-branch
           git checkout master
-          git merge --auto --no-ff -d -s update-version
           git push origin master
 
       - name: Remove new version tag on PR merging failure
