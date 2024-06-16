@@ -17,7 +17,7 @@ This module defines the Python representation of each of the entity types used b
 CAME Domotic API.
 """
 
-from .base import CameEntity, CameServerInfo, CameUser  # noqa: F401
+from .base import CameEntity, ServerInfo, User  # noqa: F401
 from .light import CameLight, LightType, LightStatus  # noqa: F401
 from .update import CameUpdateList  # noqa: F401
 

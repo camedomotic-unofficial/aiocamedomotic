@@ -23,7 +23,7 @@ import aiohttp
 from .const import LOGGER
 
 from .auth import Auth
-from .models import CameServerInfo, CameUser, CameLight, CameUpdateList
+from .models import ServerInfo, User, CameLight, CameUpdateList
 
 
 class CameDomoticAPI:
@@ -51,11 +51,11 @@ class CameDomoticAPI:
         except Exception:  # pylint: disable=broad-except
             LOGGER.exception("Error while disposing the CameDomoticAPI object")
 
-    async def async_get_users(self) -> List[CameUser]:
+    async def async_get_users(self) -> List[User]:
         """Get the list of users defined on the server.
 
         Returns:
-            List[CameUser]: List of users.
+            List[User]: List of users.
 
         Raises:
             CameDomoticAuthError: If the authentication fails.
@@ -68,16 +68,16 @@ class CameDomoticAPI:
         response = await self.auth.async_send_command(payload)
         json_response = await response.json(content_type=None)
 
-        return [CameUser(user, self.auth) for user in json_response["sl_users_list"]]
+        return [User(user, self.auth) for user in json_response["sl_users_list"]]
 
-    async def async_get_server_info(self) -> CameServerInfo:
+    async def async_get_server_info(self) -> ServerInfo:
         """Get the server information
 
         Provides info about the server (keycode, software version, etc.) and the list of
         features supported by the CAME Domotic server.
 
         Returns:
-            CameServerInfo: Server information.
+            ServerInfo: Server information.
 
         Raises:
             CameDomoticAuthError: If the authentication fails.
@@ -98,7 +98,7 @@ class CameDomoticAPI:
         response = await self.auth.async_send_command(payload)
         json_response = await response.json(content_type=None)
 
-        return CameServerInfo(
+        return ServerInfo(
             keycode=json_response["keycode"],
             swver=json_response["swver"],
             type=json_response["type"],

@@ -23,8 +23,8 @@ import pytest
 # from .mocked_responses import SL_USERS_LIST_RESP
 from aiocamedomotic import Auth, CameDomoticAPI
 from aiocamedomotic.models import (
-    CameServerInfo,
-    CameUser,
+    ServerInfo,
+    User,
     CameLight,
 )
 from aiocamedomotic.errors import (
@@ -152,8 +152,8 @@ async def test_async_get_users(mock_send_command, auth_instance):
 
     users = await api.async_get_users()
     assert len(users) == 2
-    assert isinstance(users[0], CameUser)
-    assert isinstance(users[1], CameUser)
+    assert isinstance(users[0], User)
+    assert isinstance(users[1], User)
     assert users[0].name == "admin"
     assert users[1].name == "user"
 
@@ -184,7 +184,7 @@ async def test_async_get_server_info(mock_send_command, auth_instance):
     }
 
     server_info = await api.async_get_server_info()
-    assert isinstance(server_info, CameServerInfo)
+    assert isinstance(server_info, ServerInfo)
     assert server_info.keycode == "0000FFFF9999AAAA"
     assert server_info.swver == "1.2.3"
     assert server_info.type == "0"
