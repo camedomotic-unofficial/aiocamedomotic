@@ -51,7 +51,7 @@ permissions:
 
 jobs:
   build:
-    if: ${{ github.event.inputs.publish_to_test == 'true' || github.event.inputs.publish_to_production == 'true' }}
+    ### if: ${{ github.event.inputs.publish_to_test == 'true' || github.event.inputs.publish_to_production == 'true' }}
     environment: test
     permissions:
       contents: write  # Needed to update the version number in pyproject.toml
