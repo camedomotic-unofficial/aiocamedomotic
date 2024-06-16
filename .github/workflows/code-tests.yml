@@ -16,7 +16,7 @@ name: Unit tests and coverage report
 
 on:
   push:
-    branches: [master]
+    branches: [master,update-versio]
     paths:
       - 'aiocamedomotic/**/*.py'
       - 'tests/**/*.py'

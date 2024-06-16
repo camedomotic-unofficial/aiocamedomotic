@@ -23,7 +23,7 @@ on:
       - 'docs/**'
       - '.github/**'
   pull_request:
-    branches: [master]
+    branches: [master,update-versio]
     paths-ignore:
       - '**.rst'
       - '**.md'
