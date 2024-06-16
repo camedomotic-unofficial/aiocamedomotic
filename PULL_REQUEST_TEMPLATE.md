@@ -1,10 +1,17 @@
 # Pull Request template
 
+Title: @coderabbitai <!-- don't remove this tag!!! -->
+
 ## Description
 
-*[Please include here a summary of the change, i.e. which issue is fixed, which feature is added or enhanced, or which chore activity has been performed. Also, include relevant motivation and context. List any dependencies that are required for this change.]*
+<!-- Please include here a summary of the change, i.e. which issue is fixed, which feature is added or enhanced, or which chore activity has been performed. Also, include relevant motivation and context. List any dependencies that are required for this change.] -->
 
-Fixes # *(issue number)*
+
+<!-- Fixes # *(issue number) -->
+
+## Coderabbit description (system reserved)
+
+@coderabbitai summary <!-- don't remove this tag!!! -->
 
 ## Type of change
 
@@ -29,18 +36,18 @@ Before submitting, please ensure you have met the following requirements:
 
 ## Additional Information
 
-*[Please provide here any additional information or context that would help reviewers understand the changes.]*
+<!-- Please provide here any additional information or context that would help reviewers understand the changes.] -->
 
 ## Testing
 
-*[Please describe the tests that you ran to verify your changes. Provide instructions so we can reproduce. Also, list any relevant details for your test configuration.]*
+<!-- *[Please describe the tests that you ran to verify your changes. Provide instructions so we can reproduce. Also, list any relevant details for your test configuration.]* -->
 
 - *Test A*
 - *Test B*
 
 ## Screenshots
 
-*[If applicable, add screenshots to help explain your problem or your changes.]*
+<!-- *[If applicable, add screenshots to help explain your problem or your changes.]* -->
 
 ---
 

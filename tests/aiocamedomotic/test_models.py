@@ -25,8 +25,8 @@ import pytest
 import pytest_asyncio
 from aiocamedomotic import Auth
 from aiocamedomotic.models import (
-    CameServerInfo,
-    CameUser,
+    ServerInfo,
+    User,
     CameLight,
     CameUpdateList,
     LightStatus,
@@ -45,12 +45,12 @@ async def auth_instance() -> AsyncGenerator[Auth, None]:
     await session.close()
 
 
-# region CameFeature and CameServerInfo tests
+# region CameFeature and ServerInfo tests
 
 
 def test_came_server_info_initialization():
     features = ["Feature1", "Feature2"]
-    server_info = CameServerInfo(
+    server_info = ServerInfo(
         keycode="keycode1",
         serial="serial1",
         swver="swver1",
@@ -69,7 +69,7 @@ def test_came_server_info_initialization():
 
 def test_came_server_info_initialization_nullable():
     features = ["Feature1", "Feature2"]
-    server_info = CameServerInfo(
+    server_info = ServerInfo(
         keycode="keycode1",
         serial="serial1",
         list=features,
@@ -86,17 +86,17 @@ def test_came_server_info_initialization_nullable():
 def test_came_server_info_initialization_invalid():
     with pytest.raises(TypeError):
         server_info = (  # pylint: disable=unused-variable # noqa: F841
-            CameServerInfo()  # pylint: disable=no-value-for-parameter
+            ServerInfo()  # pylint: disable=no-value-for-parameter
         )
 
 
 # endregion
-# region CameUser tests
+# region User tests
 
 
 def test_came_user_initialization(auth_instance):
     raw_data = {"name": "Test User"}
-    user = CameUser(raw_data, auth_instance)
+    user = User(raw_data, auth_instance)
 
     assert user.auth == auth_instance
     assert user.raw_data == raw_data
@@ -107,12 +107,12 @@ def test_came_user_invalid_input(auth_instance):
     # Test null raw_data
     raw_data = None
     with pytest.raises(ValueError):
-        CameUser(raw_data, auth_instance)
+        User(raw_data, auth_instance)
 
     # Test missing "name" key in raw_data
     raw_data = {"unknown_key": "Invalid value"}
     with pytest.raises(ValueError):
-        CameUser(raw_data, auth_instance)
+        User(raw_data, auth_instance)
 
 
 # endregion

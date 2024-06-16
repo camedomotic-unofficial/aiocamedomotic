@@ -30,7 +30,7 @@ class CameEntity:
 
 
 @dataclass
-class CameUser(CameEntity):
+class User(CameEntity):
     """
     User in the CAME Domotic API.
 
@@ -91,7 +91,7 @@ class CameUser(CameEntity):
 
 
 @dataclass
-class CameServerInfo(CameEntity):
+class ServerInfo(CameEntity):
     """Server information of a CAME Domotic server."""
 
     keycode: str
