@@ -55,20 +55,13 @@ jobs:
     environment: test
     permissions:
       contents: write  # Needed to update the version number in pyproject.toml
+      pull-requests: write  # Needed to create a pull request
     env:
       GH_TOKEN: ${{ github.token }}
       
     runs-on: ubuntu-latest
 
     steps:
-      - name: Debug
-        run: |
-          echo "github.event.inputs.publish_to_test || github.event.inputs.publish_to_production > ${{ github.event.inputs.publish_to_test || github.event.inputs.publish_to_production }}"
-          echo "github.event.inputs.publish_to_test > ${{ github.event.inputs.publish_to_test }}"
-          echo "github.event.inputs.publish_to_production > ${{ github.event.inputs.publish_to_production  }}"
-          echo "github.event.inputs.publish_to_test == true > ${{ github.event.inputs.publish_to_test == true }}"
-          echo "github.event.inputs.publish_to_test == 'true' > ${{ github.event.inputs.publish_to_test == 'true'}}"
-
       - name: Check out repository
         uses: actions/checkout@v4
         with:
