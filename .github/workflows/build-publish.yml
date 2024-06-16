@@ -79,10 +79,10 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: DEBUG
-        if: always()
-        run: |
-          git branch -a
+#      - name: DEBUG
+#        if: always()
+#        run: |
+#          git branch -a
           
       - name: Install Poetry
         run: |
@@ -134,7 +134,7 @@ jobs:
         if: always() && steps.create_branch_tag.outcome == 'success'
         run: |
           git checkout master
-          git branch -d update-version
+          git branch -D update-version
           git push origin --delete update-version        
 
       - name: Install package dependencies    
