@@ -39,7 +39,7 @@ on:
         description: 'Publish to test?'
         required: true
         type: boolean
-        default: true
+        default: false
       publish_to_production:
         description: 'Publish to production?'
         required: true
