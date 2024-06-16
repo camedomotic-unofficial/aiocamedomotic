@@ -104,14 +104,14 @@ jobs:
           git checkout -b update-version
           git add pyproject.toml
           git commit -m "chore: bump version to $version"
-          git tag "v$version"
+          git tag "${{ steps.update_version.outputs.version }}"
           git push origin update-version --tags
 
       - name: Create and merge pull request
         id: create_pr
         if: steps.create_branch_tag.outcome == 'success'
         run: |
-          gh pr create --title "Update version to $version" --body "This pull request updates the library version to $version." --base master --head update-version
+          gh pr create --title "Update version to ${{ steps.update_version.outputs.version }}" --body "This pull request updates the library version to ${{ steps.update_version.outputs.version }}." --base master --head update-version
           git checkout master
           git merge --no-ff update-version
           git push origin master
@@ -120,8 +120,8 @@ jobs:
         if: always() && steps.create_pr.outcome == 'failure'
         run: |
           git checkout master  # Needed in case of failure of previous steps
-          git tag -d "v$version"
-          git push origin --delete "v$version"
+          git tag -d "${{ steps.update_version.outputs.version }}"
+          git push origin --delete "${{ steps.update_version.outputs.version }}"
         
       - name: Delete temporary branch
         if: always() && steps.create_branch_tag.outcome == 'success'
