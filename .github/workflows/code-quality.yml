@@ -23,7 +23,7 @@ on:
       - '.github/workflows/code-quality.yml'
       # - 'mypy.ini'
   pull_request:
-    branches: [master]
+    branches: [master,update-version]
     paths:
       - 'aiocamedomotic/**/*.py'
       - 'pyproject.toml'

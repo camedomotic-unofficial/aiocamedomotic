@@ -15,7 +15,7 @@
 # This workflow will install Python dependencies, run tests and lint with a single version of Python
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
-name: Build and publish
+name: Build and publish TMP
 
 on:
   workflow_dispatch:
@@ -71,11 +71,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
-#      - name: DEBUG
-#        if: always()
-#        run: |
-#          git branch -a
           
       - name: Install Poetry
         run: |
@@ -106,49 +101,6 @@ jobs:
           git commit -m "chore: bump version to $version"
           git tag "${{ steps.update_version.outputs.version }}"
           git push origin update-version --tags
-
-      - name: Create and merge pull request
-        id: create_pr
-        if: steps.create_branch_tag.outcome == 'success'
-        run: |
-          gh pr create --title "Update version to ${{ steps.update_version.outputs.version }}" --body "This pull request updates the library version to ${{ steps.update_version.outputs.version }}." --base master --head update-version
-          gh pr merge --auto --squash --delete-branch
-
-      - name: Wait for PR to be merged
-        run: |
-          PR_NUMBER=$(gh pr list --base master --json number --jq '.[0].number')
-          MERGE_STATUS=""
-          while [[ $MERGE_STATUS != "merged" && $PR_STATE != "closed" ]]; do
-            echo "Waiting for PR to be merged..."
-            sleep 10
-            MERGE_STATUS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER | jq -r .merged)
-            PR_STATE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER | jq -r .state)
-
-          done
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout and push to master
-        run: |
-          git checkout master
-          git pull origin master
-          git push origin master
-
-      - name: Remove new version tag on PR merging failure
-        if: always() && steps.create_pr.outcome == 'failure'
-        run: |
-          git checkout master
-          git tag -d "${{ steps.update_version.outputs.version }}"
-          git push origin --delete "${{ steps.update_version.outputs.version }}"
-        
-      - name: Delete temporary branch
-        if: always() && steps.create_pr.outcome == 'failure'
-        run: |
-          git checkout master
-          git branch -D update-version
-          git push origin --delete update-version        
 
       - name: Install package dependencies    
         run: poetry install --no-root

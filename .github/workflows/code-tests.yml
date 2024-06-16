@@ -16,14 +16,14 @@ name: Unit tests and coverage report
 
 on:
   push:
-    branches: [master]
+    branches: [master,update-versio]
     paths:
       - 'aiocamedomotic/**/*.py'
       - 'tests/**/*.py'
       - 'pyproject.toml'
       - '.github/workflows/code-tests.yml'
   pull_request:
-    branches: [master]
+    branches: [master,update-version]
     paths:
       - 'aiocamedomotic/**/*.py'
       - 'tests/**/*.py'
