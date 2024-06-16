@@ -113,7 +113,7 @@ jobs:
         run: |
           gh pr create --title "Update version to ${{ steps.update_version.outputs.version }}" --body "This pull request updates the library version to ${{ steps.update_version.outputs.version }}." --base master --head update-version
           git checkout master
-          git merge --no-ff update-version
+          git merge --auto --no-ff -d -s update-version
           git push origin master
 
       - name: Remove new version tag on PR merging failure
@@ -124,7 +124,7 @@ jobs:
           git push origin --delete "${{ steps.update_version.outputs.version }}"
         
       - name: Delete temporary branch
-        if: always() && steps.create_branch_tag.outcome == 'success'
+        if: always() && steps.create_pr.outcome == 'failure'
         run: |
           git checkout master
           git branch -D update-version
