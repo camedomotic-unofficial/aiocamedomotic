@@ -55,7 +55,9 @@ jobs:
     environment: test
     permissions:
       contents: write  # Needed to update the version number in pyproject.toml
-    
+    env:
+      GH_TOKEN: ${{ github.token }}
+      
     runs-on: ubuntu-latest
 
     steps:
