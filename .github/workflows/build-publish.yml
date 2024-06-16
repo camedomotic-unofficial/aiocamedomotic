@@ -99,7 +99,7 @@ jobs:
           git checkout -b update-version
           git add pyproject.toml
           git commit -m "chore: bump version to $version"
-          git tag v${{ env.version }}
+          git tag "v$version"
           git push origin update-version --tags
 
       - name: Create and merge pull request
