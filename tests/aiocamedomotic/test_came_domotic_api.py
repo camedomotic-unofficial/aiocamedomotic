@@ -25,7 +25,7 @@ from aiocamedomotic import Auth, CameDomoticAPI
 from aiocamedomotic.models import (
     ServerInfo,
     User,
-    CameLight,
+    Light,
 )
 from aiocamedomotic.errors import (
     CameDomoticServerNotFoundError,
@@ -269,5 +269,5 @@ async def test_async_get_lights(mock_send_command, auth_instance):
 
     lights = await api.async_get_lights()
     assert len(lights) == 7
-    assert isinstance(lights[0], CameLight)
-    assert isinstance(lights[1], CameLight)
+    assert isinstance(lights[0], Light)
+    assert isinstance(lights[1], Light)

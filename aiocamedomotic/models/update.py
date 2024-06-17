@@ -23,7 +23,7 @@ from .base import CameEntity
 
 
 @dataclass
-class CameUpdateList(UserList[dict[str, Any]], CameEntity):
+class UpdateList(UserList[dict[str, Any]], CameEntity):
     """Chronological list of status updates from the CameDomotic API."""
 
     _raw_data: dict[str, Any] | None

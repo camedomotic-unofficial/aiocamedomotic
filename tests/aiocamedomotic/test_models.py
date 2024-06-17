@@ -27,8 +27,8 @@ from aiocamedomotic import Auth
 from aiocamedomotic.models import (
     ServerInfo,
     User,
-    CameLight,
-    CameUpdateList,
+    Light,
+    UpdateList,
     LightStatus,
     LightType,
 )
@@ -116,7 +116,7 @@ def test_came_user_invalid_input(auth_instance):
 
 
 # endregion
-# region CameLight tests
+# region sLight tests
 
 
 @pytest.fixture
@@ -145,37 +145,37 @@ def light_data_dimmable():
 
 
 def test_updatelist_init_with_data():
-    updates = CameUpdateList(STATUS_UPDATE_RESP)
+    updates = UpdateList(STATUS_UPDATE_RESP)
     assert updates._raw_data == STATUS_UPDATE_RESP
     assert updates.data == STATUS_UPDATE_RESP.get("result")
 
 
 def test_updatelist_init_without_data():
-    updates = CameUpdateList()
+    updates = UpdateList()
     assert updates._raw_data is None
     assert updates.data == []
 
 
 def test_updatelist_init_with_empty_data():
-    updates = CameUpdateList({})
+    updates = UpdateList({})
     assert updates._raw_data == {}
     assert updates.data == []
 
 
 def test_updatelist_init_with_non_dict_data():
-    updates = CameUpdateList("non-dict data")
+    updates = UpdateList("non-dict data")
     assert updates._raw_data == "non-dict data"
     assert updates.data == []
 
 
 def test_came_light_initialization(light_data_on_off, auth_instance):
-    light = CameLight(light_data_on_off, auth_instance)
+    light = Light(light_data_on_off, auth_instance)
     assert light.raw_data == light_data_on_off
     assert light.auth == auth_instance
 
 
 def test_came_light_properties(light_data_dimmable, auth_instance):
-    light = CameLight(light_data_dimmable, auth_instance)
+    light = Light(light_data_dimmable, auth_instance)
     assert light.act_id == light_data_dimmable["act_id"]
     assert light.floor_ind == light_data_dimmable["floor_ind"]
     assert light.name == light_data_dimmable["name"]
@@ -200,8 +200,8 @@ async def test_came_light_async_set_status(
     light_data_on_off,
     auth_instance,
 ):
-    light = CameLight(light_data_on_off, auth_instance)
-    light_dimm = CameLight(light_data_dimmable, auth_instance)
+    light = Light(light_data_on_off, auth_instance)
+    light_dimm = Light(light_data_dimmable, auth_instance)
 
     # Test non-dimmable light
     await light.async_set_status(LightStatus.ON)
@@ -226,8 +226,8 @@ async def test_came_light_async_set_status_invalid_brightness(
     light_data_on_off,
     auth_instance,
 ):
-    light = CameLight(light_data_on_off, auth_instance)
-    light_dimm = CameLight(light_data_dimmable, auth_instance)
+    light = Light(light_data_on_off, auth_instance)
+    light_dimm = Light(light_data_dimmable, auth_instance)
 
     # Test non-dimmable light
     await light.async_set_status(LightStatus.ON, 50)

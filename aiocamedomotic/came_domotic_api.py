@@ -23,7 +23,7 @@ import aiohttp
 from .const import LOGGER
 
 from .auth import Auth
-from .models import ServerInfo, User, CameLight, CameUpdateList
+from .models import ServerInfo, User, Light, UpdateList
 
 
 class CameDomoticAPI:
@@ -107,11 +107,11 @@ class CameDomoticAPI:
             list=json_response["list"],
         )
 
-    async def async_get_lights(self) -> List[CameLight]:
+    async def async_get_lights(self) -> List[Light]:
         """Get the list of all the light devices defined on the server.
 
         Returns:
-            List[CameLight]: List of lights.
+            List[Light]: List of lights.
 
         Raises:
             CameDomoticAuthError: If the authentication fails.
@@ -134,9 +134,9 @@ class CameDomoticAPI:
         response = await self.auth.async_send_command(payload)
         json_response = await response.json(content_type=None)
 
-        return [CameLight(light, self.auth) for light in json_response["array"]]
+        return [Light(light, self.auth) for light in json_response["array"]]
 
-    async def async_get_updates(self) -> CameUpdateList:
+    async def async_get_updates(self) -> UpdateList:
         """Get the list of status updates from the server.
 
         Returns:
@@ -160,7 +160,7 @@ class CameDomoticAPI:
         }
         response = await self.auth.async_send_command(payload)
         json_response = await response.json(content_type=None)
-        return CameUpdateList(json_response)
+        return UpdateList(json_response)
 
     @classmethod
     async def async_create(

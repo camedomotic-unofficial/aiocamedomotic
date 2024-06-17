@@ -18,8 +18,8 @@ CAME Domotic API.
 """
 
 from .base import CameEntity, ServerInfo, User  # noqa: F401
-from .light import CameLight, LightType, LightStatus  # noqa: F401
-from .update import CameUpdateList  # noqa: F401
+from .light import Light, LightType, LightStatus  # noqa: F401
+from .update import UpdateList  # noqa: F401
 
 
 # Openings
