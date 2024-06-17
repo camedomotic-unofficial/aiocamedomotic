@@ -20,7 +20,7 @@ from typing import Optional
 from ..auth import Auth
 from ..errors import CameDomoticAuthError
 from ..const import (
-    CameEntityValidator,
+    EntityValidator,
     LOGGER,
 )
 
@@ -43,7 +43,7 @@ class User(CameEntity):
     auth: Auth
 
     def __post_init__(self):
-        CameEntityValidator.get_validator().validate_data(
+        EntityValidator.get_validator().validate_data(
             self.raw_data, required_keys=["name"]
         )
 

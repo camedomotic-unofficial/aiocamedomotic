@@ -19,13 +19,13 @@ import logging
 LOGGER = logging.getLogger(__package__)
 
 
-class CameEntityValidator:
+class EntityValidator:
     """Mixin class to validate the CAME entities."""
 
     @staticmethod
-    def get_validator() -> "CameEntityValidator":
+    def get_validator() -> "EntityValidator":
         """Return an instance of the validator."""
-        return CameEntityValidator()
+        return EntityValidator()
 
     def validate_data(self, data, required_keys) -> None:
         """

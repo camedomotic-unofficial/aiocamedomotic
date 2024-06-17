@@ -20,7 +20,7 @@ from typing import Dict, Optional
 
 from ..auth import Auth
 from ..const import (
-    CameEntityValidator,
+    EntityValidator,
     LOGGER,
 )
 
@@ -52,7 +52,7 @@ class LightType(Enum):
 
 
 @dataclass
-class CameLight(CameEntity):
+class Light(CameEntity):
     """
     Light entity in the CameDomotic API.
 
@@ -65,7 +65,7 @@ class CameLight(CameEntity):
     auth: Auth
 
     def __post_init__(self):
-        CameEntityValidator.get_validator().validate_data(
+        EntityValidator.get_validator().validate_data(
             self.raw_data, required_keys=["act_id"]
         )
 
