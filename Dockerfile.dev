@@ -15,6 +15,9 @@ RUN    pip install --upgrade pip
 RUN    pip install -U pipx 
 RUN    pipx ensurepath 
 RUN    pipx install poetry 
+
+WORKDIR /usr/src/aiocamedomotic
+
 RUN    poetry check 
 RUN    poetry install --no-root
 
