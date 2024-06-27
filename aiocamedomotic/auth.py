@@ -368,7 +368,7 @@ class Auth:
                         raise CameDomoticAuthError("Bad credentials.")
                     elif ack_reason and ack_reason != 0:
                         raise CameDomoticAuthError(
-                            "Authentication failed (ACK error: {ack_reason})"
+                            f"Authentication failed (ACK error: {ack_reason})"
                         )
 
                     # ACK is ok, store the login data
