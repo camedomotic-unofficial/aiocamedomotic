@@ -2,26 +2,21 @@ FROM mcr.microsoft.com/devcontainers/python:3.12
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-RUN pipx install poetry
-
-# Uninstall pre-installed formatting and linting tools
-# They would conflict with our pinned versions
-RUN    pip install --upgrade pip 
-RUN    pip install -U pipx 
-RUN    pipx ensurepath 
-RUN    pipx install poetry 
-RUN    poetry check 
-RUN    poetry install --no-root
-
 WORKDIR /usr/src
 
-# Setup hass-release
 RUN git clone --depth 1 https://github.com/camedomotic-unofficial/aiocamedomotic
 
 USER vscode
 ENV VIRTUAL_ENV="/home/vscode/.local/aiocamedomotic-venv"
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+RUN    pip install --upgrade pip 
+RUN    pip install -U pipx 
+RUN    pipx ensurepath 
+RUN    pipx install poetry 
+RUN    poetry check 
+RUN    poetry install --no-root
 
 WORKDIR /workspaces
 
