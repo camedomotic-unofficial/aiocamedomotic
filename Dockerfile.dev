@@ -6,13 +6,12 @@ RUN pipx install poetry
 
 # Uninstall pre-installed formatting and linting tools
 # They would conflict with our pinned versions
-RUN \
-    pip install --upgrade pip \
-    pip install -U pipx \
-    pipx ensurepath \
-    pipx install poetry \
-    poetry check \
-    poetry install --no-root
+RUN    pip install --upgrade pip 
+RUN    pip install -U pipx 
+RUN    pipx ensurepath 
+RUN    pipx install poetry 
+RUN    poetry check 
+RUN    poetry install --no-root
 
 WORKDIR /usr/src
 
