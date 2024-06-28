@@ -9,6 +9,7 @@
                 "ms-python.python",
                 "ms-python.pylint",
                 "ms-python.vscode-pylance",
+                "ms-azuretools.vscode-docker",
                 "visualstudioexptteam.vscodeintellicode",
                 "redhat.vscode-yaml",
                 "esbenp.prettier-vscode",
