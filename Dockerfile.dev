@@ -2,24 +2,23 @@ FROM mcr.microsoft.com/devcontainers/python:3.12
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-WORKDIR /usr/src
-
-RUN git clone --depth 1 https://github.com/camedomotic-unofficial/aiocamedomotic
-
 USER vscode
 ENV VIRTUAL_ENV="/home/vscode/.local/aiocamedomotic-venv"
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-RUN    pip install --upgrade pip 
-RUN    pip install -U pipx 
-RUN    pipx ensurepath 
-RUN    pipx install poetry 
+WORKDIR /usr/src
+
+RUN git clone --depth 1 https://github.com/camedomotic-unofficial/aiocamedomotic
 
 WORKDIR /usr/src/aiocamedomotic
 
-RUN    poetry check 
-RUN    poetry install --no-root
+RUN \
+    pip install --upgrade pip \
+    pip install -U pipx \
+    pipx ensurepath \
+    pipx install poetry \
+    poetry install --with tests,docs
 
 WORKDIR /workspaces
 
