@@ -6,13 +6,23 @@
         "vscode": {
             "extensions": [
                 "charliermarsh.ruff",
+                "ms-python.python",
                 "ms-python.pylint",
                 "ms-python.vscode-pylance",
                 "visualstudioexptteam.vscodeintellicode",
                 "redhat.vscode-yaml",
                 "esbenp.prettier-vscode",
                 "GitHub.vscode-pull-request-github",
-                "GitHub.copilot"
+                "GitHub.copilot",
+                "njpwerner.autodocstring",
+                "swyddfa.esbonio",
+                "lextudio.restructuredtext-pack",
+                "tamasfe.even-better-toml",
+                "github.vscode-github-actions",
+                "yzhang.markdown-all-in-one",
+                "DavidAnson.vscode-markdownlint",
+                "littlefoxteam.vscode-python-test-adapter",
+                "lextudio.restructuredtext"
             ],
             // Please keep this file in sync with settings in home-assistant/.vscode/settings.default.json
             "settings": {
