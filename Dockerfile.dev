@@ -1,26 +1,38 @@
-FROM mcr.microsoft.com/devcontainers/python:3.12
+FROM python:3.12-alpine
+
+# Update certificates and install necessary packages
+RUN apk update && \
+    apk add --no-cache ca-certificates && \
+    update-ca-certificates && \
+    apk add --no-cache \
+        bash \
+        git \
+        gcc \
+        musl-dev \
+        linux-headers \
+        python3-dev \
+        libffi-dev \
+        openssl-dev
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-
 WORKDIR /usr/src
-
 RUN git clone --depth 1 https://github.com/camedomotic-unofficial/aiocamedomotic
-
 WORKDIR /usr/src/aiocamedomotic
 
+# Create a non-root user
+RUN adduser -D vscode
 USER vscode
 
 ENV VIRTUAL_ENV="/home/vscode/.local/aiocamedomotic-venv"
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-RUN \
-    pip install --upgrade pip \
-    pip install -U pipx \
-    pipx ensurepath \
-    pipx install poetry
+# Install poetry directly in the virtual environment
+RUN pip install --upgrade pip && \
+    pip install poetry
 
-RUN poetry install --with tests,docs
+# Activate the virtual environment and install dependencies
+RUN . $VIRTUAL_ENV/bin/activate && poetry install --with tests,docs
 
 WORKDIR /workspaces
 
