@@ -2,16 +2,17 @@ FROM mcr.microsoft.com/devcontainers/python:3.12
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-USER vscode
-ENV VIRTUAL_ENV="/home/vscode/.local/aiocamedomotic-venv"
-RUN python3 -m venv $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-
 WORKDIR /usr/src
 
 RUN git clone --depth 1 https://github.com/camedomotic-unofficial/aiocamedomotic
 
 WORKDIR /usr/src/aiocamedomotic
+
+USER vscode
+
+ENV VIRTUAL_ENV="/home/vscode/.local/aiocamedomotic-venv"
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 RUN \
     pip install --upgrade pip \
