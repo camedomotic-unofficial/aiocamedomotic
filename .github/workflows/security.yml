@@ -10,7 +10,7 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-# limitations under the License. 
+# limitations under the License.
 
 name: Security checks
 
@@ -44,12 +44,12 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0 # fetch all history so multiple commits can be scanned
-  
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -59,7 +59,7 @@ jobs:
       run: bandit -r ./aiocamedomotic
 
     - name: GitGuardian scan
-      uses: GitGuardian/ggshield-action@v1.28.0
+      uses: GitGuardian/ggshield-action@v1.29.0
       env:
         GITHUB_PUSH_BEFORE_SHA: ${{ github.event.before }}
         GITHUB_PUSH_BASE_SHA: ${{ github.event.base }}
