@@ -32,7 +32,7 @@ on:
           - preminor # update minor number and adds a0
           - premajor # update major number and adds a0
           - prerelease # if final updates patch and adds a0, otherwise add +1 to the pre-release number
-          - --next-phase prerelease # steps a > b > rc > final
+          - prerelease --next-phase # steps a > b > rc > final
           - none
         default: prerelease
       publish_to_test:

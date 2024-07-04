@@ -124,14 +124,15 @@ class Light(CameEntity):
         Args:
             status (LightStatus): Status of the light.
             brightness (Optional[int]): Brightness percentage of the light (range
-                0-100). This argument is ignored for non-dimmable lights.
+                0-100). If the brightness is not provided, it will stay unchanged.
+                This argument is ignored for non-dimmable lights.
 
         Raises:
             CameDomoticAuthError: If the authentication fails.
             CameDomoticServerError: If the server returns an error.
         """
         # Early exit for non-dimmable lights receiving a brightness value
-        if self.type != LightType.DIMMER and brightness is not None:
+        if self.type != LightType.DIMMER:
             brightness = None  # Ignore brightness since it's not applicable
 
         client_id = await self.auth.async_get_valid_client_id()
