@@ -40,8 +40,9 @@ Welcome!
    :alt: Documentation status
 
 
-The **CAME Domotic Unofficial Library** provides a streamlined Python interface for
-interacting with CAME Domotic plants, much like the official
+The **CAME Domotic Unofficial Library** (`aiocamedomotic <https://github.com/camedomotic-unofficial/aiocamedomotic>`_)
+provides a streamlined Python interface for interacting with CAME Domotic plants, much
+like the official
 `CAME Domotic app <https://www.came.com/global/itex/installers/solutions/domotica-e-termoregolazione/prodotti-compatibili-domotica/app-domotic-30>`_.
 This library is designed to simplify the management of domotic devices by abstracting
 the complexities of the CAME Domotic API.
