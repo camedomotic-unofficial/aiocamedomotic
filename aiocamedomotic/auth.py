@@ -25,7 +25,6 @@ Note:
    the feature yourself.
 """
 
-
 import functools
 import json
 import time
@@ -271,7 +270,7 @@ class Auth:
                 self.get_endpoint_url(),
                 data={"command": json.dumps(payload)},
                 headers=Auth._DEFAULT_HTTP_HEADERS,
-                timeout=timeout,
+                timeout=aiohttp.ClientTimeout(total=timeout),
             )
 
             # Check if the response HTTP status is 2xx
@@ -309,8 +308,12 @@ class Auth:
                 request or doesn't expose the CAME Domotic API endopoint.
         """
         endpoint_url = self.get_endpoint_url()
+        client_timeout = aiohttp.ClientTimeout(total=timeout)
+
         try:
-            async with self.websession.get(endpoint_url, timeout=timeout) as resp:
+            async with self.websession.get(
+                endpoint_url, timeout=client_timeout
+            ) as resp:
                 # Ensure that the server URL is available
                 resp.raise_for_status()
                 if resp.status != 200:

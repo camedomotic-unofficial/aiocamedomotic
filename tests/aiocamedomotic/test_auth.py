@@ -88,7 +88,8 @@ async def test_async_create(mock_validate_host):
         == auth_create.close_websession_on_disposal
     )
     assert isinstance(
-        auth_create._lock, asyncio.Lock  # pylint: disable=protected-access
+        auth_create._lock,
+        asyncio.Lock,  # pylint: disable=protected-access
     )
     assert isinstance(auth_create.cipher_suite, Fernet)
 
@@ -169,7 +170,7 @@ async def test_async_send_command_success(mock_post, auth_instance):
         "http://192.168.x.x/domo/",
         data={"command": json.dumps(payload)},
         headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
-        timeout=10,
+        timeout=aiohttp.ClientTimeout(total=10),
     )
 
 
@@ -197,7 +198,7 @@ async def test_async_send_command_bad_ack(mock_post, auth_instance):
         "http://192.168.x.x/domo/",
         data={"command": json.dumps(payload)},
         headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
-        timeout=10,
+        timeout=aiohttp.ClientTimeout(total=10),
     )
 
 
@@ -213,7 +214,7 @@ async def test_async_send_command_failure(mock_post, auth_instance):
         "http://192.168.x.x/domo/",
         data={"command": json.dumps(payload)},
         headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
-        timeout=10,
+        timeout=aiohttp.ClientTimeout(total=10),
     )
 
 
@@ -229,7 +230,7 @@ async def test_async_send_command_timeout(mock_post, auth_instance):
         "http://192.168.x.x/domo/",
         data={"command": json.dumps(payload)},
         headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
-        timeout=10,
+        timeout=aiohttp.ClientTimeout(total=10),
     )
 
 
@@ -258,7 +259,7 @@ async def test_async_send_command_non_2xx_status(
         "http://192.168.x.x/domo/",
         data={"command": json.dumps(payload)},
         headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
-        timeout=10,
+        timeout=aiohttp.ClientTimeout(total=10),
     )
     mock_raise_for_status_and_ack.assert_called_once()
     assert auth_instance.cseq == 0
@@ -276,7 +277,9 @@ async def test_validate_host_success(auth_instance):
         mock_get.return_value.__aenter__.return_value = mock_response
 
         await auth_instance.async_validate_host()
-        mock_get.assert_called_once_with(auth_instance.get_endpoint_url(), timeout=10)
+        mock_get.assert_called_once_with(
+            auth_instance.get_endpoint_url(), timeout=aiohttp.ClientTimeout(total=10)
+        )
 
 
 async def test_validate_host_failure_status_code(auth_instance):
@@ -288,7 +291,9 @@ async def test_validate_host_failure_status_code(auth_instance):
         with pytest.raises(CameDomoticServerNotFoundError):
             await auth_instance.async_validate_host()
 
-        mock_get.assert_called_once_with(auth_instance.get_endpoint_url(), timeout=10)
+        mock_get.assert_called_once_with(
+            auth_instance.get_endpoint_url(), timeout=aiohttp.ClientTimeout(total=10)
+        )
 
 
 async def test_validate_host_failure_exception(auth_instance):
@@ -298,7 +303,9 @@ async def test_validate_host_failure_exception(auth_instance):
         with pytest.raises(CameDomoticServerNotFoundError):
             await auth_instance.async_validate_host()
 
-        mock_get.assert_called_once_with(auth_instance.get_endpoint_url(), timeout=10)
+        mock_get.assert_called_once_with(
+            auth_instance.get_endpoint_url(), timeout=aiohttp.ClientTimeout(total=10)
+        )
 
 
 @freezegun.freeze_time("2020-01-01")
