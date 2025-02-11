@@ -53,13 +53,13 @@ python = '^3.12'
 aiohttp = '^3.10.2'
 asyncio = '^3.4.3'
 requests = '^2.32.2'
-cryptography = '^42.0.7'
+cryptography = '>=42.0.7,<45.0.0'
 
 [tool.poetry.group.tests]
 optional = true
 
 [tool.poetry.group.tests.dependencies]
-cryptography = '^42.0.7'
+cryptography = '>=42.0.7,<45.0.0'
 freezegun = '^1.4.0'
 hypothesis = '^6.98.17'
 pytest = '^8.0.2'
