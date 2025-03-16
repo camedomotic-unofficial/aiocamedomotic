@@ -149,8 +149,10 @@ async def test_async_get_valid_client_id_invalid_session_unsuccessful_login(
 @freezegun.freeze_time("2020-01-01")
 async def test_async_send_command_success(mock_post, auth_instance):
     # Setup mock response with async json method returning the desired dictionary
+    # Use AsyncMock for the response but Mock for raise_for_status since it's not async
     mock_response = AsyncMock()
     mock_response.status = 200
+    mock_response.raise_for_status = Mock()  # Not async in real implementation
     mock_response.json.return_value = {"sl_data_ack_reason": 0}
     mock_post.return_value = mock_response
 
@@ -180,6 +182,7 @@ async def test_async_send_command_bad_ack(mock_post, auth_instance):
     # Setup mock response with async json method returning the desired dictionary
     mock_response = AsyncMock()
     mock_response.status = 200
+    mock_response.raise_for_status = Mock()  # Not async in real implementation
     mock_response.json.return_value = {"sl_data_ack_reason": 1}
     mock_post.return_value = mock_response
 
@@ -595,7 +598,8 @@ async def test_concurrent_logins(auth_instance):
 
 @pytest.mark.asyncio
 async def test_no_deadlocks_under_load(auth_instance):
-    auth_instance.validate_session = AsyncMock(return_value=True)
+    # Use regular Mock for validate_session since it's not an async method
+    auth_instance.validate_session = Mock(return_value=True)
     auth_instance.async_login = AsyncMock()
     auth_instance.async_send_command = AsyncMock()
 
@@ -608,3 +612,67 @@ async def test_no_deadlocks_under_load(auth_instance):
 
     # Check if all tasks completed successfully without deadlocking
     assert all(task.done() for task in tasks), "All tasks should complete successfully"
+
+
+def test_get_http_headers():
+    """Test the static get_http_headers method."""
+    headers = Auth.get_http_headers()
+    # Verify the method returns a dictionary with expected headers
+    assert isinstance(headers, dict)
+    assert "Content-Type" in headers
+    assert "Connection" in headers
+
+
+@patch.object(ClientSession, "post", new_callable=AsyncMock)
+async def test_async_raise_for_status_and_ack_http_error(mock_post):
+    """Test handling of HTTP errors in async_raise_for_status_and_ack."""
+    mock_response = AsyncMock()
+    mock_response.status = 500
+    mock_response.raise_for_status.side_effect = aiohttp.ClientResponseError(
+        request_info=AsyncMock(), 
+        history=AsyncMock(), 
+        status=500, 
+        message="Any message", # Not testing specific message
+        headers=AsyncMock()
+    )
+    
+    # Verify the method properly converts HTTP errors to CameDomoticServerError
+    with pytest.raises(CameDomoticServerError):
+        await Auth.async_raise_for_status_and_ack(mock_response)
+
+
+@patch.object(ClientSession, "post", new_callable=AsyncMock)
+async def test_async_raise_for_status_and_ack_json_error(mock_post):
+    """Test handling of JSON decode errors in async_raise_for_status_and_ack."""
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.raise_for_status = Mock()
+    mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
+    
+    # Verify the method properly converts JSON decode errors to CameDomoticServerError
+    with pytest.raises(CameDomoticServerError):
+        await Auth.async_raise_for_status_and_ack(mock_response)
+
+
+async def test_update_auth_credentials(auth_instance):
+    """Test the update_auth_credentials method."""
+    # Store original values
+    original_username = auth_instance.username
+    original_password = auth_instance.password
+    original_expiration = auth_instance.session_expiration_timestamp
+    original_client_id = auth_instance.client_id
+    
+    # Update credentials
+    auth_instance.update_auth_credentials("new_user", "new_password")
+    
+    # Verify username and password were updated (encrypted)
+    assert auth_instance.username != original_username
+    assert auth_instance.password != original_password
+    
+    # Verify session was invalidated
+    assert auth_instance.session_expiration_timestamp < time.monotonic()
+    assert auth_instance.client_id == ""
+    
+    # Verify we can decrypt the new values
+    assert auth_instance.cipher_suite.decrypt(auth_instance.username).decode() == "new_user"
+    assert auth_instance.cipher_suite.decrypt(auth_instance.password).decode() == "new_password"
