@@ -369,7 +369,7 @@ class Auth:
                     ack_reason = data.get("sl_data_ack_reason")
                     if ack_reason and ack_reason == 1:
                         raise CameDomoticAuthError("Bad credentials.")
-                    elif ack_reason and ack_reason != 0:
+                    if ack_reason and ack_reason != 0:
                         raise CameDomoticAuthError(
                             f"Authentication failed (ACK error: {ack_reason})"
                         )
