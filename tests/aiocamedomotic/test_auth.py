@@ -629,14 +629,16 @@ async def test_async_raise_for_status_and_ack_http_error(mock_post):
     mock_response = AsyncMock()
     mock_response.status = 500
     # Use a regular Mock for raise_for_status since it's a synchronous method
-    mock_response.raise_for_status = Mock(side_effect=aiohttp.ClientResponseError(
-        request_info=Mock(), 
-        history=[], 
-        status=500, 
-        message="Any message", # Not testing specific message
-        headers=Mock()
-    ))
-    
+    mock_response.raise_for_status = Mock(
+        side_effect=aiohttp.ClientResponseError(
+            request_info=Mock(),
+            history=[],
+            status=500,
+            message="Any message",  # Not testing specific message
+            headers=Mock(),
+        )
+    )
+
     # Verify the method properly converts HTTP errors to CameDomoticServerError
     with pytest.raises(CameDomoticServerError):
         await Auth.async_raise_for_status_and_ack(mock_response)
@@ -649,7 +651,7 @@ async def test_async_raise_for_status_and_ack_json_error(mock_post):
     mock_response.status = 200
     mock_response.raise_for_status = Mock()
     mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
-    
+
     # Verify the method properly converts JSON decode errors to CameDomoticServerError
     with pytest.raises(CameDomoticServerError):
         await Auth.async_raise_for_status_and_ack(mock_response)
@@ -662,18 +664,24 @@ async def test_update_auth_credentials(auth_instance):
     original_password = auth_instance.password
     original_expiration = auth_instance.session_expiration_timestamp
     original_client_id = auth_instance.client_id
-    
+
     # Update credentials
     auth_instance.update_auth_credentials("new_user", "new_password")
-    
+
     # Verify username and password were updated (encrypted)
     assert auth_instance.username != original_username
     assert auth_instance.password != original_password
-    
+
     # Verify session was invalidated
     assert auth_instance.session_expiration_timestamp < time.monotonic()
     assert auth_instance.client_id == ""
-    
+
     # Verify we can decrypt the new values
-    assert auth_instance.cipher_suite.decrypt(auth_instance.username).decode() == "new_user"
-    assert auth_instance.cipher_suite.decrypt(auth_instance.password).decode() == "new_password"
+    assert (
+        auth_instance.cipher_suite.decrypt(auth_instance.username).decode()
+        == "new_user"
+    )
+    assert (
+        auth_instance.cipher_suite.decrypt(auth_instance.password).decode()
+        == "new_password"
+    )
