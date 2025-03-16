@@ -628,13 +628,14 @@ async def test_async_raise_for_status_and_ack_http_error(mock_post):
     """Test handling of HTTP errors in async_raise_for_status_and_ack."""
     mock_response = AsyncMock()
     mock_response.status = 500
-    mock_response.raise_for_status.side_effect = aiohttp.ClientResponseError(
-        request_info=AsyncMock(), 
-        history=AsyncMock(), 
+    # Use a regular Mock for raise_for_status since it's a synchronous method
+    mock_response.raise_for_status = Mock(side_effect=aiohttp.ClientResponseError(
+        request_info=Mock(), 
+        history=[], 
         status=500, 
         message="Any message", # Not testing specific message
-        headers=AsyncMock()
-    )
+        headers=Mock()
+    ))
     
     # Verify the method properly converts HTTP errors to CameDomoticServerError
     with pytest.raises(CameDomoticServerError):
