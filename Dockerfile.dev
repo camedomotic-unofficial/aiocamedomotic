@@ -12,7 +12,10 @@ RUN apk update && \
         linux-headers \
         python3-dev \
         libffi-dev \
-        openssl-dev
+        openssl-dev \
+        nodejs \
+        npm \
+        coreutils
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 WORKDIR /usr/src
@@ -21,7 +24,16 @@ WORKDIR /usr/src/aiocamedomotic
 
 # Create a non-root user
 RUN adduser -D vscode
+# Create npm global directory for the vscode user
+RUN mkdir -p /home/vscode/.npm-global
+RUN chown -R vscode:vscode /home/vscode/.npm-global
+
 USER vscode
+# Configure npm to use the new directory path
+RUN npm config set prefix '/home/vscode/.npm-global'
+
+# Add npm global bin to PATH
+ENV PATH="/home/vscode/.npm-global/bin:$PATH"
 
 ENV VIRTUAL_ENV="/home/vscode/.local/aiocamedomotic-venv"
 RUN python3 -m venv $VIRTUAL_ENV
