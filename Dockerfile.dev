@@ -15,7 +15,8 @@ RUN apk update && \
         openssl-dev \
         nodejs \
         npm \
-        coreutils
+        coreutils \
+        github-cli
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 WORKDIR /usr/src
@@ -34,6 +35,9 @@ RUN npm config set prefix '/home/vscode/.npm-global'
 
 # Add npm global bin to PATH
 ENV PATH="/home/vscode/.npm-global/bin:$PATH"
+
+# Install Claude Code globally
+RUN npm install -g @anthropic-ai/claude-code
 
 ENV VIRTUAL_ENV="/home/vscode/.local/aiocamedomotic-venv"
 RUN python3 -m venv $VIRTUAL_ENV
