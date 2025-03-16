@@ -12,7 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This module contains the classes for the CAME Domotic status updates.
+"""
+CAME Domotic status update handling.
+
+This module provides classes for processing and representing status updates 
+from the CAME Domotic system. It implements a specialized list-based data
+structure to track chronological updates and state changes received from
+the CAME Domotic API, facilitating the consumption of system state changes.
+"""
 
 from dataclasses import dataclass
 

@@ -12,7 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This module contains the base classes for the CAME Domotic entities.
+"""
+Base classes for the CAME Domotic API entity model system.
+
+This module defines the foundational base classes used across the CAME Domotic
+API implementation, including the core CameEntity class and derived entity types
+such as User and ServerInfo that are common across the API functionality.
+"""
 
 from dataclasses import dataclass
 from typing import Optional

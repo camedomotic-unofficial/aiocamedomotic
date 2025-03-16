@@ -12,7 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This module contains the classes for the CAME Domotic lights.
+"""
+CAME Domotic light entity models and control functionality.
+
+This module implements the classes for working with lights in a CAME Domotic
+system, supporting both standard on/off lights (STEP_STEP type) and dimmable 
+lights (DIMMER type). It provides properties to access light attributes and
+methods to control light state, including on/off functionality and brightness
+control for dimmable lights.
+"""
 
 from dataclasses import dataclass
 from enum import Enum
