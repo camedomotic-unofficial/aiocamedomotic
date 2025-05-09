@@ -186,3 +186,4 @@ cmd
 
 # MCP servers configuration
 .mcp.json
+**/.claude
