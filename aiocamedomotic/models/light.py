@@ -16,7 +16,7 @@
 CAME Domotic light entity models and control functionality.
 
 This module implements the classes for working with lights in a CAME Domotic
-system, supporting both standard on/off lights (STEP_STEP type) and dimmable 
+system, supporting both standard on/off lights (STEP_STEP type) and dimmable
 lights (DIMMER type). It provides properties to access light attributes and
 methods to control light state, including on/off functionality and brightness
 control for dimmable lights.
