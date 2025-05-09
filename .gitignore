@@ -183,3 +183,6 @@ _version.py
 
 # local binaries
 cmd
+
+# MCP servers configuration
+.mcp.json

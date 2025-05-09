@@ -31,3 +31,6 @@
 - Models: `aiocamedomotic/models/*.py`
 - Constants: `aiocamedomotic/const.py`
 - Error Classes: `aiocamedomotic/errors.py`
+
+## Other notes
+- The `master` git branch is protected, to merge you must create a new branch and raise a PR
