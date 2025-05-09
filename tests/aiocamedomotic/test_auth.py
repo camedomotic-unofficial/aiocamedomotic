@@ -108,40 +108,40 @@ async def test_get_endpoint_url(auth_instance):
     assert auth_instance.get_endpoint_url() == "http://192.168.x.x/domo/"
 
 
-@patch.object(Auth, "validate_session", return_value=True)
+@patch.object(Auth, "is_session_valid", return_value=True)
 @patch.object(Auth, "async_login", new_callable=AsyncMock)
 async def test_async_get_valid_client_id_valid_session(
-    mock_login, mock_validate_session, auth_instance
+    mock_login, mock_is_session_valid, auth_instance
 ):
     auth_instance.client_id = "test_client_id"
     client_id = await auth_instance.async_get_valid_client_id()
     assert client_id == "test_client_id"
-    mock_validate_session.assert_called_once()
+    mock_is_session_valid.assert_called_once()
     mock_login.assert_not_called()
 
 
-@patch.object(Auth, "validate_session", return_value=False)
+@patch.object(Auth, "is_session_valid", return_value=False)
 @patch.object(Auth, "async_login", new_callable=AsyncMock)
 async def test_async_get_valid_client_id_invalid_session_successful_login(
-    mock_login, mock_validate_session, auth_instance
+    mock_login, mock_is_session_valid, auth_instance
 ):
     auth_instance.client_id = "test_client_id"
     client_id = await auth_instance.async_get_valid_client_id()
     assert client_id == "test_client_id"
-    mock_validate_session.assert_called_once()
+    mock_is_session_valid.assert_called_once()
     mock_login.assert_called_once()
 
 
-@patch.object(Auth, "validate_session", return_value=False)
+@patch.object(Auth, "is_session_valid", return_value=False)
 @patch.object(
     Auth, "async_login", new_callable=AsyncMock, side_effect=CameDomoticAuthError
 )
 async def test_async_get_valid_client_id_invalid_session_unsuccessful_login(
-    mock_login, mock_validate_session, auth_instance
+    mock_login, mock_is_session_valid, auth_instance
 ):
     with pytest.raises(CameDomoticAuthError):
         await auth_instance.async_get_valid_client_id()
-    mock_validate_session.assert_called_once()
+    mock_is_session_valid.assert_called_once()
     mock_login.assert_called_once()
 
 
@@ -316,8 +316,8 @@ async def test_async_login_success(auth_instance_not_logged_in: Auth):
     with patch.object(
         Auth, "async_send_command", new_callable=AsyncMock
     ) as mock_send_command, patch.object(
-        Auth, "validate_session", return_value=False
-    ) as mock_validate_session:
+        Auth, "is_session_valid", return_value=False
+    ) as mock_is_session_valid:
         # Setup mock response with async json method returning the desired dictionary
         mock_response = AsyncMock()
         mock_response.json.return_value = {
@@ -329,7 +329,7 @@ async def test_async_login_success(auth_instance_not_logged_in: Auth):
 
         await auth_instance_not_logged_in.async_login()
 
-        mock_validate_session.assert_called_once()
+        mock_is_session_valid.assert_called_once()
         mock_send_command.assert_called_once_with(
             {
                 "sl_cmd": "sl_registration_req",
@@ -353,14 +353,14 @@ async def test_async_login_success(auth_instance_not_logged_in: Auth):
 @freezegun.freeze_time("2020-01-01")
 async def test_async_login_already_authenticated(auth_instance: Auth):
     with patch.object(
-        Auth, "validate_session", return_value=True
-    ) as mock_validate_session, patch.object(
+        Auth, "is_session_valid", return_value=True
+    ) as mock_is_session_valid, patch.object(
         Auth, "async_send_command", new_callable=AsyncMock
     ) as mock_send_command, patch.object(
         Auth, "async_keep_alive", new_callable=AsyncMock
     ) as mock_keep_alive:
         await auth_instance.async_login()
-        mock_validate_session.assert_called_once()
+        mock_is_session_valid.assert_called_once()
         mock_keep_alive.assert_called_once()
         mock_send_command.assert_not_called()
 
@@ -385,8 +385,8 @@ async def test_async_login_bad_ack(
     with patch.object(
         ClientSession, "post", new_callable=AsyncMock
     ) as mock_send_command, patch.object(
-        Auth, "validate_session", return_value=None
-    ) as mock_validate_session:
+        Auth, "is_session_valid", return_value=None
+    ) as mock_is_session_valid:
         # Setup mock response with async json method returning the desired dictionary
         mock_response = AsyncMock()
         mock_response.status = 200
@@ -397,7 +397,7 @@ async def test_async_login_bad_ack(
         }
         mock_send_command.return_value = mock_response
 
-        mock_validate_session.assert_not_called()
+        mock_is_session_valid.assert_not_called()
         with pytest.raises(CameDomoticAuthError):
             await auth_instance_not_logged_in.async_login()
 
@@ -416,19 +416,19 @@ async def test_async_login_json_decode_error(auth_instance_not_logged_in: Auth):
             await auth_instance_not_logged_in.async_login()
 
 
-@patch.object(Auth, "validate_session", return_value=True)
+@patch.object(Auth, "is_session_valid", return_value=True)
 @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
 async def test_async_keep_alive_valid_session_successful_keep_alive(
-    mock_send_command, mock_validate_session, auth_instance
+    mock_send_command, mock_is_session_valid, auth_instance
 ):
     await auth_instance.async_keep_alive()
-    mock_validate_session.assert_called_once()
+    mock_is_session_valid.assert_called_once()
     mock_send_command.assert_called_once_with(
         {"sl_client_id": auth_instance.client_id, "sl_cmd": "sl_keep_alive_req"}
     )
 
 
-@patch.object(Auth, "validate_session", return_value=True)
+@patch.object(Auth, "is_session_valid", return_value=True)
 @patch.object(
     Auth,
     "async_send_command",
@@ -436,36 +436,36 @@ async def test_async_keep_alive_valid_session_successful_keep_alive(
     side_effect=CameDomoticServerError,
 )
 async def test_async_keep_alive_valid_session_unsuccessful_keep_alive(
-    mock_send_command, mock_validate_session, auth_instance
+    mock_send_command, mock_is_session_valid, auth_instance
 ):
     with pytest.raises(CameDomoticServerError):
         await auth_instance.async_keep_alive()
-    mock_validate_session.assert_called_once()
+    mock_is_session_valid.assert_called_once()
     mock_send_command.assert_called_once_with(
         {"sl_client_id": auth_instance.client_id, "sl_cmd": "sl_keep_alive_req"}
     )
 
 
-@patch.object(Auth, "validate_session", return_value=False)
+@patch.object(Auth, "is_session_valid", return_value=False)
 @patch.object(Auth, "async_login", new_callable=AsyncMock)
 async def test_async_keep_alive_invalid_session_successful_login(
-    mock_login, mock_validate_session, auth_instance
+    mock_login, mock_is_session_valid, auth_instance
 ):
     await auth_instance.async_keep_alive()
-    mock_validate_session.assert_called_once()
+    mock_is_session_valid.assert_called_once()
     mock_login.assert_called_once()
 
 
-@patch.object(Auth, "validate_session", return_value=False)
+@patch.object(Auth, "is_session_valid", return_value=False)
 @patch.object(
     Auth, "async_login", new_callable=AsyncMock, side_effect=CameDomoticAuthError
 )
 async def test_async_keep_alive_invalid_session_unsuccessful_login(
-    mock_login, mock_validate_session, auth_instance
+    mock_login, mock_is_session_valid, auth_instance
 ):
     with pytest.raises(CameDomoticAuthError):
         await auth_instance.async_keep_alive()
-    mock_validate_session.assert_called_once()
+    mock_is_session_valid.assert_called_once()
     mock_login.assert_called_once()
 
 
@@ -484,17 +484,17 @@ async def test_async_logout_valid_session(mock_send_command, auth_instance: Auth
     assert auth_instance.session_expiration_timestamp <= time.monotonic()
 
 
-@patch.object(Auth, "validate_session", return_value=False)
+@patch.object(Auth, "is_session_valid", return_value=False)
 @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
 async def test_async_logout_invalid_session(
-    mock_send_command, mock_validate_session, auth_instance
+    mock_send_command, mock_is_session_valid, auth_instance
 ):
     await auth_instance.async_logout()
-    mock_validate_session.assert_called_once()
+    mock_is_session_valid.assert_called_once()
     mock_send_command.assert_not_called()
 
 
-@patch.object(Auth, "validate_session", return_value=True)
+@patch.object(Auth, "is_session_valid", return_value=True)
 @patch.object(
     Auth,
     "async_send_command",
@@ -502,48 +502,48 @@ async def test_async_logout_invalid_session(
     side_effect=CameDomoticServerError,
 )
 async def test_async_logout_send_command_failure(
-    mock_send_command, mock_validate_session, auth_instance
+    mock_send_command, mock_is_session_valid, auth_instance
 ):
     with pytest.raises(CameDomoticServerError):
         await auth_instance.async_logout()
-    mock_validate_session.assert_called_once()
+    mock_is_session_valid.assert_called_once()
     mock_send_command.assert_called_once()
 
 
 @patch.object(ClientSession, "close", new_callable=AsyncMock)
-@patch.object(Auth, "validate_session", return_value=True)
+@patch.object(Auth, "is_session_valid", return_value=True)
 @patch.object(Auth, "async_logout", new_callable=AsyncMock)
 async def test_async_dispose_valid_session_successful_logout(
-    mock_logout, mock_validate_session, mock_close, auth_instance
+    mock_logout, mock_is_session_valid, mock_close, auth_instance
 ):
     await auth_instance.async_dispose()
-    mock_validate_session.assert_called_once()
+    mock_is_session_valid.assert_called_once()
     mock_logout.assert_called_once()
     mock_close.assert_called_once()
 
 
 @patch.object(ClientSession, "close", new_callable=AsyncMock)
-@patch.object(Auth, "validate_session", return_value=True)
+@patch.object(Auth, "is_session_valid", return_value=True)
 @patch.object(
     Auth, "async_logout", new_callable=AsyncMock, side_effect=CameDomoticServerError
 )
 async def test_async_dispose_valid_session_unsuccessful_logout(
-    mock_logout, mock_validate_session, mock_close, auth_instance
+    mock_logout, mock_is_session_valid, mock_close, auth_instance
 ):
     await auth_instance.async_dispose()
-    mock_validate_session.assert_called_once()
+    mock_is_session_valid.assert_called_once()
     mock_logout.assert_called_once()
     mock_close.assert_called_once()
 
 
 @patch.object(ClientSession, "close", new_callable=AsyncMock)
-@patch.object(Auth, "validate_session", return_value=False)
+@patch.object(Auth, "is_session_valid", return_value=False)
 @patch.object(Auth, "async_logout", new_callable=AsyncMock)
 async def test_async_dispose_invalid_session(
-    mock_logout, mock_validate_session, mock_close, auth_instance
+    mock_logout, mock_is_session_valid, mock_close, auth_instance
 ):
     await auth_instance.async_dispose()
-    mock_validate_session.assert_called_once()
+    mock_is_session_valid.assert_called_once()
     mock_logout.assert_not_called()
     mock_close.assert_called_once()
 
@@ -560,27 +560,27 @@ def test_validate_session_valid(auth_instance):
     # Set the session expiration timestamp to a future date
     auth_instance.session_expiration_timestamp = time.monotonic() + 900
     auth_instance.client_id = "test_client_id"
-    assert auth_instance.validate_session() is True
+    assert auth_instance.is_session_valid() is True
 
 
 @freezegun.freeze_time("2022-01-01 12:00:00")
 def test_validate_session_expired(auth_instance):
     # Set the session expiration timestamp to a past date
     auth_instance.session_expiration_timestamp = time.monotonic() - 3600
-    assert auth_instance.validate_session() is False
+    assert auth_instance.is_session_valid() is False
 
 
 async def test_concurrent_logins(auth_instance):
     with patch.object(
         Auth, "async_send_command", new_callable=AsyncMock
     ) as mock_send_command:  # pylint: disable=unused-variable  # noqa: F841
-        # Mock validate_session to initially return False, indicating session is invalid
-        auth_instance.validate_session = Mock(side_effect=[False] * 10)
+        # Mock is_session_valid to initially return False, indicating session is invalid
+        auth_instance.is_session_valid = Mock(side_effect=[False] * 10)
 
-        # Mock the async_login so it actually changes the validate_session to return
+        # Mock the async_login so it actually changes the is_session_valid to return
         # True afterwards
         async def login_side_effect():
-            auth_instance.validate_session = Mock(return_value=True)
+            auth_instance.is_session_valid = Mock(return_value=True)
 
         auth_instance.async_login = AsyncMock(side_effect=login_side_effect)
 
@@ -589,7 +589,7 @@ async def test_concurrent_logins(auth_instance):
 
         # Check that login was initiated and is now valid
         assert (
-            auth_instance.validate_session()
+            auth_instance.is_session_valid()
         ), "Session should be valid after concurrent logins"
         assert (
             auth_instance.async_login.call_count == 1
@@ -598,8 +598,8 @@ async def test_concurrent_logins(auth_instance):
 
 @pytest.mark.asyncio
 async def test_no_deadlocks_under_load(auth_instance):
-    # Use regular Mock for validate_session since it's not an async method
-    auth_instance.validate_session = Mock(return_value=True)
+    # Use regular Mock for is_session_valid since it's not an async method
+    auth_instance.is_session_valid = Mock(return_value=True)
     auth_instance.async_login = AsyncMock()
     auth_instance.async_send_command = AsyncMock()
 

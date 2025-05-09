@@ -238,7 +238,7 @@ class Auth:
             CameDomoticAuthError: if an error occurs during the login.
         """
 
-        if not self.validate_session():
+        if not self.is_session_valid():
             await self.async_login()
         return self.client_id
 
@@ -349,7 +349,7 @@ class Auth:
         """
         async with self._lock:
             try:
-                if self.validate_session():
+                if self.is_session_valid():
                     await self.async_keep_alive()
                 else:
                     payload = {
@@ -401,7 +401,7 @@ class Auth:
             CameDomoticAuthError: if an error occurs during the login.
         """
         async with self._lock:
-            if not self.validate_session():
+            if not self.is_session_valid():
                 await self.async_login()
             else:
                 payload = {
@@ -419,7 +419,7 @@ class Auth:
         """
 
         # Logout only if the session is still valid
-        if self.validate_session():
+        if self.is_session_valid():
             payload = {
                 "sl_client_id": self.client_id,
                 "sl_cmd": "sl_logout_req",
@@ -432,7 +432,7 @@ class Auth:
 
     async def async_dispose(self):
         """Dispose the Auth instance, eventually logging out if needed."""
-        if self.validate_session():
+        if self.is_session_valid():
             try:
                 await self.async_logout()
             except CameDomoticServerError:
@@ -442,7 +442,7 @@ class Auth:
 
     # region Utilities
 
-    def validate_session(self) -> bool:
+    def is_session_valid(self) -> bool:
         """Check whether the session is still valid or not."""
         # Notice that self.session_expiration_timestamp already include the safe zone
         # set with the private constant _DEFAULT_SAFE_ZONE_SEC
