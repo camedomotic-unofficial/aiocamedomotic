@@ -23,6 +23,7 @@
 - **Error Handling**: Custom exceptions from base `CameDomoticError`, specific try/except blocks
 - **Documentation**: Docstrings for all public classes/methods with parameters, return values, and exceptions
 - **Testing**: Pytest with mocks, fixtures, parameterization, and freezegun for time-dependent tests
+- **Comments**: never mention in comments of code, commits, PRs, etc. that have been generated with the help of Claude or any other AI tool
 
 ## Project Structure
 - Core API: `aiocamedomotic/came_domotic_api.py`
