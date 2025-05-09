@@ -15,7 +15,7 @@
 """
 CAME Domotic status update handling.
 
-This module provides classes for processing and representing status updates 
+This module provides classes for processing and representing status updates
 from the CAME Domotic system. It implements a specialized list-based data
 structure to track chronological updates and state changes received from
 the CAME Domotic API, facilitating the consumption of system state changes.
