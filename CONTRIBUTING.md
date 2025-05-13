@@ -35,6 +35,31 @@ We use 4 spaces for indentation. Our code is formatted with [Black](https://blac
 Before submitting a pull request, please make sure your code is formatted, linted,
 type-checked, and all tests pass.
 
+### Testing with real CAME servers
+
+The project includes tests that can be run against a real CAME Domotic server. These tests are skipped by default, but can be enabled for testing if you have access to a CAME Domotic server.
+
+To run tests against a real server:
+
+1. Set the following environment variables:
+   ```bash
+   export CAMEDOMOTIC_HOST="192.168.x.y"      # Replace with your server IP
+   export CAMEDOMOTIC_USERNAME="your-username" # Replace with your username
+   export CAMEDOMOTIC_PASSWORD="your-password" # Replace with your password
+   ```
+
+2. Edit the `SKIP_TESTS_ON_REAL_SERVER` variable in `tests/aiocamedomotic/test_real.py` to `False`
+
+3. Run the tests:
+   ```bash
+   pytest tests/aiocamedomotic/test_real.py -v
+   ```
+
+**Important security notes:**
+- Never commit your real server credentials to the repository
+- Always reset `SKIP_TESTS_ON_REAL_SERVER` to `True` before committing changes
+- Consider using a dedicated test user account on your CAME Domotic server for testing
+
 ## Branch naming convention
 
 To allow proper autolabeling of changes, please name your branches as follows:

@@ -12,21 +12,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=missing-module-docstring
+"""
+Test module for real server connections.
+
+These tests are designed to be run against a real CAME Domotic server.
+They are skipped by default, but can be enabled by setting the SKIP_TESTS_ON_REAL_SERVER
+variable to False.
+
+To configure the connection to a real server, set the following environment variables:
+- CAMEDOMOTIC_HOST: The IP address of the CAME Domotic server
+- CAMEDOMOTIC_USERNAME: The username for authentication
+- CAMEDOMOTIC_PASSWORD: The password for authentication
+
+Example:
+    $ export CAMEDOMOTIC_HOST="192.168.1.3"
+    $ export CAMEDOMOTIC_USERNAME="my_username"
+    $ export CAMEDOMOTIC_PASSWORD="my_password"
+    $ pytest tests/aiocamedomotic/test_real.py -v
+"""
 # pylint: disable=missing-function-docstring
 # pylint: disable=redefined-outer-name
 
 # flake8: noqa: F811
 
 import asyncio
+import os
 import pytest
 
 from aiocamedomotic import CameDomoticAPI
 from aiocamedomotic.models import LightStatus
 
-from tests.aiocamedomotic.const import (
-    api_instance_real as api,  # pylint: disable=unused-import  # noqa: F401
-)
+from tests.aiocamedomotic.const import api_instance_real as api  # pylint: disable=unused-import  # noqa: F401
 
 
 SKIP_TESTS_ON_REAL_SERVER = True
@@ -91,10 +107,11 @@ async def test_async_change_light_status(api: CameDomoticAPI):
 
 
 async def test_async_usage_example():
-    async with await CameDomoticAPI.async_create(
-        "192.168.1.3", "admin", "admin"
-    ) as api:
+    host = os.environ.get("CAMEDOMOTIC_HOST")
+    username = os.environ.get("CAMEDOMOTIC_USERNAME")
+    password = os.environ.get("CAMEDOMOTIC_PASSWORD")
 
+    async with await CameDomoticAPI.async_create(host, username, password) as api:
         # Get the list of all the lights configured on the CAME server
         lights = await api.async_get_lights()
 
