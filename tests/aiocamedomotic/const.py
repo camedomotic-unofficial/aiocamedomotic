@@ -16,6 +16,7 @@
 # pylint: disable=missing-function-docstring
 # pylint: disable=redefined-outer-name
 
+import os
 import time
 from typing import AsyncGenerator
 from unittest.mock import patch
@@ -63,7 +64,23 @@ async def api_instance() -> AsyncGenerator[CameDomoticAPI, None]:
 
 @pytest.fixture
 async def api_instance_real() -> AsyncGenerator[CameDomoticAPI, None]:
-    async with await CameDomoticAPI.async_create(
-        "192.168.1.3", "admin", "admin"
-    ) as api:
+    """
+    Create an API instance for testing with a real CAME Domotic server.
+
+    This fixture configures the connection using environment variables:
+    - CAMEDOMOTIC_HOST: The IP address of the server
+    - CAMEDOMOTIC_USERNAME: The username for authentication
+    - CAMEDOMOTIC_PASSWORD: The password for authentication
+
+    For secure testing, it's recommended to set these environment variables rather
+    than relying on the defaults.
+
+    Returns:
+        AsyncGenerator[CameDomoticAPI, None]: The API instance for testing.
+    """
+    host = os.environ.get("CAMEDOMOTIC_HOST")
+    username = os.environ.get("CAMEDOMOTIC_USERNAME")
+    password = os.environ.get("CAMEDOMOTIC_PASSWORD")
+
+    async with await CameDomoticAPI.async_create(host, username, password) as api:
         yield api
