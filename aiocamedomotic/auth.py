@@ -432,8 +432,8 @@ class Auth:
 
     async def async_dispose(self):
         """Dispose the Auth instance, eventually logging out if needed.
-        
-        This method also explicitly clears sensitive attributes (username, password, 
+
+        This method also explicitly clears sensitive attributes (username, password,
         and cipher_suite) to enhance security when the Auth instance is disposed.
         """
         if self.is_session_valid():
