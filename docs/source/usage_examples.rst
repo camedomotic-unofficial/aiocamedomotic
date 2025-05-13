@@ -263,7 +263,7 @@ instance.
 
             # ...other code above
 
-            if api.auth.validate_session():
+            if api.auth.is_session_valid():
                 print("Server session is authenticated and valid.")
             else:
                 print("No valid session, but don't worry: it'll be renewed automatically.")

@@ -431,7 +431,11 @@ class Auth:
             self.session_expiration_timestamp = time.monotonic()
 
     async def async_dispose(self):
-        """Dispose the Auth instance, eventually logging out if needed."""
+        """Dispose the Auth instance, eventually logging out if needed.
+
+        This method also explicitly clears sensitive attributes (username, password,
+        and cipher_suite) to enhance security when the Auth instance is disposed.
+        """
         if self.is_session_valid():
             try:
                 await self.async_logout()
@@ -439,6 +443,11 @@ class Auth:
                 pass
         if self.close_websession_on_disposal:
             await self.websession.close()
+
+        # Explicitly clear sensitive attributes
+        self.username = None
+        self.password = None
+        self.cipher_suite = None
 
     # region Utilities
 
