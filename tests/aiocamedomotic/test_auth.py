@@ -272,52 +272,92 @@ async def test_async_send_command_non_2xx_status(
     )
 
 
-async def test_validate_host_success(auth_instance):
-    with patch("aiohttp.ClientSession.get") as mock_get:
-        # Setup mock response with status code 200 for aiohttp.ClientSession.get method
-        mock_response = Mock()
-        mock_response.status = 200
-        mock_get.return_value.__aenter__.return_value = mock_response
+async def test_validate_host_success():
+    async with aiohttp.ClientSession() as session:
+        with patch("aiohttp.ClientSession.get") as mock_get:
+            # Setup mock response with status code 200 for aiohttp.ClientSession.get method
+            mock_response = Mock()
+            mock_response.status = 200
+            mock_get.return_value.__aenter__.return_value = mock_response
 
-        await auth_instance.async_validate_host()
-        mock_get.assert_called_once_with(
-            auth_instance.get_endpoint_url(), timeout=aiohttp.ClientTimeout(total=10)
-        )
+            async with await Auth.async_create(
+                session, "192.168.x.x", "username", "password"
+            ) as auth:
+                auth.client_id = "test_client_id"
+                auth.keep_alive_timeout_sec = 900  # 15min
+                auth.session_expiration_timestamp = time.monotonic() + 3600  # 1h
 
+                previous_calls = mock_get.call_count
 
-async def test_validate_host_failure_status_code(auth_instance):
-    with patch("aiohttp.ClientSession.get") as mock_get:
-        mock_response = Mock()
-        mock_response.status = 404
-        mock_get.return_value.__aenter__.return_value = mock_response
-
-        with pytest.raises(CameDomoticServerNotFoundError):
-            await auth_instance.async_validate_host()
-
-        mock_get.assert_called_once_with(
-            auth_instance.get_endpoint_url(), timeout=aiohttp.ClientTimeout(total=10)
-        )
+                await auth.async_validate_host()
+                assert mock_get.call_count == previous_calls + 1
+                mock_get.assert_called_with(
+                    auth.get_endpoint_url(), timeout=aiohttp.ClientTimeout(total=10)
+                )
 
 
-async def test_validate_host_failure_exception(auth_instance):
-    with patch("aiohttp.ClientSession.get") as mock_get:
-        mock_get.side_effect = aiohttp.ClientError()
+async def test_validate_host_failure_status_code():
+    async with aiohttp.ClientSession() as session:
+        with patch("aiohttp.ClientSession.get") as mock_get:
+            # Setup mock response with status code 404
+            mock_response = Mock()
+            mock_response.status = 200
+            mock_get.return_value.__aenter__.return_value = mock_response
 
-        with pytest.raises(CameDomoticServerNotFoundError):
-            await auth_instance.async_validate_host()
+            async with await Auth.async_create(
+                session, "192.168.x.x", "username", "password"
+            ) as auth:
+                auth.client_id = "test_client_id"
+                auth.keep_alive_timeout_sec = 900  # 15min
+                auth.session_expiration_timestamp = time.monotonic() + 3600  # 1h
 
-        mock_get.assert_called_once_with(
-            auth_instance.get_endpoint_url(), timeout=aiohttp.ClientTimeout(total=10)
-        )
+            mock_response.status = 404
+
+            with pytest.raises(CameDomoticServerNotFoundError):
+                await auth.async_validate_host()
+
+            mock_get.assert_called_with(
+                auth.get_endpoint_url(),
+                timeout=aiohttp.ClientTimeout(total=10),
+            )
+
+
+async def test_validate_host_failure_exception():
+    async with aiohttp.ClientSession() as session:
+        with patch("aiohttp.ClientSession.get") as mock_get:
+            # Setup mock response with status code 404
+            mock_response = Mock()
+            mock_response.status = 200
+            mock_get.return_value.__aenter__.return_value = mock_response
+
+            async with await Auth.async_create(
+                session, "192.168.x.x", "username", "password"
+            ) as auth:
+                auth.client_id = "test_client_id"
+                auth.keep_alive_timeout_sec = 900  # 15min
+                auth.session_expiration_timestamp = time.monotonic() + 3600  # 1h
+
+            mock_get.side_effect = aiohttp.ClientError()
+
+            with pytest.raises(CameDomoticServerNotFoundError):
+                await auth.async_validate_host()
+
+            mock_get.assert_called_with(
+                auth.get_endpoint_url(),
+                timeout=aiohttp.ClientTimeout(total=10),
+            )
 
 
 @freezegun.freeze_time("2020-01-01")
 async def test_async_login_success(auth_instance_not_logged_in: Auth):
-    with patch.object(
-        Auth, "async_send_command", new_callable=AsyncMock
-    ) as mock_send_command, patch.object(
-        Auth, "is_session_valid", return_value=False
-    ) as mock_is_session_valid:
+    with (
+        patch.object(
+            Auth, "async_send_command", new_callable=AsyncMock
+        ) as mock_send_command,
+        patch.object(
+            Auth, "is_session_valid", return_value=False
+        ) as mock_is_session_valid,
+    ):
         # Setup mock response with async json method returning the desired dictionary
         mock_response = AsyncMock()
         mock_response.json.return_value = {
@@ -352,13 +392,17 @@ async def test_async_login_success(auth_instance_not_logged_in: Auth):
 
 @freezegun.freeze_time("2020-01-01")
 async def test_async_login_already_authenticated(auth_instance: Auth):
-    with patch.object(
-        Auth, "is_session_valid", return_value=True
-    ) as mock_is_session_valid, patch.object(
-        Auth, "async_send_command", new_callable=AsyncMock
-    ) as mock_send_command, patch.object(
-        Auth, "async_keep_alive", new_callable=AsyncMock
-    ) as mock_keep_alive:
+    with (
+        patch.object(
+            Auth, "is_session_valid", return_value=True
+        ) as mock_is_session_valid,
+        patch.object(
+            Auth, "async_send_command", new_callable=AsyncMock
+        ) as mock_send_command,
+        patch.object(
+            Auth, "async_keep_alive", new_callable=AsyncMock
+        ) as mock_keep_alive,
+    ):
         await auth_instance.async_login()
         mock_is_session_valid.assert_called_once()
         mock_keep_alive.assert_called_once()
@@ -382,11 +426,14 @@ async def test_async_login_send_command_failure(
 async def test_async_login_bad_ack(
     auth_instance_not_logged_in: Auth,
 ):
-    with patch.object(
-        ClientSession, "post", new_callable=AsyncMock
-    ) as mock_send_command, patch.object(
-        Auth, "is_session_valid", return_value=None
-    ) as mock_is_session_valid:
+    with (
+        patch.object(
+            ClientSession, "post", new_callable=AsyncMock
+        ) as mock_send_command,
+        patch.object(
+            Auth, "is_session_valid", return_value=None
+        ) as mock_is_session_valid,
+    ):
         # Setup mock response with async json method returning the desired dictionary
         mock_response = AsyncMock()
         mock_response.status = 200
@@ -588,12 +635,12 @@ async def test_concurrent_logins(auth_instance):
         await asyncio.gather(*(auth_instance.async_keep_alive() for _ in range(10)))
 
         # Check that login was initiated and is now valid
-        assert (
-            auth_instance.is_session_valid()
-        ), "Session should be valid after concurrent logins"
-        assert (
-            auth_instance.async_login.call_count == 1
-        ), "Login should be called exactly once"
+        assert auth_instance.is_session_valid(), (
+            "Session should be valid after concurrent logins"
+        )
+        assert auth_instance.async_login.call_count == 1, (
+            "Login should be called exactly once"
+        )
 
 
 @pytest.mark.asyncio
