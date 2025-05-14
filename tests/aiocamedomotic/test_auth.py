@@ -635,12 +635,12 @@ async def test_concurrent_logins(auth_instance):
         await asyncio.gather(*(auth_instance.async_keep_alive() for _ in range(10)))
 
         # Check that login was initiated and is now valid
-        assert auth_instance.is_session_valid(), (
-            "Session should be valid after concurrent logins"
-        )
-        assert auth_instance.async_login.call_count == 1, (
-            "Login should be called exactly once"
-        )
+        assert (
+            auth_instance.is_session_valid()
+        ), "Session should be valid after concurrent logins"
+        assert (
+            auth_instance.async_login.call_count == 1
+        ), "Login should be called exactly once"
 
 
 @pytest.mark.asyncio

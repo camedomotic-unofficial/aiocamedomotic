@@ -159,9 +159,11 @@ class Opening(CameEntity):
         # Using the opening ID (open_act_id) for control commands
         payload = {
             "sl_appl_msg": {
-                "act_id": self.close_act_id
-                if status == OpeningStatus.CLOSING
-                else self.open_act_id,
+                "act_id": (
+                    self.close_act_id
+                    if status == OpeningStatus.CLOSING
+                    else self.open_act_id
+                ),
                 "client": client_id,
                 "cmd_name": "opening_move_req",
                 "cseq": self.auth.cseq + 1,

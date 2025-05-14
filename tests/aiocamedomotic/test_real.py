@@ -43,7 +43,9 @@ from aiocamedomotic import CameDomoticAPI
 from aiocamedomotic.models import LightStatus
 from aiocamedomotic.models.opening import Opening, OpeningStatus, OpeningType
 
-from tests.aiocamedomotic.const import api_instance_real as api  # pylint: disable=unused-import  # noqa: F401
+from tests.aiocamedomotic.const import (
+    api_instance_real as api,
+)  # pylint: disable=unused-import  # noqa: F401
 
 
 SKIP_TESTS_ON_REAL_SERVER = True
