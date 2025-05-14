@@ -22,7 +22,9 @@ on:
     - cron: '33 7 26 * *'
   workflow_dispatch:
 
+# Define exact minimal required permissions
 permissions:
+  contents: none # Doesn't need content access
   issues: write
   pull-requests: write
   discussions: write

@@ -46,18 +46,17 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: read
+# Set default permissions as restrictive as possible at workflow level
+permissions: {}
 
 jobs:
   build:
     ### if: ${{ github.event.inputs.publish_to_test == 'true' || github.event.inputs.publish_to_production == 'true' }}
     environment: test
+    # Define only the specific permissions this job needs
     permissions:
       contents: write  # Needed to update the version number in pyproject.toml
       pull-requests: write  # Needed to create a pull request
-    env:
-      GH_TOKEN: ${{ github.token }}
       
     runs-on: ubuntu-latest
 
@@ -71,11 +70,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
-#      - name: DEBUG
-#        if: always()
-#        run: |
-#          git branch -a
           
       - name: Install Poetry
         run: |
@@ -121,14 +115,9 @@ jobs:
           while [[ $MERGE_STATUS != "merged" && $PR_STATE != "closed" ]]; do
             echo "Waiting for PR to be merged..."
             sleep 10
-            MERGE_STATUS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER | jq -r .merged)
-            PR_STATE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER | jq -r .state)
-
+            MERGE_STATUS=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER | jq -r .merged)
+            PR_STATE=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER | jq -r .state)
           done
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout and push to master
         run: |

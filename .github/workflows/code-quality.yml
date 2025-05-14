@@ -34,6 +34,10 @@ on:
     - cron: '30 6 24 * *'
   workflow_dispatch:
 
+# Define minimal required permissions at workflow level
+permissions:
+  contents: read
+
 jobs:
   lint-and-type-check:
     runs-on: ubuntu-latest
