@@ -25,7 +25,7 @@ To configure the connection to a real server, set the following environment vari
 - CAMEDOMOTIC_PASSWORD: The password for authentication
 
 Example:
-    $ export CAMEDOMOTIC_HOST="192.168.1.3"
+    $ export CAMEDOMOTIC_HOST="192.168.x.y"
     $ export CAMEDOMOTIC_USERNAME="my_username"
     $ export CAMEDOMOTIC_PASSWORD="my_password"
     $ pytest tests/aiocamedomotic/test_real.py -v
@@ -55,13 +55,6 @@ pytestmark = pytest.mark.skipif(
 
 
 async def test_async_get_users(api: CameDomoticAPI):
-    users = await api.async_get_users()
-    # Print the username of each user in a human readable format
-    for user in users:
-        print(f"Username: {user.name}")
-
-
-async def test_async_get_users_new(api: CameDomoticAPI):
     users = await api.async_get_users()
     # Print the username of each user in a human readable format
     for user in users:
@@ -121,7 +114,7 @@ async def test_async_usage_example():
         )
 
         # Get a specific light by name
-        kitchen_lamp = next(
+        bedroom_lamp = next(
             (
                 light
                 for light in lights
@@ -133,7 +126,7 @@ async def test_async_usage_example():
         # Ensure the light is found (dimmable)
         if bedroom_dimmable_lamp:
             # Turn the light on, setting the brightness to 50%
-            await bedroom_dimmable_lamp.async_set_status(LightStatus.ON, brightness=14)
+            await bedroom_dimmable_lamp.async_set_status(LightStatus.ON, brightness=50)
 
             # Turn the light off
             await bedroom_dimmable_lamp.async_set_status(LightStatus.OFF)
@@ -142,9 +135,9 @@ async def test_async_usage_example():
             await bedroom_dimmable_lamp.async_set_status(LightStatus.ON)
 
         # Ensure the light is found
-        if kitchen_lamp:
+        if bedroom_lamp:
             # Turn the light on
-            await kitchen_lamp.async_set_status(LightStatus.ON)
+            await bedroom_lamp.async_set_status(LightStatus.ON)
 
             # Turn the light off
-            await kitchen_lamp.async_set_status(LightStatus.OFF)
+            await bedroom_lamp.async_set_status(LightStatus.OFF)
