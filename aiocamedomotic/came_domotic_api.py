@@ -188,10 +188,8 @@ class CameDomoticAPI:
         response = await self.auth.async_send_command(payload)
         json_response = await response.json(content_type=None)
 
-        return [
-            Opening(opening_data, self.auth)
-            for opening_data in json_response.get("array")
-        ]
+        openings_data = json_response.get("array", [])
+        return [Opening(opening_data, self.auth) for opening_data in openings_data]
 
     @classmethod
     async def async_create(

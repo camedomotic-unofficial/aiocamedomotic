@@ -73,7 +73,12 @@ class Light(CameEntity):
     auth: Auth
 
     def __post_init__(self):
-        EntityValidator.validate_data(self.raw_data, required_keys=["act_id"])
+        EntityValidator.validate_data(self.raw_data, required_keys=["name", "act_id"])
+        # Basic type-safety on the auth argument
+        if not isinstance(self.auth, Auth):
+            raise ValueError(
+                f"'auth' must be an instance of Auth, got {type(self.auth).__name__}"
+            )
 
     @property
     def act_id(self) -> int:

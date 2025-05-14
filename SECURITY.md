@@ -16,12 +16,13 @@ limitations under the License.  -->
 
 ## Supported versions
 
-Use this section to tell users about which versions of your project are currently being
+This section to tell users about which versions of this project are currently being
 supported with security updates.
 
 | Version | Supported |
 | ------- | --------- |
 | 1.0.x   | ✅         |
+| 1.0.x   | ❌         |
 | 0.x.    | ❌         |
 
 ## Reporting a vulnerability

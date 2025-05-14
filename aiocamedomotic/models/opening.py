@@ -80,8 +80,13 @@ class Opening(CameEntity):
 
     def __post_init__(self):
         EntityValidator.validate_data(
-            self.raw_data, required_keys=["open_act_id", "close_act_id"]
+            self.raw_data, required_keys=["name", "open_act_id", "close_act_id"]
         )
+        # Basic type-safety on the auth argument
+        if not isinstance(self.auth, Auth):
+            raise ValueError(
+                f"'auth' must be an instance of Auth, got {type(self.auth).__name__}"
+            )
 
     @property
     def name(self) -> str:
@@ -150,9 +155,12 @@ class Opening(CameEntity):
             CameDomoticServerError: If the server returns an error.
         """
         client_id = await self.auth.async_get_valid_client_id()
+        act_id = (
+            self.close_act_id if status == OpeningStatus.CLOSING else self.open_act_id
+        )
         LOGGER.debug(
             "User auth ok, sending cmd 'opening_move_req' for ID %s to status %s.",
-            status == self.close_act_id if OpeningStatus.CLOSING else self.open_act_id,
+            act_id,
             status.name,
         )
 
