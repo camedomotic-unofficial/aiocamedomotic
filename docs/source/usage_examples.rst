@@ -48,7 +48,7 @@ To work with the CAME devices you may need one or more of the following imports:
 
 .. code-block:: python
 
-    from aiocamedomotic.models import LightStatus
+    from aiocamedomotic.models import LightStatus, OpeningStatus
 
 
 Handling Exceptions
@@ -244,6 +244,69 @@ The following example shows different ways to interact with a light device:
         # Turn the light off
         await hallway_night_light.async_set_status(LightStatus.OFF)
 
+
+Openings
+-------
+
+List of available openings
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can get the list of all the available openings with the ``async_get_openings()``
+method:
+
+.. code-block:: python
+
+    openings = await api.async_get_openings()
+
+    for opening in openings:
+        print(f"ID: {opening.id}, Name: {opening.name}, Status: {opening.status}, Type: {opening.type}")
+
+Example output for openings:
+
+.. code-block:: text
+
+    ID: 10, Name: Living Room Shutter, Status: OpeningStatus.STOPPED, Type: OpeningType.SHUTTER
+    ID: 20, Name: Patio Awning, Status: OpeningStatus.OPENING, Type: OpeningType.SHUTTER
+
+Change opening status
+^^^^^^^^^^^^^^^^^^^^
+
+You can control an opening with the ``async_set_status`` method, allowing you to open, close,
+or stop an opening.
+
+The following example shows different ways to interact with opening devices:
+
+.. code-block:: python
+
+    # Get the list of all the openings configured on the CAME server
+    openings = await api.async_get_openings()
+
+    # Get a specific opening by ID
+    living_room_shutter = next((o for o in openings if o.open_act_id == 10), None)
+
+    # Get a specific opening by name
+    patio_awning = next(
+        (o for o in openings if o.name == "Patio Awning"), None
+    )
+
+    # Ensure the opening is found
+    if living_room_shutter:
+        # Open the shutter
+        await living_room_shutter.async_set_status(OpeningStatus.OPENING)
+
+        # Stop the shutter movement
+        await living_room_shutter.async_set_status(OpeningStatus.STOPPED)
+
+        # Close the shutter
+        await living_room_shutter.async_set_status(OpeningStatus.CLOSING)
+
+    # Ensure the opening is found
+    if patio_awning:
+        # Open the awning
+        await patio_awning.async_set_status(OpeningStatus.OPENING)
+
+        # Close the awning
+        await patio_awning.async_set_status(OpeningStatus.CLOSING)
 
 
 Checking Authentication Status

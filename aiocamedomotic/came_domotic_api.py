@@ -23,7 +23,7 @@ import aiohttp
 from .const import LOGGER
 
 from .auth import Auth
-from .models import ServerInfo, User, Light, UpdateList
+from .models import ServerInfo, User, Light, UpdateList, Opening
 
 
 class CameDomoticAPI:
@@ -161,6 +161,37 @@ class CameDomoticAPI:
         response = await self.auth.async_send_command(payload)
         json_response = await response.json(content_type=None)
         return UpdateList(json_response)
+
+    async def async_get_openings(self) -> List[Opening]:
+        """Get the list of all opening devices defined on the server.
+
+        Returns:
+            List[Opening]: List of openings.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        client_id = await self.auth.async_get_valid_client_id()
+        payload = {
+            "sl_appl_msg": {
+                "client": client_id,
+                "cmd_name": "openings_list_req",
+                "cseq": self.auth.cseq + 1,
+                "topologic_scope": "plant",
+                "value": 0,
+            },
+            "sl_appl_msg_type": "domo",
+            "sl_client_id": client_id,
+            "sl_cmd": "sl_data_req",
+        }
+        response = await self.auth.async_send_command(payload)
+        json_response = await response.json(content_type=None)
+
+        return [
+            Opening(opening_data, self.auth)
+            for opening_data in json_response.get("array")
+        ]
 
     @classmethod
     async def async_create(

@@ -20,8 +20,8 @@ CAME Domotic API.
 from .base import CameEntity, ServerInfo, User  # noqa: F401
 from .light import Light, LightType, LightStatus  # noqa: F401
 from .update import UpdateList  # noqa: F401
+from .opening import Opening, OpeningStatus, OpeningType  # noqa: F401
 
 
-# Openings
 # Scenarios
 # Digital inputs

@@ -22,17 +22,16 @@ reflects our commitment to making home automation more accessible and manageable
 This roadmap is subject to change based on community feedback and ongoing development
 insights. We look forward to growing this library together with our users and contributors.
 
-## Current Features (Version 1.0)
+## Current Features (Version 1.1)
 
-- **Lights management**: List and set the status of lights in the domotic environment.
 - **Session management**: Automated handling of login and logout processes for the API.
+- **Lights management**: List and set the status of lights in the domotic environment.
+- **Openings management**: Control and monitor shutters, including listing and setting
+their status.
 
 ## Planned Features
 
-### Short-term goals (Versions 1.1 to 1.3)
-
-- **Openings management**: Control and monitor doors and windows, including listing
-  and setting their status.
+### Short-term goals (Versions 1.2 to 1.3)
 
 - **Scenarios management**: Support for listing available scenarios and triggering them.
 
@@ -55,6 +54,9 @@ insights. We look forward to growing this library together with our users and co
 - **User management**:
   - Implement functionality to list users defined on the remote server, enhancing
     control over who has access to the domotic plant management.
+- **Digital-in**:
+  - Implement functionalities to list and acts on the digital-ins (e.g. digital switches)
+- **Terminals**: Implement functionality to list the configured terminals (i.e. CAME Domotic servers)
 
 ## Future considerations
 
