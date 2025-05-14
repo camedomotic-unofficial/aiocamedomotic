@@ -661,15 +661,6 @@ async def test_no_deadlocks_under_load(auth_instance):
     assert all(task.done() for task in tasks), "All tasks should complete successfully"
 
 
-def test_get_http_headers():
-    """Test the static get_http_headers method."""
-    headers = Auth.get_http_headers()
-    # Verify the method returns a dictionary with expected headers
-    assert isinstance(headers, dict)
-    assert "Content-Type" in headers
-    assert "Connection" in headers
-
-
 @patch.object(ClientSession, "post", new_callable=AsyncMock)
 async def test_async_raise_for_status_and_ack_http_error(mock_post):
     """Test handling of HTTP errors in async_raise_for_status_and_ack."""

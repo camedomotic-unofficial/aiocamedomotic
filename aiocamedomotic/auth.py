@@ -215,19 +215,6 @@ class Auth:
 
         return f"http://{self.host}/domo/"
 
-    @staticmethod
-    def get_http_headers() -> dict:
-        """Provide the default HTTP headers to use in the requests.
-
-        Returns:
-            dict: the HTTP headers.
-        """
-
-        return {
-            "Content-Type": "application/json",  # "application/x-www-form-urlencoded",
-            "Connection": "Keep-Alive",
-        }
-
     async def async_get_valid_client_id(self) -> str:
         """Get a valid client ID, eventually logging in if needed.
 
