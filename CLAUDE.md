@@ -32,5 +32,14 @@
 - Constants: `aiocamedomotic/const.py`
 - Error Classes: `aiocamedomotic/errors.py`
 
+## Branch naming convention
+To allow proper autolabeling of changes, please name your branches as follows:
+- `feature/*` or `features/*`: for feature enhancements or new features
+- `fix/*`: for fixes to existing features
+- `test/*` or `tests/*`: for changes to the unit tests or their configuration
+- `doc/*` or `docs/*`: for changes to the documentation
+- `action/*` or `actions/*`: for changes to the CI/CD pipelines
+- `chore/*`: for any other change not directly related to a user feature
+
 ## Other notes
 - The `master` git branch is protected, to merge you must create a new branch and raise a PR
