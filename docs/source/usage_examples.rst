@@ -246,7 +246,7 @@ The following example shows different ways to interact with a light device:
 
 
 Openings
--------
+--------
 
 List of available openings
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -269,7 +269,7 @@ Example output for openings:
     ID: 20, Name: Patio Awning, Status: OpeningStatus.OPENING, Type: OpeningType.SHUTTER
 
 Change opening status
-^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
 
 You can control an opening with the ``async_set_status`` method, allowing you to open, close,
 or stop an opening.
