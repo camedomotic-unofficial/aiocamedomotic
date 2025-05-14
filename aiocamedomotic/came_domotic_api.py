@@ -20,7 +20,7 @@ from typing import List, Optional
 
 import aiohttp
 
-from .const import LOGGER
+from .utils import LOGGER
 
 from .auth import Auth
 from .models import ServerInfo, User, Light, UpdateList, Opening

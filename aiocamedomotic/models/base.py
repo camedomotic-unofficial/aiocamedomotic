@@ -25,7 +25,7 @@ from typing import Optional
 
 from ..auth import Auth
 from ..errors import CameDomoticAuthError
-from ..const import (
+from ..utils import (
     EntityValidator,
     LOGGER,
 )

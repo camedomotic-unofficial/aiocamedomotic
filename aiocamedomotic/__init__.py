@@ -25,7 +25,7 @@ from importlib.metadata import version, PackageNotFoundError
 
 from .auth import Auth  # noqa: F401
 from .came_domotic_api import CameDomoticAPI  # noqa: F401
-from .const import LOGGER
+from .utils import LOGGER
 
 
 # Get the package version

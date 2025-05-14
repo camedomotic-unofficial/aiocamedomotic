@@ -27,7 +27,7 @@ from enum import Enum
 from typing import Dict, Optional
 
 from ..auth import Auth
-from ..const import (
+from ..utils import (
     EntityValidator,
     LOGGER,
 )

@@ -34,7 +34,7 @@ import aiohttp
 
 from cryptography.fernet import Fernet
 
-from .const import LOGGER
+from .utils import LOGGER
 from .errors import (
     CameDomoticAuthError,
     CameDomoticServerError,
