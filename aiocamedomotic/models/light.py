@@ -73,9 +73,7 @@ class Light(CameEntity):
     auth: Auth
 
     def __post_init__(self):
-        EntityValidator.get_validator().validate_data(
-            self.raw_data, required_keys=["act_id"]
-        )
+        EntityValidator.validate_data(self.raw_data, required_keys=["act_id"])
 
     @property
     def act_id(self) -> int:

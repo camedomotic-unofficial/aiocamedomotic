@@ -23,11 +23,7 @@ class EntityValidator:
     """Mixin class to validate the CAME entities."""
 
     @staticmethod
-    def get_validator() -> "EntityValidator":
-        """Return an instance of the validator."""
-        return EntityValidator()
-
-    def validate_data(self, data, required_keys) -> None:
+    def validate_data(data, required_keys) -> None:
         """
         Validates the necessary data fields in the provided dictionary.
 

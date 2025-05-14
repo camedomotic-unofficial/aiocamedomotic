@@ -49,9 +49,7 @@ class User(CameEntity):
     auth: Auth
 
     def __post_init__(self):
-        EntityValidator.get_validator().validate_data(
-            self.raw_data, required_keys=["name"]
-        )
+        EntityValidator.validate_data(self.raw_data, required_keys=["name"])
 
     @property
     def name(self) -> str:
@@ -108,7 +106,7 @@ class ServerInfo(CameEntity):
 
     list: list[str]
     """List of features supported by the server.
-    
+
     Known values (as of now) are:
         - "lights"
         - "openings"
