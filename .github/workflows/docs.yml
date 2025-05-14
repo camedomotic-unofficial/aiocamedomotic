@@ -39,6 +39,10 @@ on:
     #     required: false
     #     default: 'master'
 
+# Define minimal required permissions at workflow level
+permissions:
+  contents: read
+
 jobs:
   build-docs:
     runs-on: ubuntu-latest

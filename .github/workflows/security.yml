@@ -35,6 +35,11 @@ on:
     - cron: '45 5 22 * *'
   workflow_dispatch:
 
+# Define minimal required permissions at workflow level
+permissions:
+  contents: read
+  security-events: write # For reporting security issues
+
 jobs:
   security:
     runs-on: ubuntu-latest

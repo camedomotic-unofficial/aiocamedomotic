@@ -31,6 +31,10 @@ on:
       - '.github/workflows/code-tests.yml'
   workflow_dispatch:
 
+# Define minimal required permissions at workflow level
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -68,4 +72,3 @@ jobs:
         flags: "pytest-coverage,python-${{ matrix.python-version }}"
         fail_ci_if_error: false
         file: ./coverage.xml
- 
