@@ -38,14 +38,14 @@ class OpeningStatus(Enum):
     """Status of an opening.
 
     Allowed values are:
-        - CLOSED (0)
-        - OPEN (1)
-        - STOPPED (2)
+        - STOPPED (0)
+        - OPENING (1)
+        - CLOSING (2)
     """
 
-    CLOSED = 0
-    OPEN = 1
-    STOPPED = 2
+    STOPPED = 0
+    OPENING = 1
+    CLOSING = 2
 
 
 class OpeningType(Enum):
@@ -90,7 +90,8 @@ class Opening(CameEntity):
 
     @property
     def status(self) -> OpeningStatus:
-        """Current status of the opening. Allowed values: OPEN (1), CLOSED (0), STOPPED (2)."""
+        """Current status of the opening. Allowed values: STOPPED (0), OPENING (1) and
+        CLOSING (2)."""
         return OpeningStatus(self.raw_data["status"])
 
     @property
@@ -151,7 +152,7 @@ class Opening(CameEntity):
         client_id = await self.auth.async_get_valid_client_id()
         LOGGER.debug(
             "User auth ok, sending cmd 'opening_move_req' for ID %s to status %s.",
-            status == self.close_act_id if OpeningStatus.CLOSED else self.open_act_id,
+            status == self.close_act_id if OpeningStatus.CLOSING else self.open_act_id,
             status.name,
         )
 
@@ -159,7 +160,7 @@ class Opening(CameEntity):
         payload = {
             "sl_appl_msg": {
                 "act_id": self.close_act_id
-                if status == OpeningStatus.CLOSED
+                if status == OpeningStatus.CLOSING
                 else self.open_act_id,
                 "client": client_id,
                 "cmd_name": "opening_move_req",

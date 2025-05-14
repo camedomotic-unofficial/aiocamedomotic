@@ -252,30 +252,30 @@ async def test_came_light_async_set_status_invalid_brightness(
 
 
 @pytest.fixture
-def opening_data_shutter_closed():
-    """Mock data for a closed shutter opening."""
+def opening_data_shutter_stopped():
+    """Mock data for a stopped shutter opening."""
     return {
         "open_act_id": 10,
         "close_act_id": 11,
         "floor_ind": 1,
         "name": "Living Room Shutter",
         "room_ind": 2,
-        "status": 0,  # Corresponds to OpeningStatus.CLOSED
+        "status": 0,  # Corresponds to OpeningStatus.STOPPED
         "type": 0,  # Corresponds to OpeningType.SHUTTER
         "partial": [],
     }
 
 
 @pytest.fixture
-def opening_data_awning_open():
-    """Mock data for an open awning."""
+def opening_data_awning_opening():
+    """Mock data for an opening awning."""
     return {
         "open_act_id": 20,
         "close_act_id": 21,
         "floor_ind": 1,
         "name": "Patio Shutter",
         "room_ind": 3,
-        "status": 1,  # Corresponds to OpeningStatus.OPEN
+        "status": 1,  # Corresponds to OpeningStatus.OPENING
         "type": 0,  # OpeningType.SHUTTER
         "partial": [],
     }
@@ -283,9 +283,9 @@ def opening_data_awning_open():
 
 def test_opening_status_enum():
     """Test the OpeningStatus enum values."""
-    assert OpeningStatus.CLOSED.value == 0
-    assert OpeningStatus.OPEN.value == 1
-    assert OpeningStatus.STOPPED.value == 2
+    assert OpeningStatus.STOPPED.value == 0
+    assert OpeningStatus.OPENING.value == 1
+    assert OpeningStatus.CLOSING.value == 2
 
 
 def test_opening_type_enum():
@@ -293,10 +293,10 @@ def test_opening_type_enum():
     assert OpeningType.SHUTTER.value == 0
 
 
-def test_came_opening_initialization(opening_data_shutter_closed, auth_instance):
+def test_came_opening_initialization(opening_data_shutter_stopped, auth_instance):
     """Test Opening class initialization."""
-    opening = Opening(opening_data_shutter_closed, auth_instance)
-    assert opening.raw_data == opening_data_shutter_closed
+    opening = Opening(opening_data_shutter_stopped, auth_instance)
+    assert opening.raw_data == opening_data_shutter_stopped
     assert opening.auth == auth_instance
 
     # Test post_init validation
@@ -306,16 +306,16 @@ def test_came_opening_initialization(opening_data_shutter_closed, auth_instance)
         Opening({"close_act_id": 2}, auth_instance)  # Missing open_act_id
 
 
-def test_came_opening_properties(opening_data_awning_open, auth_instance):
+def test_came_opening_properties(opening_data_awning_opening, auth_instance):
     """Test Opening class properties."""
-    opening = Opening(opening_data_awning_open, auth_instance)
-    assert opening.open_act_id == opening_data_awning_open["open_act_id"]
-    assert opening.close_act_id == opening_data_awning_open["close_act_id"]
-    assert opening.name == opening_data_awning_open["name"]
-    assert opening.status == OpeningStatus.OPEN
+    opening = Opening(opening_data_awning_opening, auth_instance)
+    assert opening.open_act_id == opening_data_awning_opening["open_act_id"]
+    assert opening.close_act_id == opening_data_awning_opening["close_act_id"]
+    assert opening.name == opening_data_awning_opening["name"]
+    assert opening.status == OpeningStatus.OPENING
     assert opening.type == OpeningType.SHUTTER
-    assert opening.floor_ind == opening_data_awning_open["floor_ind"]
-    assert opening.room_ind == opening_data_awning_open["room_ind"]
+    assert opening.floor_ind == opening_data_awning_opening["floor_ind"]
+    assert opening.room_ind == opening_data_awning_opening["room_ind"]
     assert len(opening.partial_positions) == 0
 
 
@@ -330,48 +330,48 @@ def test_came_opening_properties(opening_data_awning_open, auth_instance):
 async def test_came_opening_async_set_status(
     mock_send_command,
     mock_get_client_id,  # pylint: disable=unused-argument
-    opening_data_shutter_closed,
+    opening_data_shutter_stopped,
     auth_instance,
 ):
     """Test Opening.async_set_status method."""
-    opening = Opening(opening_data_shutter_closed, auth_instance)
+    opening = Opening(opening_data_shutter_stopped, auth_instance)
     initial_cseq = auth_instance.cseq
 
-    # Test setting status to OPEN
-    await opening.async_set_status(OpeningStatus.OPEN)
+    # Test setting status to OPENING
+    await opening.async_set_status(OpeningStatus.OPENING)
 
-    expected_payload_open = {
+    expected_payload_opening = {
         "sl_appl_msg": {
             "act_id": opening.open_act_id,
             "client": "mock_client_id",
             "cmd_name": "opening_move_req",
             "cseq": initial_cseq + 1,
-            "wanted_status": OpeningStatus.OPEN.value,
+            "wanted_status": OpeningStatus.OPENING.value,
         },
         "sl_appl_msg_type": "domo",
         "sl_client_id": "mock_client_id",
         "sl_cmd": "sl_data_req",
     }
-    mock_send_command.assert_called_with(expected_payload_open)
-    assert opening.status == OpeningStatus.OPEN  # Check internal state update
+    mock_send_command.assert_called_with(expected_payload_opening)
+    assert opening.status == OpeningStatus.OPENING  # Check internal state update
 
-    # Test setting status to CLOSED
-    await opening.async_set_status(OpeningStatus.CLOSED)
+    # Test setting status to CLOSING
+    await opening.async_set_status(OpeningStatus.CLOSING)
 
-    expected_payload_closed = {
+    expected_payload_closing = {
         "sl_appl_msg": {
             "act_id": opening.close_act_id,
             "client": "mock_client_id",
             "cmd_name": "opening_move_req",
             "cseq": mock_send_command.call_args_list[-1][0][0]["sl_appl_msg"]["cseq"],
-            "wanted_status": OpeningStatus.CLOSED.value,
+            "wanted_status": OpeningStatus.CLOSING.value,
         },
         "sl_appl_msg_type": "domo",
         "sl_client_id": "mock_client_id",
         "sl_cmd": "sl_data_req",
     }
-    mock_send_command.assert_called_with(expected_payload_closed)
-    assert opening.status == OpeningStatus.CLOSED
+    mock_send_command.assert_called_with(expected_payload_closing)
+    assert opening.status == OpeningStatus.CLOSING
     assert mock_send_command.call_count == 2
 
     # Test setting status to STOPPED

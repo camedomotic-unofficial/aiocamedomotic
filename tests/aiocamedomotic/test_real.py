@@ -41,6 +41,7 @@ import pytest
 
 from aiocamedomotic import CameDomoticAPI
 from aiocamedomotic.models import LightStatus
+from aiocamedomotic.models.opening import Opening, OpeningStatus, OpeningType
 
 from tests.aiocamedomotic.const import api_instance_real as api  # pylint: disable=unused-import  # noqa: F401
 
@@ -97,6 +98,70 @@ async def test_async_change_light_status(api: CameDomoticAPI):
         await light.async_set_status(
             LightStatus.OFF if light.status == LightStatus.ON else LightStatus.ON
         )
+
+
+async def test_async_get_openings(api: CameDomoticAPI):
+    """Tests fetching all openings from the server."""
+    print("\nFetching all openings...")
+    openings = await api.async_get_openings()
+    if not openings:
+        print("No openings found on the server.")
+        return
+
+    print(f"Found {len(openings)} opening(s):")
+    for opening in openings:
+        print(
+            f"Open/Close IDs: {opening.open_act_id}/{opening.close_act_id}"
+            f" - Name: {opening.name}, "
+            f" - Status: {opening.status.name}, "
+            f" - Type: {opening.type.name}"
+        )
+    assert openings is not None, "Failed to get openings"
+
+
+async def test_async_control_specific_shutter(api: CameDomoticAPI):
+    """Tests shutter control: CLOSE -> STOPPED -> OPEN sequence."""
+    shutter_name = "Tapparella Camera matrimoniale"
+    wait_time_sec = 3
+
+    print(f"\nLooking for shutter: '{shutter_name}'...")
+    openings = await api.async_get_openings()
+    if not openings:
+        pytest.skip("No openings found on server")
+        return
+
+    target_shutter = next((o for o in openings if o.name == shutter_name), None)
+    if target_shutter is None:
+        pytest.skip(f"Shutter '{shutter_name}' not found")
+        return
+
+    print(f"Found '{target_shutter.name}' (Open ID: {target_shutter.open_act_id})")
+    print("Starting control sequence...")
+
+    try:
+        # Close
+        print(f"  Setting to CLOSING")
+        await target_shutter.async_set_status(OpeningStatus.CLOSING)
+        print(f"  Status: {target_shutter.status.name}")
+        await asyncio.sleep(wait_time_sec)
+
+        # Stop
+        print(f"  Setting to STOPPED")
+        await target_shutter.async_set_status(OpeningStatus.STOPPED)
+        print(f"  Status: {target_shutter.status.name}")
+        await asyncio.sleep(wait_time_sec)
+
+        # Open
+        print(f"  Setting to OPENING")
+        await target_shutter.async_set_status(OpeningStatus.OPENING)
+        print(f"  Status: {target_shutter.status.name}")
+
+        print("Control sequence completed")
+
+    except Exception as e:
+        pytest.fail(f"Error controlling shutter: {e}")
+
+    assert target_shutter.status == OpeningStatus.OPENING
 
 
 async def test_async_usage_example():
