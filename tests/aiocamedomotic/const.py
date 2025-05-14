@@ -51,18 +51,6 @@ async def auth_instance() -> AsyncGenerator[Auth, None]:
 
 
 @pytest.fixture
-async def api_instance() -> AsyncGenerator[CameDomoticAPI, None]:
-    with patch("aiocamedomotic.Auth.async_validate_host", return_value=True):
-        async with await CameDomoticAPI.async_create(
-            "192.168.x.x", "username", "password"
-        ) as api:
-            api.auth.client_id = "my_client_id"
-            api.auth.keep_alive_timeout_sec = 900  # 15min
-            api.auth.session_expiration_timestamp = time.monotonic() + (60 * 60)  # 1h
-            yield api
-
-
-@pytest.fixture
 async def api_instance_real() -> AsyncGenerator[CameDomoticAPI, None]:
     """
     Create an API instance for testing with a real CAME Domotic server.
