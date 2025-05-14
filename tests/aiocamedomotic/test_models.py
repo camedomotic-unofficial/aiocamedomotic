@@ -34,15 +34,7 @@ from aiocamedomotic.models import (
 )
 
 from tests.aiocamedomotic.mocked_responses import STATUS_UPDATE_RESP
-
-
-@pytest_asyncio.fixture
-async def auth_instance() -> AsyncGenerator[Auth, None]:
-    session = ClientSession()
-    with patch.object(Auth, "async_validate_host", return_value=True):
-        auth = await Auth.async_create(session, "192.168.x.x", "user", "password")
-    yield auth
-    await session.close()
+from tests.aiocamedomotic.const import auth_instance  # noqa: F401
 
 
 # region CameFeature and ServerInfo tests
