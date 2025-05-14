@@ -89,7 +89,7 @@ class CameDomoticAPI:
             "sl_appl_msg": {
                 "client": client_id,
                 "cmd_name": "feature_list_req",
-                "cseq": self.auth.cseq + 1,
+                "cseq": self.auth.cseq,
             },
             "sl_appl_msg_type": "domo",
             "sl_client_id": client_id,
@@ -123,7 +123,7 @@ class CameDomoticAPI:
             "sl_appl_msg": {
                 "client": client_id,
                 "cmd_name": "light_list_req",
-                "cseq": self.auth.cseq + 1,
+                "cseq": self.auth.cseq,
                 "topologic_scope": "plant",
                 "value": 0,
             },
@@ -152,7 +152,7 @@ class CameDomoticAPI:
             "sl_appl_msg": {
                 "client": client_id,
                 "cmd_name": "status_update_req",
-                "cseq": self.auth.cseq + 1,
+                "cseq": self.auth.cseq,
             },
             "sl_appl_msg_type": "domo",
             "sl_client_id": client_id,
@@ -177,7 +177,7 @@ class CameDomoticAPI:
             "sl_appl_msg": {
                 "client": client_id,
                 "cmd_name": "openings_list_req",
-                "cseq": self.auth.cseq + 1,
+                "cseq": self.auth.cseq,
                 "topologic_scope": "plant",
                 "value": 0,
             },
