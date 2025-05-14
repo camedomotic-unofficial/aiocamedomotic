@@ -40,6 +40,9 @@ Entity models
 .. automodule:: aiocamedomotic.models.light
    :members:
 
+.. automodule:: aiocamedomotic.models.opening
+   :members:
+
 .. automodule:: aiocamedomotic.models.update
    :members:
 
