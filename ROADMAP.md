@@ -25,30 +25,29 @@ insights. We look forward to growing this library together with our users and co
 ## Current Features (Version 1.0)
 
 - **Lights management**: List and set the status of lights in the domotic environment.
+- **Session management**: Automated handling of login and logout processes for the API.
 
 ## Planned Features
 
-### Short-term goals (Versions 1.1 to 1.4)
+### Short-term goals (Versions 1.1 to 1.3)
 
 - **Openings management**: Control and monitor doors and windows, including listing
   and setting their status.
 
 - **Scenarios management**: Support for listing available scenarios and triggering them.
 
-- **Session management**: Automated handling of login and logout processes for the API.
-
 - **Thermoregulation management**:
   - List thermo zones within the domotic environment.
   - Retrieve current temperature readings.
   - Get and set thermoregulation configurations.
 
-### Mid-term goals (Version 1.2)
+### Mid-term goals (Version 1.4)
 
 - **Energy reporting**:
   - Retrieve instant and historical energy consumption reports, aiding in monitoring
     and optimizing energy usage.
 
-### Long-term goals (Version 1.3 and beyond)
+### Long-term goals (Version 1.5 and beyond)
 
 - **Loads control**:
   - Integrate features to monitor current energy consumption.
