@@ -57,6 +57,9 @@ jobs:
     permissions:
       contents: write  # Needed to update the version number in pyproject.toml
       pull-requests: write  # Needed to create a pull request
+    
+    env:
+      GH_TOKEN: ${{ github.token }}
       
     runs-on: ubuntu-latest
 
