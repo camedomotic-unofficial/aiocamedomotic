@@ -4,7 +4,7 @@ Getting started
 This guide will walk you through the steps to quickly start using the CAME Domotic
 Unofficial library in your projects. Before you begin, ensure you have:
 
-- Python 3.12 or newer installed on your system.
+- Python 3.12 or 3.13 installed on your system.
 - Access to a CAME Domotic server.
 
 Installation
