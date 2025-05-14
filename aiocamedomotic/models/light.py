@@ -149,7 +149,7 @@ class Light(CameEntity):
         await self.auth.async_send_command(payload)
 
         # Update the status of the light if everything went as expected
-        self.raw_data["status"] = status
+        self.raw_data["status"] = status.value
         if brightness is not None:
             self.raw_data["perc"] = max(0, min(brightness, 100))
 
