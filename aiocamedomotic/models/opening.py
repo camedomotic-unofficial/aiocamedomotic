@@ -46,6 +46,7 @@ class OpeningStatus(Enum):
     STOPPED = 0
     OPENING = 1
     CLOSING = 2
+    UNKNOWN = -1
 
 
 class OpeningType(Enum):
@@ -56,6 +57,7 @@ class OpeningType(Enum):
     """
 
     SHUTTER = 0
+    UNKNOWN = -1
 
 
 ## Other types as guessed by AI chatbot, not tested yet.
@@ -97,7 +99,17 @@ class Opening(CameEntity):
     def status(self) -> OpeningStatus:
         """Current status of the opening. Allowed values: STOPPED (0), OPENING (1) and
         CLOSING (2)."""
-        return OpeningStatus(self.raw_data["status"])
+        try:
+            return OpeningStatus(self.raw_data["status"])
+        except ValueError:
+            LOGGER.warning(
+                "Unknown status '%s' encountered for opening '%s' (ID: %s). "
+                "Returning OpeningStatus.UNKNOWN. Please report this to the library developers.",
+                self.raw_data["status"],
+                self.name,
+                self.open_act_id,
+            )
+            return OpeningStatus.UNKNOWN
 
     @property
     def type(self) -> OpeningType:
@@ -109,13 +121,15 @@ class Opening(CameEntity):
         """
         try:
             return OpeningType(self.raw_data["type"])
-        except ValueError as e:
+        except ValueError:
             LOGGER.warning(
-                "Unknown opening type: %s for opening %s",
+                "Unknown opening type '%s' encountered for opening '%s' (ID: %s). "
+                "Returning OpeningType.UNKNOWN. Please report this to the library developers.",
                 self.raw_data["type"],
                 self.name,
+                self.open_act_id,
             )
-            raise ValueError(f"Unknown opening type: {self.raw_data['type']}") from e
+            return OpeningType.UNKNOWN
 
     @property
     def floor_ind(self) -> Optional[int]:
