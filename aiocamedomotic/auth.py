@@ -224,10 +224,10 @@ class Auth:
         Raises:
             CameDomoticAuthError: if an error occurs during the login.
         """
-
-        if not self.is_session_valid():
-            await self.async_login()
-        return self.client_id
+        async with self._lock:
+            if not self.is_session_valid():
+                await self._async_perform_login()
+            return self.client_id
 
     @handle_came_domotic_errors
     async def async_send_command(
@@ -335,50 +335,56 @@ class Auth:
             CameDomoticAuthError: if an error occurs during the login.
         """
         async with self._lock:
-            try:
-                if self.is_session_valid():
-                    await self.async_keep_alive()
-                else:
-                    payload = {
-                        "sl_cmd": "sl_registration_req",
-                        "sl_login": self.cipher_suite.decrypt(self.username).decode(),
-                        "sl_pwd": self.cipher_suite.decrypt(self.password).decode(),
-                    }
+            if self.is_session_valid():
+                await self._async_perform_keep_alive()
+            else:
+                await self._async_perform_login()
 
-                    # skip_ack_check = True so that a bad ACK code is tracked as an
-                    # authentication error and not as a generic server error
-                    response = await self.async_send_command(
-                        payload, skip_ack_check=True
-                    )
-                    data = await response.json(content_type=None)
+    async def _async_perform_login(self) -> None:
+        """Login to the CAME Domotic server (no lock).
 
-                    # Validate the response ACK code
-                    ack_reason = data.get("sl_data_ack_reason")
-                    if ack_reason and ack_reason == 1:
-                        raise CameDomoticAuthError("Bad credentials.")
-                    if ack_reason and ack_reason != 0:
-                        raise CameDomoticAuthError(
-                            f"Authentication failed (ACK error: {ack_reason})"
-                        )
+        Raises:
+            CameDomoticAuthError: if an error occurs during the login.
+        """
+        try:
+            payload = {
+                "sl_cmd": "sl_registration_req",
+                "sl_login": self.cipher_suite.decrypt(self.username).decode(),
+                "sl_pwd": self.cipher_suite.decrypt(self.password).decode(),
+            }
 
-                    # ACK is ok, store the login data
-                    self.client_id = data.get("sl_client_id")
-                    self.keep_alive_timeout_sec = data.get("sl_keep_alive_timeout_sec")
-                    self.session_expiration_timestamp = time.monotonic() + max(
-                        0, self.keep_alive_timeout_sec - Auth._DEFAULT_SAFE_ZONE_SEC
-                    )
-            except CameDomoticAuthError as e:
-                raise e
-            except json.JSONDecodeError as e:
+            # skip_ack_check = True so that a bad ACK code is tracked as an
+            # authentication error and not as a generic server error
+            response = await self.async_send_command(payload, skip_ack_check=True)
+            data = await response.json(content_type=None)
+
+            # Validate the response ACK code
+            ack_reason = data.get("sl_data_ack_reason")
+            if ack_reason and ack_reason == 1:
+                raise CameDomoticAuthError("Bad credentials.")
+            if ack_reason and ack_reason != 0:
                 raise CameDomoticAuthError(
-                    "Bad login response (JSON decoding failed)"
-                ) from e
-            except aiohttp.ClientResponseError as e:
-                raise CameDomoticAuthError(
-                    f"Login failed due to HTTP {e.status} error ({e.message})"
-                ) from e
-            except Exception as e:
-                raise CameDomoticAuthError("Unexpected error logging in") from e
+                    f"Authentication failed (ACK error: {ack_reason})"
+                )
+
+            # ACK is ok, store the login data
+            self.client_id = data.get("sl_client_id")
+            self.keep_alive_timeout_sec = data.get("sl_keep_alive_timeout_sec")
+            self.session_expiration_timestamp = time.monotonic() + max(
+                0, self.keep_alive_timeout_sec - Auth._DEFAULT_SAFE_ZONE_SEC
+            )
+        except CameDomoticAuthError as e:
+            raise e
+        except json.JSONDecodeError as e:
+            raise CameDomoticAuthError(
+                "Bad login response (JSON decoding failed)"
+            ) from e
+        except aiohttp.ClientResponseError as e:
+            raise CameDomoticAuthError(
+                f"Login failed due to HTTP {e.status} error ({e.message})"
+            ) from e
+        except Exception as e:
+            raise CameDomoticAuthError("Unexpected error logging in") from e
 
     async def async_keep_alive(self) -> None:
         """Keep the session alive, eventually logging in again if needed.
@@ -389,13 +395,22 @@ class Auth:
         """
         async with self._lock:
             if not self.is_session_valid():
-                await self.async_login()
+                await self._async_perform_login()
             else:
-                payload = {
-                    "sl_client_id": self.client_id,
-                    "sl_cmd": "sl_keep_alive_req",
-                }
-                await self.async_send_command(payload)
+                await self._async_perform_keep_alive()
+
+    async def _async_perform_keep_alive(self) -> None:
+        """Keep the session alive, eventually logging in again if needed (no lock).
+
+        Raises:
+            CameDomoticServerError: if an error occurs during the keep-alive request.
+            CameDomoticAuthError: if an error occurs during the login.
+        """
+        payload = {
+            "sl_client_id": self.client_id,
+            "sl_cmd": "sl_keep_alive_req",
+        }
+        await self.async_send_command(payload)
 
     @handle_came_domotic_errors
     async def async_logout(self) -> None:
