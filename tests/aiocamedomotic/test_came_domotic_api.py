@@ -249,7 +249,9 @@ async def test_async_get_server_info_missing_essential_keys(
     }
 
     # ServerInfo model instantiation will now raise ValueError with description
-    with pytest.raises(ValueError, match="Missing required ServerInfo properties: keycode"):
+    with pytest.raises(
+        ValueError, match="Missing required ServerInfo properties: keycode"
+    ):
         await api.async_get_server_info()
 
     # Test missing 'list'
@@ -262,9 +264,11 @@ async def test_async_get_server_info_missing_essential_keys(
         # "list": ["lights"], # Missing list
         "sl_data_ack_reason": 0,
     }
-    with pytest.raises(ValueError, match="Missing required ServerInfo properties: list"):
+    with pytest.raises(
+        ValueError, match="Missing required ServerInfo properties: list"
+    ):
         await api.async_get_server_info()
-        
+
     # Test multiple missing fields
     mock_send_command.return_value.json.return_value = {
         "cmd_name": "feature_list_resp",
@@ -277,8 +281,33 @@ async def test_async_get_server_info_missing_essential_keys(
         # "list": ["lights"], # Missing list
         "sl_data_ack_reason": 0,
     }
-    with pytest.raises(ValueError, match="Missing required ServerInfo properties: keycode, serial, list"):
+    with pytest.raises(
+        ValueError,
+        match="Missing required ServerInfo properties: keycode, serial, list",
+    ):
         await api.async_get_server_info()
+
+
+@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+async def test_async_get_server_info_empty_feature_list(
+    mock_send_command, auth_instance
+):
+    api = CameDomoticAPI(auth_instance)
+    mock_send_command.return_value.json.return_value = {
+        "cmd_name": "feature_list_resp",
+        "cseq": 1,
+        "keycode": "0000FFFF9999AAAA",
+        "swver": "1.2.3",
+        "type": "0",
+        "board": "3",
+        "serial": "0011ffee",
+        "list": [],  # Empty feature list
+        "recovery_status": 0,
+        "sl_data_ack_reason": 0,
+    }
+
+    server_info = await api.async_get_server_info()
+    assert len(server_info.list) == 0
 
 
 # Test for async_get_lights method
