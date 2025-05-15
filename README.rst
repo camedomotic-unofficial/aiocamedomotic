@@ -53,16 +53,11 @@ under the `Apache license 2.0 <http://www.apache.org/licenses/LICENSE-2.0>`_ for
 interested in experimenting with a CAME Domotic plant.
 
 
-.. warning::
-    This library is currently in **beta development status**.
-    It is not yet stable and should be used only for studying purposes.
-    Please be aware that you cannot rely on it for any production use.
-    Use at your own risk.
-
-.. note::
+.. important::
     This library is independently developed and is not affiliated with, endorsed by,
     or supported by `CAME <https://www.came.com/>`_. It may not be compatible with all
-    CAME Domotic systems. Use at your own risk.
+    CAME Domotic systems. While this library is stable and publicly released, it comesù
+    with no guarantees. Use at your own risk.
 
 .. danger::
 

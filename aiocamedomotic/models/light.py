@@ -27,7 +27,7 @@ from enum import Enum
 from typing import Dict, Optional
 
 from ..auth import Auth
-from ..const import (
+from ..utils import (
     EntityValidator,
     LOGGER,
 )
@@ -57,6 +57,7 @@ class LightType(Enum):
 
     STEP_STEP = "STEP_STEP"
     DIMMER = "DIMMER"
+    UNKNOWN = "UNKNOWN_LIGHT_TYPE"
 
 
 @dataclass
@@ -116,8 +117,15 @@ class Light(CameEntity):
         """
         try:
             return LightType(self.raw_data["type"])
-        except ValueError as e:
-            raise ValueError(f"Unknown light type: {self.raw_data['type']}") from e
+        except ValueError:
+            LOGGER.warning(
+                "Unknown light type '%s' encountered for light '%s' (ID: %s). "
+                "Returning LightType.UNKNOWN. Please report this to the library developers.",
+                self.raw_data["type"],
+                self.name,
+                self.act_id,
+            )
+            return LightType.UNKNOWN
 
     @property
     def perc(self) -> int:
@@ -144,7 +152,21 @@ class Light(CameEntity):
         """
         # Early exit for non-dimmable lights receiving a brightness value
         if self.type != LightType.DIMMER:
+            LOGGER.debug(
+                "Light '%s' (type: %s) is not dimmable or type is unknown. "
+                "Ignoring brightness setting.",
+                self.name,
+                self.type.name,
+            )
             brightness = None  # Ignore brightness since it's not applicable
+
+        if self.type == LightType.UNKNOWN:
+            LOGGER.warning(
+                "Attempting to set status for light '%s' (ID: %s) with UNKNOWN type. "
+                "Command might fail or have unintended effects.",
+                self.name,
+                self.act_id,
+            )
 
         client_id = await self.auth.async_get_valid_client_id()
         LOGGER.debug(
