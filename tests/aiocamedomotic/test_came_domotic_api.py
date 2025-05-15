@@ -39,6 +39,7 @@ from tests.aiocamedomotic.const import (
 )
 
 
+# region basic tests
 async def test_init(auth_instance):
     api = CameDomoticAPI(auth_instance)
     assert api.auth == auth_instance
@@ -141,6 +142,11 @@ async def test_async_create_exception(mock_async_create):
         await CameDomoticAPI.async_create("host", "username", "password")
 
 
+# endregion
+
+# region async_get_users
+
+
 @patch.object(Auth, "async_send_command", return_value=AsyncMock())
 async def test_async_get_users(mock_send_command, auth_instance):
     api = CameDomoticAPI(auth_instance)
@@ -190,6 +196,11 @@ async def test_async_get_users_empty_list(mock_send_command, auth_instance):
     users = await api.async_get_users()
     assert len(users) == 0
     assert isinstance(users, list)
+
+
+# endregion
+
+# region async_get_server_info
 
 
 # Test for async_get_server_info method
@@ -310,6 +321,12 @@ async def test_async_get_server_info_empty_feature_list(
     assert len(server_info.list) == 0
 
 
+# endregion
+
+
+# region async_get_lights
+
+
 # Test for async_get_lights method
 @patch.object(Auth, "async_send_command", return_value=AsyncMock())
 async def test_async_get_lights(mock_send_command, auth_instance):
@@ -384,3 +401,81 @@ async def test_async_get_lights(mock_send_command, auth_instance):
     assert len(lights) == 7
     assert isinstance(lights[0], Light)
     assert isinstance(lights[1], Light)
+
+
+@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+async def test_async_get_lights_empty_array(mock_send_command, auth_instance):
+    api = CameDomoticAPI(auth_instance)
+
+    # Test empty list
+    mock_send_command.return_value.json.return_value = {
+        "array": [],  # Empty array
+        "cmd_name": "light_list_resp",
+        "cseq": 1,
+        "sl_data_ack_reason": 0,
+    }
+
+    lights = await api.async_get_lights()
+    assert len(lights) == 0
+    assert isinstance(lights, list)
+
+    # Test missing list
+    mock_send_command.return_value.json.return_value = {
+        # "array": [],
+        "cmd_name": "light_list_resp",
+        "cseq": 1,
+        "sl_data_ack_reason": 0,
+    }
+
+    lights = await api.async_get_lights()
+    assert len(lights) == 0
+    assert isinstance(lights, list)
+
+
+@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+async def test_async_get_lights_malformed_light_data(mock_send_command, auth_instance):
+    api = CameDomoticAPI(auth_instance)
+    mock_send_command.return_value.json.return_value = {
+        "array": [
+            {
+                # Missing "act_id"
+                "floor_ind": 19,
+                "name": "light_ChQQs",
+                "room_ind": 23,
+                "status": 1,
+                "type": "STEP_STEP",
+            }
+        ],
+        "cmd_name": "light_list_resp",
+        "cseq": 1,
+        "sl_data_ack_reason": 0,
+    }
+
+    with pytest.raises(ValueError, match="Data is missing required keys: act_id"):
+        await api.async_get_lights()
+
+    # Test missing "name"
+    mock_send_command.return_value.json.return_value = {
+        "array": [
+            {
+                "act_id": 1,
+                "floor_ind": 19,
+                # Missing "name"
+                "room_ind": 23,
+                "status": 1,
+                "type": "STEP_STEP",
+            }
+        ],
+        "cmd_name": "light_list_resp",
+        "cseq": 1,
+        "sl_data_ack_reason": 0,
+    }
+    with pytest.raises(ValueError, match="Data is missing required keys: name"):
+        await api.async_get_lights()
+
+
+# endregion
+
+# region async_get_openings
+
+# endregion
