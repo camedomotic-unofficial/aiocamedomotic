@@ -37,28 +37,38 @@ type-checked, and all tests pass.
 
 ### Testing with real CAME servers
 
-The project includes tests that can be run against a real CAME Domotic server. These tests are skipped by default, but can be enabled for testing if you have access to a CAME Domotic server.
+The project includes tests that can be run against a real CAME Domotic server. These tests are skipped by default unless configured.
 
 To run tests against a real server:
 
-1. Set the following environment variables:
-   ```bash
-   export CAMEDOMOTIC_HOST="192.168.x.y"      # Replace with your server IP
-   export CAMEDOMOTIC_USERNAME="your-username" # Replace with your username
-   export CAMEDOMOTIC_PASSWORD="your-password" # Replace with your password
-   ```
+1.  **Create a configuration file:** Copy `tests/aiocamedomotic/test_config.ini.example` to `tests/aiocamedomotic/test_config.ini`.
+2.  **Edit `tests/aiocamedomotic/test_config.ini`:** Fill in your CAME Domotic server details (host, username, password) and optionally specify names/IDs of devices you want specific tests to interact with under the `[test_devices]` section.
 
-2. Edit the `SKIP_TESTS_ON_REAL_SERVER` variable in `tests/aiocamedomotic/test_real.py` to `False`
+    ```ini
+    # tests/aiocamedomotic/test_config.ini
+    [came_server]
+    host = YOUR_SERVER_IP_OR_HOSTNAME
+    username = YOUR_USERNAME
+    password = YOUR_PASSWORD
 
-3. Run the tests:
-   ```bash
-   pytest tests/aiocamedomotic/test_real.py -v
-   ```
+    [test_devices]
+    # Optional: for specific tests that need to identify devices
+    # Adjust these keys based on what test_real.py expects
+    dimmable_light_id = 15
+    on_off_light_name = Your Test Light Name
+    shutter_name = Your Test Shutter Name
+    ```
+3.  **Ensure `test_config.ini` is in your `.gitignore` file** (it should be by default if you pull recent changes).
+4.  Set the `SKIP_TESTS_ON_REAL_SERVER` variable in `tests/aiocamedomotic/test_real.py` to `False`.
+5.  Run the tests:
+    ```bash
+    pytest tests/aiocamedomotic/test_real.py -v
+    ```
 
 **Important security notes:**
-- Never commit your real server credentials to the repository
-- Always reset `SKIP_TESTS_ON_REAL_SERVER` to `True` before committing changes
-- Consider using a dedicated test user account on your CAME Domotic server for testing
+- Never commit your `test_config.ini` file with real server credentials to the repository.
+- Always reset `SKIP_TESTS_ON_REAL_SERVER` to `True` before committing changes if you modified it locally for testing.
+- Consider using a dedicated test user account on your CAME Domotic server for testing.
 
 ## Branch naming convention
 

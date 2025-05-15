@@ -1,0 +1,12 @@
+[came_server]
+host = YOUR_SERVER_IP_OR_HOSTNAME
+username = YOUR_USERNAME
+password = YOUR_PASSWORD
+
+[test_devices]
+# Example: Define specific device names or IDs your tests might use
+# These are examples; adjust them based on your actual test needs
+dimmable_light_name = My dimmable light
+dimmable_light_id = 15
+on_off_light_name = Another Lamp Name
+shutter_name = My shutter
