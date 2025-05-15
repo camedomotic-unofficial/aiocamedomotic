@@ -79,13 +79,13 @@ Quick Start
 
 Have a look at the following guides to learn how to install and use the library:
 
-- `Getting started <https://aiocamedomotic.readthedocs.io/en/latest/getting_started.html>`_
-- `Usage examples <https://aiocamedomotic.readthedocs.io/en/latest/usage_examples.html>`_
+- `Getting started <https://aiocamedomotic.readthedocs.io/latest/getting_started.html>`_
+- `Usage examples <https://aiocamedomotic.readthedocs.io/latest/usage_examples.html>`_
 
 Once you are a bit more familiar with the library, you may want to explore the following
 resources too:
 
-- `API reference <https://aiocamedomotic.readthedocs.io/en/latest/api_reference.html>`_
+- `API reference <https://aiocamedomotic.readthedocs.io/latest/api_reference.html>`_
 - `What's new (releases) <https://github.com/camedomotic-unofficial/aiocamedomotic/releases>`_
 - `Development roadmap <https://github.com/camedomotic-unofficial/aiocamedomotic/blob/master/ROADMAP.md#development-roadmap>`_
 - `Security Policy <https://github.com/camedomotic-unofficial/aiocamedomotic/blob/master/SECURITY.md#security-policy>`_
