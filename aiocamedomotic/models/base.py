@@ -125,3 +125,17 @@ class ServerInfo(CameEntity):
 
     board: Optional[str] = None
     """Board type of the server."""
+    
+    def __post_init__(self):
+        """Validate that required properties are present and not None."""
+        missing = []
+        
+        if self.keycode is None:
+            missing.append("keycode")
+        if self.serial is None:
+            missing.append("serial")
+        if self.list is None:
+            missing.append("list")
+            
+        if missing:
+            raise ValueError(f"Missing required ServerInfo properties: {', '.join(missing)}")

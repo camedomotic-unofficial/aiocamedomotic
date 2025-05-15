@@ -55,7 +55,8 @@ class CameDomoticAPI:
         """Get the list of users defined on the server.
 
         Returns:
-            List[User]: List of users.
+            List[User]: List of users. Returns an empty list if no users are defined
+            or if the server response doesn't contain the users list.
 
         Raises:
             CameDomoticAuthError: If the authentication fails.
@@ -68,7 +69,9 @@ class CameDomoticAPI:
         response = await self.auth.async_send_command(payload)
         json_response = await response.json(content_type=None)
 
-        return [User(user, self.auth) for user in json_response["sl_users_list"]]
+        # Defaults to an empty list if the key is missing from the response JSON
+        users_list = json_response.get("sl_users_list", [])
+        return [User(user, self.auth) for user in users_list]
 
     async def async_get_server_info(self) -> ServerInfo:
         """Get the server information
@@ -99,12 +102,12 @@ class CameDomoticAPI:
         json_response = await response.json(content_type=None)
 
         return ServerInfo(
-            keycode=json_response["keycode"],
-            swver=json_response["swver"],
-            type=json_response["type"],
-            board=json_response["board"],
-            serial=json_response["serial"],
-            list=json_response["list"],
+            keycode=json_response.get("keycode"),
+            swver=json_response.get("swver"),
+            type=json_response.get("type"),
+            board=json_response.get("board"),
+            serial=json_response.get("serial"),
+            list=json_response.get("list"),
         )
 
     async def async_get_lights(self) -> List[Light]:
@@ -134,7 +137,9 @@ class CameDomoticAPI:
         response = await self.auth.async_send_command(payload)
         json_response = await response.json(content_type=None)
 
-        return [Light(light, self.auth) for light in json_response["array"]]
+        # Defaults to an empty list if the key is missing from the response JSON
+        lights_list = json_response.get("array", [])
+        return [Light(light, self.auth) for light in lights_list]
 
     async def async_get_updates(self) -> UpdateList:
         """Get the list of status updates from the server.

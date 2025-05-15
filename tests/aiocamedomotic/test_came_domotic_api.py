@@ -119,7 +119,8 @@ async def test_async_create_all_params(mock_async_create):
 @patch("aiohttp.ClientSession")
 @patch.object(Auth, "async_create")
 async def test_async_create_default_params(
-    mock_async_create, mock_session  # pylint: disable=unused-argument
+    mock_async_create,
+    mock_session,  # pylint: disable=unused-argument
 ):
     mock_auth = AsyncMock()
     mock_async_create.return_value = mock_auth
@@ -156,6 +157,39 @@ async def test_async_get_users(mock_send_command, auth_instance):
     assert isinstance(users[1], User)
     assert users[0].name == "admin"
     assert users[1].name == "user"
+
+
+@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+async def test_async_get_users_empty_list(mock_send_command, auth_instance):
+    api = CameDomoticAPI(auth_instance)
+
+    # Test empty list
+    mock_send_command.return_value.json.return_value = {
+        "sl_cmd": "sl_users_list_resp",
+        "sl_data_ack_reason": 0,
+        "sl_client_id": "75c6c33a",
+        "sl_users_list": [],  # Empty list
+    }
+
+    users = await api.async_get_users()
+    assert len(users) == 0
+    assert isinstance(users, list)
+
+    # Test missing key
+    mock_send_command.return_value.json.return_value = {
+        "sl_cmd": "sl_users_list_resp",
+        "sl_data_ack_reason": 0,
+        "sl_client_id": "75c6c33a",
+        # "sl_users_list" key is missing
+    }
+
+    users = await api.async_get_users()
+    assert len(users) == 0
+    assert isinstance(users, list)
+
+    users = await api.async_get_users()
+    assert len(users) == 0
+    assert isinstance(users, list)
 
 
 # Test for async_get_server_info method
@@ -195,6 +229,56 @@ async def test_async_get_server_info(mock_send_command, auth_instance):
     assert len(features) == 7
     assert features[0] == "lights"
     assert features[1] == "openings"
+
+
+@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+async def test_async_get_server_info_missing_essential_keys(
+    mock_send_command, auth_instance
+):
+    api = CameDomoticAPI(auth_instance)
+    mock_send_command.return_value.json.return_value = {
+        "cmd_name": "feature_list_resp",
+        "cseq": 1,
+        # "keycode": "0000FFFF9999AAAA", # Missing keycode
+        "swver": "1.2.3",
+        "type": "0",
+        "board": "3",
+        "serial": "0011ffee",
+        "list": ["lights"],
+        "sl_data_ack_reason": 0,
+    }
+
+    # ServerInfo model instantiation will now raise ValueError with description
+    with pytest.raises(ValueError, match="Missing required ServerInfo properties: keycode"):
+        await api.async_get_server_info()
+
+    # Test missing 'list'
+    mock_send_command.return_value.json.return_value = {
+        "cmd_name": "feature_list_resp",
+        "cseq": 1,
+        "keycode": "0000FFFF9999AAAA",
+        "swver": "1.2.3",
+        "serial": "0011ffee",
+        # "list": ["lights"], # Missing list
+        "sl_data_ack_reason": 0,
+    }
+    with pytest.raises(ValueError, match="Missing required ServerInfo properties: list"):
+        await api.async_get_server_info()
+        
+    # Test multiple missing fields
+    mock_send_command.return_value.json.return_value = {
+        "cmd_name": "feature_list_resp",
+        "cseq": 1,
+        # "keycode": "0000FFFF9999AAAA", # Missing keycode
+        "swver": "1.2.3",
+        "type": "0",
+        "board": "3",
+        # "serial": "0011ffee", # Missing serial
+        # "list": ["lights"], # Missing list
+        "sl_data_ack_reason": 0,
+    }
+    with pytest.raises(ValueError, match="Missing required ServerInfo properties: keycode, serial, list"):
+        await api.async_get_server_info()
 
 
 # Test for async_get_lights method
