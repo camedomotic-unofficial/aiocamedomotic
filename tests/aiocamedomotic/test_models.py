@@ -187,6 +187,34 @@ def test_came_light_properties(light_data_dimmable, auth_instance):
     assert light.perc == light_data_dimmable["perc"]
 
 
+def test_light_unknown_type(auth_instance):
+    """Test that a light with an unknown type is correctly handled."""
+    # Create light data with an unknown type
+    unknown_light_data = {
+        "act_id": 1,
+        "floor_ind": 2,
+        "name": "Unknown Light Type",
+        "room_ind": 3,
+        "status": 1,
+        "type": "UNKNOWN_TYPE_FROM_API",
+    }
+
+    # Initialize the light
+    light = Light(unknown_light_data, auth_instance)
+
+    # Verify that the light is created correctly
+    assert light.raw_data == unknown_light_data
+    assert light.name == "Unknown Light Type"
+
+    # Verify that the type property returns UNKNOWN
+    assert light.type == LightType.UNKNOWN
+
+    # Verify that other properties are still accessible
+    assert light.status == LightStatus.ON
+    assert light.act_id == 1
+    assert light.perc == 100  # Default value for non-dimmable lights
+
+
 @pytest.mark.asyncio
 @patch.object(
     Auth,
@@ -291,6 +319,66 @@ def test_opening_status_enum():
 def test_opening_type_enum():
     """Test the OpeningType enum values."""
     assert OpeningType.SHUTTER.value == 0
+    assert OpeningType.UNKNOWN.value == -1
+
+
+def test_opening_unknown_type(auth_instance):
+    """Test that an opening with an unknown type is correctly handled."""
+    # Create opening data with an unknown type
+    unknown_opening_data = {
+        "open_act_id": 10,
+        "close_act_id": 11,
+        "floor_ind": 1,
+        "name": "Unknown Opening Type",
+        "room_ind": 2,
+        "status": 0,
+        "type": 999,  # Unknown type value
+        "partial": [],
+    }
+    
+    # Initialize the opening
+    opening = Opening(unknown_opening_data, auth_instance)
+    
+    # Verify that the opening is created correctly
+    assert opening.raw_data == unknown_opening_data
+    assert opening.name == "Unknown Opening Type"
+    
+    # Verify that the type property returns UNKNOWN
+    assert opening.type == OpeningType.UNKNOWN
+    
+    # Verify that other properties are still accessible
+    assert opening.open_act_id == 10
+    assert opening.close_act_id == 11
+
+
+def test_opening_unknown_status(auth_instance):
+    """Test that an opening with an unknown status is correctly handled."""
+    # Create opening data with an unknown status
+    unknown_status_data = {
+        "open_act_id": 10,
+        "close_act_id": 11,
+        "floor_ind": 1,
+        "name": "Unknown Status Opening",
+        "room_ind": 2,
+        "status": 999,  # Unknown status value
+        "type": 0,  # Valid type (SHUTTER)
+        "partial": [],
+    }
+    
+    # Initialize the opening
+    opening = Opening(unknown_status_data, auth_instance)
+    
+    # Verify that the opening is created correctly
+    assert opening.raw_data == unknown_status_data
+    assert opening.name == "Unknown Status Opening"
+    
+    # Verify that the status property returns UNKNOWN
+    assert opening.status == OpeningStatus.UNKNOWN
+    
+    # Verify that other properties are still accessible
+    assert opening.type == OpeningType.SHUTTER
+    assert opening.open_act_id == 10
+    assert opening.close_act_id == 11
 
 
 def test_came_opening_initialization(opening_data_shutter_stopped, auth_instance):
