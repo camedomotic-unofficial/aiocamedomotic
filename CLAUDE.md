@@ -43,3 +43,4 @@ To allow proper autolabeling of changes, please name your branches as follows:
 
 ## Other notes
 - The `master` git branch is protected, to merge you must create a new branch and raise a PR
+- Never mention in comments (commits, PRs, etc.) Claude or any other AI tool
