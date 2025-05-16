@@ -96,8 +96,8 @@ Acknowledgments
 ---------------
 Special thanks to Andrea Michielan for his foundational work with the
 `eti_domo <https://github.com/andrea-michielan/eti_domo>`_ library, which greatly
-facilitated the development of this library. We also found great inspiration in the Home
-Assistant document
+facilitated the initial development of this library. We also found great inspiration in
+the Home Assistant document
 `Building a Python library for an API <https://developers.home-assistant.io/docs/api_lib_index>`_.
 
 
