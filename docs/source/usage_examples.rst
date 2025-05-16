@@ -314,7 +314,7 @@ Checking Authentication Status
 
 **Session management** is automatic and **transparent to the user**, anyway, should you
 need for some reason to check the server session status, you can use the
-``validate_session()`` method on the ``auth`` attribute of the ``CameDomoticAPI``
+``is_session_valid()`` method on the ``auth`` attribute of the ``CameDomoticAPI``
 instance.
 
 .. code-block:: python
