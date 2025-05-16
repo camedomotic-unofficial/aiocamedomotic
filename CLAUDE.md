@@ -1,4 +1,9 @@
-# CLAUDE.md - AIOCameDomotic Helper
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+AIOCameDomotic is an unofficial Python library that provides an asynchronous API for interacting with CAME Domotic home automation systems. The library abstracts away the complexity of the CAME API, offers automatic session management, and is primarily developed for integration with Home Assistant but usable independently.
 
 ## Build & Development Commands
 - Install with dependencies: `poetry install`
@@ -25,11 +30,19 @@
 - **Testing**: Pytest with mocks, fixtures, parameterization, and freezegun for time-dependent tests
 - **Comments**: never mention in comments of code, commits, PRs, etc. that have been generated with the help of Claude or any other AI tool
 
+## Project Architecture
+- **Core Components**:
+  - `CameDomoticAPI` (in came_domotic_api.py): Main interface for interacting with CAME Domotic systems
+  - `Auth` (in auth.py): Handles authentication and session management with the CAME API
+  - Device Models (in models/*.py): Represent different types of devices with their operations
+  - Error Classes (in errors.py): Custom exceptions for different failure scenarios
+- **Asynchronous Design**: Library uses asyncio and aiohttp for non-blocking operations
+- **Data Flow**: API client authenticates via Auth module → interacts with devices via appropriate models
+
 ## Project Structure
 - Core API: `aiocamedomotic/came_domotic_api.py`
 - Authentication: `aiocamedomotic/auth.py`
 - Models: `aiocamedomotic/models/*.py`
-- Constants: `aiocamedomotic/const.py`
 - Error Classes: `aiocamedomotic/errors.py`
 
 ## Branch naming convention
@@ -44,3 +57,5 @@ To allow proper autolabeling of changes, please name your branches as follows:
 ## Other notes
 - The `master` git branch is protected, to merge you must create a new branch and raise a PR
 - Never mention in comments (commits, PRs, etc.) Claude or any other AI tool
+- Python 3.12+ is required for this project
+- Library is available under Apache License 2.0
