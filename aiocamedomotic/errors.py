@@ -22,7 +22,7 @@ class CameDomoticError(Exception):
 
 
 class CameDomoticServerNotFoundError(CameDomoticError):
-    """Raised when the specified host is not available"""
+    """Raised when the specified host is not available."""
 
 
 # Authentication exception class
@@ -33,7 +33,7 @@ class CameDomoticAuthError(CameDomoticError):
 # Server exception class
 class CameDomoticServerError(CameDomoticError):
     """
-    Raised if an error occurs while interacting with the remote CAME Domotic server
+    Raised if an error occurs while interacting with the remote CAME Domotic server.
     """
 
     @staticmethod
@@ -41,11 +41,11 @@ class CameDomoticServerError(CameDomoticError):
         """Formats the ack code and reason in a human-readable format.
 
         Args:
-            ack_code (str, optional): the ack code. Defaults to "N/A".
-            reason (str, optional): the reason. Defaults to "N/A".
+            ack_code (str, optional): The ack code. Defaults to "N/A".
+            reason (str, optional): The reason. Defaults to "N/A".
 
         Returns:
-            str: the formatted error message.
+            str: The formatted error message.
         """
 
         # Convert with str() to ensure that will never raise an exception

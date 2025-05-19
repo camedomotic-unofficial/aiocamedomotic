@@ -74,7 +74,7 @@ class CameDomoticAPI:
         return [User(user, self.auth) for user in users_list]
 
     async def async_get_server_info(self) -> ServerInfo:
-        """Get the server information
+        """Get the server information.
 
         Provides info about the server (keycode, software version, etc.) and the list of
         features supported by the CAME Domotic server.
@@ -145,7 +145,7 @@ class CameDomoticAPI:
         """Get the list of status updates from the server.
 
         Returns:
-            CameUpdates: List of status updates.
+            UpdateList: List of status updates.
 
         Raises:
             CameDomoticAuthError: If the authentication fails.
@@ -224,7 +224,7 @@ class CameDomoticAPI:
 
         Raises:
             CameDomoticServerNotFoundError: if the host doesn't respond to an HTTP
-                request or doesn't expose the CAME Domotic API endopoint.
+                request or doesn't expose the CAME Domotic API endpoint.
 
         Note:
             The session is not logged in until the first request is made.

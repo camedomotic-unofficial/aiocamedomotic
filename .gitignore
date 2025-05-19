@@ -190,3 +190,5 @@ cmd
 
 # Test configuration for real server tests
 tests/aiocamedomotic/test_config.ini
+
+tmp

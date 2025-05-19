@@ -66,7 +66,7 @@ class Light(CameEntity):
     Light entity in the CameDomotic API.
 
     Raises:
-        ValueError: If `name` or `act_id` keys are missing from the input data the auth
+        ValueError: If `name` or `act_id` keys are missing from the input data or the auth
             argument is not an instance of the expected `Auth` class.
     """
 

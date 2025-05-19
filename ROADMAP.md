@@ -55,7 +55,7 @@ their status.
   - Implement functionality to list users defined on the remote server, enhancing
     control over who has access to the domotic plant management.
 - **Digital-in**:
-  - Implement functionalities to list and acts on the digital-ins (e.g. digital switches)
+  - Implement functionalities to list and act on the digital-ins (e.g. digital switches)
 - **Terminals**: Implement functionality to list the configured terminals (i.e. CAME Domotic servers)
 
 ## Future considerations

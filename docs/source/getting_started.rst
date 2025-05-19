@@ -93,7 +93,7 @@ Let's go step by step:
         ) as api:
 
    This command will raise a ``CameDomoticServerNotFoundError`` exception if the server
-   is not found (tipically, bad IP/hostname or other network issue). Notice that the
+   is not found (typically, bad IP/hostname or other network issue). Notice that the
    ``CameDomoticAPI`` class is an asynchronous context manager, so it must be used with
    the ``async with`` statement.
 
