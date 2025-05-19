@@ -56,7 +56,7 @@ interested in experimenting with a CAME Domotic plant.
 .. important::
     This library is independently developed and is not affiliated with, endorsed by,
     or supported by `CAME <https://www.came.com/>`_. It may not be compatible with all
-    CAME Domotic systems. While this library is stable and publicly released, it comesù
+    CAME Domotic systems. While this library is stable and publicly released, it comes
     with no guarantees. Use at your own risk.
 
 .. danger::
