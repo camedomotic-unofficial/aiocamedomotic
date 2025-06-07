@@ -154,7 +154,9 @@ class Floor(CameEntity):
     raw_data: dict
 
     def __post_init__(self):
-        EntityValidator.validate_data(self.raw_data, required_keys=["floor_ind", "name"])
+        EntityValidator.validate_data(
+            self.raw_data, required_keys=["floor_ind", "name"]
+        )
 
     @property
     def id(self) -> int:
