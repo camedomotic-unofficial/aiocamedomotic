@@ -141,3 +141,61 @@ class ServerInfo(CameEntity):
             raise ValueError(
                 f"Missing required ServerInfo properties: {', '.join(missing)}"
             )
+
+
+@dataclass
+class Floor(CameEntity):
+    """
+    Floor entity in the CAME Domotic API.
+
+    Represents a floor in the building structure with its identifier and name.
+    """
+
+    raw_data: dict
+
+    def __post_init__(self):
+        EntityValidator.validate_data(
+            self.raw_data, required_keys=["floor_ind", "name"]
+        )
+
+    @property
+    def id(self) -> int:
+        """ID of the floor."""
+        return self.raw_data["floor_ind"]
+
+    @property
+    def name(self) -> str:
+        """Name of the floor."""
+        return self.raw_data["name"]
+
+
+@dataclass
+class Room(CameEntity):
+    """
+    Room entity in the CAME Domotic API.
+
+    Represents a room in the building structure with its identifier, name,
+    and the floor it belongs to.
+    """
+
+    raw_data: dict
+
+    def __post_init__(self):
+        EntityValidator.validate_data(
+            self.raw_data, required_keys=["room_ind", "name", "floor_ind"]
+        )
+
+    @property
+    def id(self) -> int:
+        """ID of the room."""
+        return self.raw_data["room_ind"]
+
+    @property
+    def name(self) -> str:
+        """Name of the room."""
+        return self.raw_data["name"]
+
+    @property
+    def floor_id(self) -> int:
+        """ID of the floor this room belongs to."""
+        return self.raw_data["floor_ind"]

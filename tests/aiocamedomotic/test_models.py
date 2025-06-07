@@ -35,6 +35,8 @@ from aiocamedomotic.models import (
     Opening,
     OpeningStatus,
     OpeningType,
+    Floor,
+    Room,
 )
 
 from tests.aiocamedomotic.mocked_responses import STATUS_UPDATE_RESP
@@ -88,42 +90,34 @@ def test_came_server_info_initialization_invalid():
 
 def test_server_info_missing_keycode():
     """Test ServerInfo validation when keycode is missing."""
-    with pytest.raises(ValueError, match="Missing required ServerInfo properties: keycode"):
-        ServerInfo(
-            keycode=None,
-            serial="12345",
-            list=["lights", "openings"]
-        )
+    with pytest.raises(
+        ValueError, match="Missing required ServerInfo properties: keycode"
+    ):
+        ServerInfo(keycode=None, serial="12345", list=["lights", "openings"])
 
 
 def test_server_info_missing_serial():
     """Test ServerInfo validation when serial is missing."""
-    with pytest.raises(ValueError, match="Missing required ServerInfo properties: serial"):
-        ServerInfo(
-            keycode="001122AABBCC",
-            serial=None,
-            list=["lights", "openings"]
-        )
+    with pytest.raises(
+        ValueError, match="Missing required ServerInfo properties: serial"
+    ):
+        ServerInfo(keycode="001122AABBCC", serial=None, list=["lights", "openings"])
 
 
 def test_server_info_missing_list():
     """Test ServerInfo validation when list is missing."""
-    with pytest.raises(ValueError, match="Missing required ServerInfo properties: list"):
-        ServerInfo(
-            keycode="001122AABBCC",
-            serial="12345",
-            list=None
-        )
+    with pytest.raises(
+        ValueError, match="Missing required ServerInfo properties: list"
+    ):
+        ServerInfo(keycode="001122AABBCC", serial="12345", list=None)
 
 
 def test_server_info_missing_multiple_fields():
     """Test ServerInfo validation when multiple fields are missing."""
-    with pytest.raises(ValueError, match="Missing required ServerInfo properties: keycode, serial"):
-        ServerInfo(
-            keycode=None,
-            serial=None,
-            list=["lights", "openings"]
-        )
+    with pytest.raises(
+        ValueError, match="Missing required ServerInfo properties: keycode, serial"
+    ):
+        ServerInfo(keycode=None, serial=None, list=["lights", "openings"])
 
 
 def test_server_info_all_optional_fields_none():
@@ -134,9 +128,9 @@ def test_server_info_all_optional_fields_none():
         list=["lights", "openings"],
         swver=None,
         type=None,
-        board=None
+        board=None,
     )
-    
+
     assert server_info.keycode == "001122AABBCC"
     assert server_info.serial == "12345"
     assert server_info.list == ["lights", "openings"]
@@ -177,18 +171,20 @@ async def test_user_async_set_as_current_user_success():
     mock_auth = AsyncMock(spec=Auth)
     backup_credentials = ("old_user", "old_pass", "client_id", 123, 30, 1)
     mock_auth.backup_auth_credentials.return_value = backup_credentials
-    
+
     # Create user instance
     user_data = {"name": "new_user", "id": 123}
     user = User(user_data, mock_auth)
-    
+
     # Execute the method
     await user.async_set_as_current_user("new_password")
-    
+
     # Verify the sequence of calls
     mock_auth.backup_auth_credentials.assert_called_once()
     mock_auth.async_logout.assert_called_once()
-    mock_auth.update_auth_credentials.assert_called_once_with("new_user", "new_password")
+    mock_auth.update_auth_credentials.assert_called_once_with(
+        "new_user", "new_password"
+    )
     mock_auth.async_login.assert_called_once()
 
 
@@ -202,17 +198,19 @@ async def test_user_attempt_login_as_current_user():
     """Test the private login attempt method."""
     # Create mock auth
     mock_auth = AsyncMock(spec=Auth)
-    
+
     # Create user instance
     user_data = {"name": "test_user", "id": 123}
     user = User(user_data, mock_auth)
-    
+
     # Execute the private method
     await user._attempt_login_as_current_user("test_password")
-    
+
     # Verify the sequence
     mock_auth.async_logout.assert_called_once()
-    mock_auth.update_auth_credentials.assert_called_once_with("test_user", "test_password")
+    mock_auth.update_auth_credentials.assert_called_once_with(
+        "test_user", "test_password"
+    )
     mock_auth.async_login.assert_called_once()
 
 
@@ -222,18 +220,20 @@ async def test_user_attempt_login_as_current_user_login_failure():
     # Create mock auth
     mock_auth = AsyncMock(spec=Auth)
     mock_auth.async_login.side_effect = CameDomoticAuthError("Login failed")
-    
+
     # Create user instance
     user_data = {"name": "test_user", "id": 123}
     user = User(user_data, mock_auth)
-    
+
     # Execute and expect failure
     with pytest.raises(CameDomoticAuthError, match="Login failed"):
         await user._attempt_login_as_current_user("test_password")
-    
+
     # Verify logout and credential update were called before failure
     mock_auth.async_logout.assert_called_once()
-    mock_auth.update_auth_credentials.assert_called_once_with("test_user", "test_password")
+    mock_auth.update_auth_credentials.assert_called_once_with(
+        "test_user", "test_password"
+    )
 
 
 # endregion
@@ -264,6 +264,7 @@ def test_updatelist_init_with_non_dict_data():
     assert updates.data == []
 
 
+# endregion
 # region Light tests
 
 
@@ -409,9 +410,9 @@ def test_light_edge_case_missing_optional_field(auth_instance):
         "status": 1,
         # Missing optional fields like floor_ind, room_ind, perc, etc.
     }
-    
+
     light = Light(light_data, auth_instance)
-    
+
     # Test property access that might trigger untested lines
     assert light.name == "Test Light"
     assert light.act_id == 1
@@ -426,9 +427,9 @@ def test_light_status_unknown_value(auth_instance):
         "status": 999,  # Unknown status value
         "type": "STEP_STEP",
     }
-    
+
     light = Light(light_data, auth_instance)
-    
+
     # This should raise a ValueError when accessing the status property
     with pytest.raises(ValueError):
         status = light.status
@@ -442,23 +443,27 @@ def test_light_auth_type_validation():
         "status": 1,
         "type": "STEP_STEP",
     }
-    
+
     # Test with non-Auth object (string)
     with pytest.raises(ValueError, match="'auth' must be an instance of Auth, got str"):
         Light(light_data, "not_an_auth_instance")
-    
+
     # Test with non-Auth object (dict)
-    with pytest.raises(ValueError, match="'auth' must be an instance of Auth, got dict"):
+    with pytest.raises(
+        ValueError, match="'auth' must be an instance of Auth, got dict"
+    ):
         Light(light_data, {"fake": "auth"})
 
 
 @pytest.mark.asyncio
 @patch.object(Auth, "async_get_valid_client_id", return_value="test_client")
 @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
-async def test_light_unknown_type_warning_in_async_set_status(mock_send_command, mock_get_client_id, auth_instance, caplog):
+async def test_light_unknown_type_warning_in_async_set_status(
+    mock_send_command, mock_get_client_id, auth_instance, caplog
+):
     """Test Light unknown type warning during async_set_status."""
     import logging
-    
+
     # Create light data with unknown type (this will trigger LightType.UNKNOWN)
     light_data = {
         "act_id": 1,
@@ -466,21 +471,24 @@ async def test_light_unknown_type_warning_in_async_set_status(mock_send_command,
         "status": 1,
         "type": "UNKNOWN_TYPE_FROM_API",  # This will become LightType.UNKNOWN
     }
-    
+
     light = Light(light_data, auth_instance)
-    
+
     # Verify the light has unknown type
     assert light.type == LightType.UNKNOWN
-    
+
     # Set up logging to capture warnings
     with caplog.at_level(logging.WARNING):
         # Call async_set_status to trigger the warning
         await light.async_set_status(LightStatus.ON)
-    
+
     # Verify warning was logged
-    assert "Attempting to set status for light 'Unknown Type Light' (ID: 1) with UNKNOWN type" in caplog.text
+    assert (
+        "Attempting to set status for light 'Unknown Type Light' (ID: 1) with UNKNOWN type"
+        in caplog.text
+    )
     assert "Command might fail or have unintended effects" in caplog.text
-    
+
     # Verify the command was still sent
     mock_send_command.assert_called_once()
 
@@ -546,17 +554,17 @@ def test_opening_unknown_type(auth_instance):
         "type": 999,  # Unknown type value
         "partial": [],
     }
-    
+
     # Initialize the opening
     opening = Opening(unknown_opening_data, auth_instance)
-    
+
     # Verify that the opening is created correctly
     assert opening.raw_data == unknown_opening_data
     assert opening.name == "Unknown Opening Type"
-    
+
     # Verify that the type property returns UNKNOWN
     assert opening.type == OpeningType.UNKNOWN
-    
+
     # Verify that other properties are still accessible
     assert opening.open_act_id == 10
     assert opening.close_act_id == 11
@@ -575,17 +583,17 @@ def test_opening_unknown_status(auth_instance):
         "type": 0,  # Valid type (SHUTTER)
         "partial": [],
     }
-    
+
     # Initialize the opening
     opening = Opening(unknown_status_data, auth_instance)
-    
+
     # Verify that the opening is created correctly
     assert opening.raw_data == unknown_status_data
     assert opening.name == "Unknown Status Opening"
-    
+
     # Verify that the status property returns UNKNOWN
     assert opening.status == OpeningStatus.UNKNOWN
-    
+
     # Verify that other properties are still accessible
     assert opening.type == OpeningType.SHUTTER
     assert opening.open_act_id == 10
@@ -702,14 +710,152 @@ def test_opening_auth_type_validation():
         "status": 0,
         "type": 0,
     }
-    
+
     # Test with non-Auth object (string)
     with pytest.raises(ValueError, match="'auth' must be an instance of Auth, got str"):
         Opening(opening_data, "not_an_auth_instance")
-    
+
     # Test with non-Auth object (dict)
-    with pytest.raises(ValueError, match="'auth' must be an instance of Auth, got dict"):
+    with pytest.raises(
+        ValueError, match="'auth' must be an instance of Auth, got dict"
+    ):
         Opening(opening_data, {"fake": "auth"})
+
+
+# endregion
+
+# region Floor tests
+
+
+def test_floor_initialization():
+    """Test Floor class initialization with valid data."""
+    floor_data = {"floor_ind": 1, "name": "Ground Floor"}
+
+    floor = Floor(floor_data)
+
+    assert floor.raw_data == floor_data
+    assert floor.id == 1
+    assert floor.name == "Ground Floor"
+
+
+def test_floor_initialization_missing_id():
+    """Test Floor initialization when floor_ind is missing."""
+    floor_data = {"name": "Ground Floor"}
+
+    with pytest.raises(ValueError, match="Data is missing required keys: floor_ind"):
+        Floor(floor_data)
+
+
+def test_floor_initialization_missing_name():
+    """Test Floor initialization when name is missing."""
+    floor_data = {"floor_ind": 1}
+
+    with pytest.raises(ValueError, match="Data is missing required keys: name"):
+        Floor(floor_data)
+
+
+def test_floor_initialization_missing_multiple_keys():
+    """Test Floor initialization when multiple required keys are missing."""
+    floor_data = {}
+
+    with pytest.raises(
+        ValueError, match="Data is missing required keys: floor_ind, name"
+    ):
+        Floor(floor_data)
+
+
+def test_floor_initialization_non_dict_data():
+    """Test Floor initialization with non-dict data."""
+    with pytest.raises(ValueError, match="Provided data must be a dictionary"):
+        Floor("not a dict")
+
+
+def test_floor_properties_with_string_id():
+    """Test Floor properties when floor_ind is provided as string."""
+    floor_data = {"floor_ind": "2", "name": "First Floor"}
+
+    floor = Floor(floor_data)
+
+    assert floor.id == "2"  # Returns as-is from raw_data
+    assert floor.name == "First Floor"
+
+
+# endregion
+
+# region Room tests
+
+
+def test_room_initialization():
+    """Test Room class initialization with valid data."""
+    room_data = {"room_ind": 5, "name": "Living Room", "floor_ind": 1}
+
+    room = Room(room_data)
+
+    assert room.raw_data == room_data
+    assert room.id == 5
+    assert room.name == "Living Room"
+    assert room.floor_id == 1
+
+
+def test_room_initialization_missing_id():
+    """Test Room initialization when room_ind is missing."""
+    room_data = {"name": "Living Room", "floor_ind": 1}
+
+    with pytest.raises(ValueError, match="Data is missing required keys: room_ind"):
+        Room(room_data)
+
+
+def test_room_initialization_missing_name():
+    """Test Room initialization when name is missing."""
+    room_data = {"room_ind": 5, "floor_ind": 1}
+
+    with pytest.raises(ValueError, match="Data is missing required keys: name"):
+        Room(room_data)
+
+
+def test_room_initialization_missing_floor_id():
+    """Test Room initialization when floor_ind is missing."""
+    room_data = {"room_ind": 5, "name": "Living Room"}
+
+    with pytest.raises(ValueError, match="Data is missing required keys: floor_ind"):
+        Room(room_data)
+
+
+def test_room_initialization_missing_multiple_keys():
+    """Test Room initialization when multiple required keys are missing."""
+    room_data = {"name": "Living Room"}
+
+    with pytest.raises(
+        ValueError, match="Data is missing required keys: room_ind, floor_ind"
+    ):
+        Room(room_data)
+
+
+def test_room_initialization_missing_all_keys():
+    """Test Room initialization when all required keys are missing."""
+    room_data = {}
+
+    with pytest.raises(
+        ValueError, match="Data is missing required keys: room_ind, name, floor_ind"
+    ):
+        Room(room_data)
+
+
+def test_room_initialization_non_dict_data():
+    """Test Room initialization with non-dict data."""
+    with pytest.raises(ValueError, match="Provided data must be a dictionary"):
+        Room("not a dict")
+
+
+def test_room_properties_with_string_ids():
+    """Test Room properties when IDs are provided as strings."""
+    room_data = {"room_ind": "10", "name": "Kitchen", "floor_ind": "2"}
+
+    room = Room(room_data)
+
+    assert room.id == "10"  # Returns as-is from raw_data
+    assert room.name == "Kitchen"
+    assert room.floor_id == "2"  # Returns as-is from raw_data
 
 
 # endregion
