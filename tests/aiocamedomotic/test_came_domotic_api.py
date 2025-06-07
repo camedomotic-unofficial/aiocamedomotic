@@ -27,10 +27,13 @@ from aiocamedomotic.models import (
     User,
     Light,
     Opening,
+    UpdateList,
 )
 from aiocamedomotic.errors import (
     CameDomoticServerNotFoundError,
     CameDomoticError,
+    CameDomoticAuthError,
+    CameDomoticServerError,
 )
 
 
@@ -662,6 +665,75 @@ async def test_async_get_openings_unknown_enums(mock_send_command, auth_instance
     assert len(openings) == 1
     assert openings[0].status.value == -1  # OpeningStatus.UNKNOWN
     assert openings[0].type.value == -1    # OpeningType.UNKNOWN
+
+
+# endregion
+
+
+# region async_get_updates
+@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+@patch.object(Auth, "async_get_valid_client_id", return_value="test_client_id")
+async def test_async_get_updates_success(mock_get_client_id, mock_send_command, auth_instance):
+    """Test successful retrieval of status updates."""
+    api = CameDomoticAPI(auth_instance)
+    
+    # Mock response data
+    mock_response_data = {
+        "update_list": [
+            {"device_id": 1, "status": "on", "timestamp": "2024-01-01T12:00:00Z"},
+            {"device_id": 2, "status": "off", "timestamp": "2024-01-01T12:01:00Z"}
+        ]
+    }
+    
+    # Mock the HTTP response
+    mock_send_command.return_value.json.return_value = mock_response_data
+    
+    # Execute the method
+    result = await api.async_get_updates()
+    
+    # Assertions
+    assert isinstance(result, UpdateList)
+    mock_get_client_id.assert_called_once()
+    mock_send_command.assert_called_once()
+    
+    # Verify the payload structure
+    call_args = mock_send_command.call_args[0][0]
+    assert call_args["sl_client_id"] == "test_client_id"
+    assert call_args["sl_cmd"] == "sl_data_req"
+    assert call_args["sl_appl_msg_type"] == "domo"
+    assert call_args["sl_appl_msg"]["cmd_name"] == "status_update_req"
+
+
+@patch.object(Auth, "async_get_valid_client_id", side_effect=CameDomoticAuthError("Auth failed"))
+async def test_async_get_updates_auth_error(mock_get_client_id, auth_instance):
+    """Test async_get_updates when authentication fails."""
+    api = CameDomoticAPI(auth_instance)
+    
+    with pytest.raises(CameDomoticAuthError, match="Auth failed"):
+        await api.async_get_updates()
+
+
+@patch.object(Auth, "async_get_valid_client_id", return_value="test_client_id")
+@patch.object(Auth, "async_send_command", side_effect=CameDomoticServerError("Server error"))
+async def test_async_get_updates_server_error(mock_send_command, mock_get_client_id, auth_instance):
+    """Test async_get_updates when server returns an error."""
+    api = CameDomoticAPI(auth_instance)
+    
+    with pytest.raises(CameDomoticServerError, match="Server error"):
+        await api.async_get_updates()
+
+
+@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+@patch.object(Auth, "async_get_valid_client_id", return_value="test_client_id")
+async def test_async_get_updates_empty_response(mock_get_client_id, mock_send_command, auth_instance):
+    """Test async_get_updates with empty server response."""
+    api = CameDomoticAPI(auth_instance)
+    
+    mock_send_command.return_value.json.return_value = {}
+    
+    result = await api.async_get_updates()
+    
+    assert isinstance(result, UpdateList)
 
 
 # endregion
