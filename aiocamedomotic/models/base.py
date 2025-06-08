@@ -104,7 +104,7 @@ class ServerInfo(CameEntity):
     serial: str
     """Serial number of the server."""
 
-    list: list[str]
+    features: list[str]
     """List of features supported by the server.
 
     Known values (as of now) are:
@@ -134,8 +134,8 @@ class ServerInfo(CameEntity):
             missing.append("keycode")
         if self.serial is None:
             missing.append("serial")
-        if self.list is None:
-            missing.append("list")
+        if self.features is None:
+            missing.append("features")
 
         if missing:
             raise ValueError(

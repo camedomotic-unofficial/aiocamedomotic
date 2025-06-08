@@ -54,7 +54,7 @@ def test_came_server_info_initialization():
         swver="swver1",
         type="type1",
         board="board1",
-        list=features,
+        features=features,
     )
 
     assert server_info.keycode == "keycode1"
@@ -62,7 +62,7 @@ def test_came_server_info_initialization():
     assert server_info.type == "type1"
     assert server_info.board == "board1"
     assert server_info.serial == "serial1"
-    assert server_info.list == features
+    assert server_info.features == features
 
 
 def test_came_server_info_initialization_nullable():
@@ -70,12 +70,12 @@ def test_came_server_info_initialization_nullable():
     server_info = ServerInfo(
         keycode="keycode1",
         serial="serial1",
-        list=features,
+        features=features,
     )
 
     assert server_info.keycode == "keycode1"
     assert server_info.serial == "serial1"
-    assert server_info.list == features
+    assert server_info.features == features
     assert server_info.type is None
     assert server_info.board is None
     assert server_info.swver is None
@@ -93,7 +93,7 @@ def test_server_info_missing_keycode():
     with pytest.raises(
         ValueError, match="Missing required ServerInfo properties: keycode"
     ):
-        ServerInfo(keycode=None, serial="12345", list=["lights", "openings"])
+        ServerInfo(keycode=None, serial="12345", features=["lights", "openings"])
 
 
 def test_server_info_missing_serial():
@@ -101,15 +101,15 @@ def test_server_info_missing_serial():
     with pytest.raises(
         ValueError, match="Missing required ServerInfo properties: serial"
     ):
-        ServerInfo(keycode="001122AABBCC", serial=None, list=["lights", "openings"])
+        ServerInfo(keycode="001122AABBCC", serial=None, features=["lights", "openings"])
 
 
-def test_server_info_missing_list():
-    """Test ServerInfo validation when list is missing."""
+def test_server_info_missing_features():
+    """Test ServerInfo validation when features is missing."""
     with pytest.raises(
-        ValueError, match="Missing required ServerInfo properties: list"
+        ValueError, match="Missing required ServerInfo properties: features"
     ):
-        ServerInfo(keycode="001122AABBCC", serial="12345", list=None)
+        ServerInfo(keycode="001122AABBCC", serial="12345", features=None)
 
 
 def test_server_info_missing_multiple_fields():
@@ -117,7 +117,7 @@ def test_server_info_missing_multiple_fields():
     with pytest.raises(
         ValueError, match="Missing required ServerInfo properties: keycode, serial"
     ):
-        ServerInfo(keycode=None, serial=None, list=["lights", "openings"])
+        ServerInfo(keycode=None, serial=None, features=["lights", "openings"])
 
 
 def test_server_info_all_optional_fields_none():
@@ -125,7 +125,7 @@ def test_server_info_all_optional_fields_none():
     server_info = ServerInfo(
         keycode="001122AABBCC",
         serial="12345",
-        list=["lights", "openings"],
+        features=["lights", "openings"],
         swver=None,
         type=None,
         board=None,
@@ -133,7 +133,7 @@ def test_server_info_all_optional_fields_none():
 
     assert server_info.keycode == "001122AABBCC"
     assert server_info.serial == "12345"
-    assert server_info.list == ["lights", "openings"]
+    assert server_info.features == ["lights", "openings"]
     assert server_info.swver is None
     assert server_info.type is None
     assert server_info.board is None
