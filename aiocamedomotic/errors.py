@@ -16,6 +16,8 @@
 This module contains the exceptions that can be raised by the CAME Domotic API.
 """
 
+from .const import get_ack_error_message, is_auth_error
+
 
 class CameDomoticError(Exception):
     """Base exception class for the CAME Domotic package."""
@@ -37,16 +39,31 @@ class CameDomoticServerError(CameDomoticError):
     """
 
     @staticmethod
-    def format_ack_error(ack_code: str = "N/A", reason: str = "N/A") -> str:
-        """Formats the ack code and reason in a human-readable format.
+    def format_ack_error(ack_code: int) -> str:
+        """Formats the ack code in a human-readable format.
 
         Args:
-            ack_code (str, optional): The ack code. Defaults to "N/A".
-            reason (str, optional): The reason. Defaults to "N/A".
+            ack_code (int): The ACK error code from the server.
 
         Returns:
             str: The formatted error message.
         """
+        message = get_ack_error_message(ack_code)
+        return f"ACK error {ack_code}: {message}"
 
-        # Convert with str() to ensure that will never raise an exception
-        return f"Bad ack code: {str(ack_code)} - Reason: {str(reason)}"
+    @staticmethod
+    def create_ack_error(ack_code: int):
+        """Create appropriate exception based on ACK error code.
+
+        Args:
+            ack_code (int): The ACK error code from the server.
+
+        Returns:
+            CameDomoticError: Appropriate exception instance based on error code.
+        """
+        message = CameDomoticServerError.format_ack_error(ack_code)
+
+        if is_auth_error(ack_code):
+            return CameDomoticAuthError(message)
+        else:
+            return CameDomoticServerError(message)

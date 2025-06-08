@@ -40,6 +40,7 @@ from .errors import (
     CameDomoticServerError,
     CameDomoticServerNotFoundError,
 )
+from .const import get_ack_error_message, is_auth_error
 
 
 def handle_came_domotic_errors(func):
@@ -49,10 +50,12 @@ def handle_came_domotic_errors(func):
     - aiohttp.ClientResponseError: for HTTP errors (4xx, 5xx)
     - aiohttp.ServerTimeoutError: for timeouts
     - aiohttp.ClientError: for other network-related errors
+    - CameDomoticAuthError: for authentication errors
     - any other exception: for unforeseen errors
 
     Raises:
         CameDomoticServerError: in case of any of the above errors.
+        CameDomoticAuthError: in case of authentication error.
     """
 
     @functools.wraps(func)
@@ -75,6 +78,10 @@ def handle_came_domotic_errors(func):
             raise CameDomoticServerError(
                 f"HTTP POST resulted in an unexpected network error ({e})'"
             ) from e
+        except CameDomoticAuthError as e:
+            raise e
+        except CameDomoticServerError as e:
+            raise e
         except Exception as e:
             # Catch-all for any other unforeseen errors
             raise CameDomoticServerError(
@@ -250,6 +257,8 @@ class Auth:
 
         Raises:
             CameDomoticServerError: if an error occurs during the command.
+            CameDomoticAuthError: if there is an authentication error with
+                the remote CAME Domotic server.
         """
 
         try:
@@ -274,6 +283,10 @@ class Auth:
 
             return response
 
+        except CameDomoticAuthError as e:
+            cmd_name = (payload.get("sl_appl_msg") or {}).get("cmd_name")
+            LOGGER.error("Error sending command '%s': %s", cmd_name, e)
+            raise e
         except CameDomoticServerError as e:
             cmd_name = (payload.get("sl_appl_msg") or {}).get("cmd_name")
             LOGGER.error("Error sending command '%s': %s", cmd_name, e)
@@ -360,11 +373,9 @@ class Auth:
 
             # Validate the response ACK code
             ack_reason = data.get("sl_data_ack_reason")
-            if ack_reason and ack_reason == 1:
-                raise CameDomoticAuthError("Bad credentials.")
             if ack_reason and ack_reason != 0:
                 raise CameDomoticAuthError(
-                    f"Authentication failed (ACK error: {ack_reason})"
+                    CameDomoticServerError.format_ack_error(ack_reason)
                 )
 
             # ACK is ok, store the login data
@@ -384,7 +395,7 @@ class Auth:
                 f"Login failed due to HTTP {e.status} error ({e.message})"
             ) from e
         except Exception as e:
-            raise CameDomoticAuthError("Unexpected error logging in") from e
+            raise CameDomoticAuthError("Unexpected error logging in.") from e
 
     async def async_keep_alive(self) -> None:
         """Keep the session alive, eventually logging in again if needed.
@@ -472,6 +483,8 @@ class Auth:
         Raises:
             CameDomoticServerError: if there is an error interacting with
                 the remote CAME Domotic server.
+            CameDomoticAuthError: if there is an authentication error with
+                the remote CAME Domotic server.
         """
         try:
             response.raise_for_status()
@@ -488,7 +501,7 @@ class Auth:
         ack_reason = resp_json.get("sl_data_ack_reason")
 
         if ack_reason and ack_reason != 0:
-            raise CameDomoticServerError(f"Bad ack code ({ack_reason})")
+            raise CameDomoticServerError.create_ack_error(ack_reason)
 
     def backup_auth_credentials(self):
         """Backup the current authentication credentials."""
