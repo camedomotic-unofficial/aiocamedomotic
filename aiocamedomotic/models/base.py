@@ -135,7 +135,7 @@ class ServerInfo(CameEntity):
         if self.serial is None:
             missing.append("serial")
         if self.features is None:
-            missing.append("list")
+            missing.append("features")
 
         if missing:
             raise ValueError(

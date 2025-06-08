@@ -104,10 +104,10 @@ def test_server_info_missing_serial():
         ServerInfo(keycode="001122AABBCC", serial=None, features=["lights", "openings"])
 
 
-def test_server_info_missing_list():
-    """Test ServerInfo validation when list is missing."""
+def test_server_info_missing_features():
+    """Test ServerInfo validation when features is missing."""
     with pytest.raises(
-        ValueError, match="Missing required ServerInfo properties: list"
+        ValueError, match="Missing required ServerInfo properties: features"
     ):
         ServerInfo(keycode="001122AABBCC", serial="12345", features=None)
 
