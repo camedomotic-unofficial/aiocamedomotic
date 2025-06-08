@@ -107,7 +107,7 @@ class CameDomoticAPI:
             type=json_response.get("type"),
             board=json_response.get("board"),
             serial=json_response.get("serial"),
-            list=json_response.get("list"),
+            features=json_response.get("list"),
         )
 
     async def async_get_lights(self) -> List[Light]:

@@ -240,7 +240,7 @@ async def test_async_get_server_info(mock_send_command, auth_instance):
     assert server_info.board == "3"
     assert server_info.serial == "0011ffee"
 
-    features = server_info.list
+    features = server_info.features
     assert len(features) == 7
     assert features[0] == "lights"
     assert features[1] == "openings"
@@ -322,7 +322,7 @@ async def test_async_get_server_info_empty_feature_list(
     }
 
     server_info = await api.async_get_server_info()
-    assert len(server_info.list) == 0
+    assert len(server_info.features) == 0
 
 
 # endregion
