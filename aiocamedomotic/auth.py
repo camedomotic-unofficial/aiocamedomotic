@@ -34,6 +34,7 @@ import aiohttp
 
 from cryptography.fernet import Fernet
 
+from . import __version__ as library_version
 from .utils import LOGGER
 from .errors import (
     CameDomoticAuthError,
@@ -103,8 +104,11 @@ class Auth:
     # Default timeout "safe zone" for session expiration
     _DEFAULT_SAFE_ZONE_SEC = 30
     _DEFAULT_HTTP_HEADERS = {
+        "User-Agent": f"aiocamedomotic/{library_version}",
+        "Accept": "application/json, text/plain, */*",  # Desumed from pycame library
         "Content-Type": "application/x-www-form-urlencoded",
         "Connection": "Keep-Alive",
+        # "Authorization": f"access_token {self._token}", # Desumed from pycame library
     }
 
     # Factory method to create an Auth instance
