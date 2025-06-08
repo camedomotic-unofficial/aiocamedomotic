@@ -66,8 +66,7 @@ class CameDomoticAPI:
         client_id = await self.auth.async_get_valid_client_id()
         payload = {"sl_client_id": client_id, "sl_cmd": "sl_users_list_req"}
 
-        response = await self.auth.async_send_command(payload)
-        json_response = await response.json(content_type=None)
+        json_response = await self.auth.async_send_command(payload)
 
         # Defaults to an empty list if the key is missing from the response JSON
         users_list = json_response.get("sl_users_list", [])
@@ -98,8 +97,8 @@ class CameDomoticAPI:
             "sl_client_id": client_id,
             "sl_cmd": "sl_data_req",
         }
-        response = await self.auth.async_send_command(payload)
-        json_response = await response.json(content_type=None)
+
+        json_response = await self.auth.async_send_command(payload)
 
         return ServerInfo(
             keycode=json_response.get("keycode"),
@@ -134,8 +133,8 @@ class CameDomoticAPI:
             "sl_client_id": client_id,
             "sl_cmd": "sl_data_req",
         }
-        response = await self.auth.async_send_command(payload)
-        json_response = await response.json(content_type=None)
+
+        json_response = await self.auth.async_send_command(payload)
 
         # Defaults to an empty list if the key is missing from the response JSON
         lights_list = json_response.get("array", [])
@@ -163,8 +162,7 @@ class CameDomoticAPI:
             "sl_client_id": client_id,
             "sl_cmd": "sl_data_req",
         }
-        response = await self.auth.async_send_command(payload)
-        json_response = await response.json(content_type=None)
+        json_response = await self.auth.async_send_command(payload)
         return UpdateList(json_response)
 
     async def async_get_openings(self) -> List[Opening]:
@@ -190,8 +188,8 @@ class CameDomoticAPI:
             "sl_client_id": client_id,
             "sl_cmd": "sl_data_req",
         }
-        response = await self.auth.async_send_command(payload)
-        json_response = await response.json(content_type=None)
+
+        json_response = await self.auth.async_send_command(payload)
 
         openings_data = json_response.get("array", [])
         return [Opening(opening_data, self.auth) for opening_data in openings_data]

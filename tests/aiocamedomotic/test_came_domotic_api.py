@@ -151,10 +151,10 @@ async def test_async_create_exception(mock_async_create):
 # region async_get_users
 
 
-@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+@patch.object(Auth, "async_send_command")
 async def test_async_get_users(mock_send_command, auth_instance):
     api = CameDomoticAPI(auth_instance)
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         "sl_cmd": "sl_users_list_resp",
         "sl_data_ack_reason": 0,
         "sl_client_id": "75c6c33a",
@@ -169,12 +169,12 @@ async def test_async_get_users(mock_send_command, auth_instance):
     assert users[1].name == "user"
 
 
-@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+@patch.object(Auth, "async_send_command")
 async def test_async_get_users_empty_list(mock_send_command, auth_instance):
     api = CameDomoticAPI(auth_instance)
 
     # Test empty list
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         "sl_cmd": "sl_users_list_resp",
         "sl_data_ack_reason": 0,
         "sl_client_id": "75c6c33a",
@@ -186,7 +186,7 @@ async def test_async_get_users_empty_list(mock_send_command, auth_instance):
     assert isinstance(users, list)
 
     # Test missing key
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         "sl_cmd": "sl_users_list_resp",
         "sl_data_ack_reason": 0,
         "sl_client_id": "75c6c33a",
@@ -208,10 +208,10 @@ async def test_async_get_users_empty_list(mock_send_command, auth_instance):
 
 
 # Test for async_get_server_info method
-@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+@patch.object(Auth, "async_send_command")
 async def test_async_get_server_info(mock_send_command, auth_instance):
     api = CameDomoticAPI(auth_instance)
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         "cmd_name": "feature_list_resp",
         "cseq": 1,
         "keycode": "0000FFFF9999AAAA",
@@ -246,12 +246,12 @@ async def test_async_get_server_info(mock_send_command, auth_instance):
     assert features[1] == "openings"
 
 
-@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+@patch.object(Auth, "async_send_command")
 async def test_async_get_server_info_missing_essential_keys(
     mock_send_command, auth_instance
 ):
     api = CameDomoticAPI(auth_instance)
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         "cmd_name": "feature_list_resp",
         "cseq": 1,
         # "keycode": "0000FFFF9999AAAA", # Missing keycode
@@ -270,7 +270,7 @@ async def test_async_get_server_info_missing_essential_keys(
         await api.async_get_server_info()
 
     # Test missing 'list'
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         "cmd_name": "feature_list_resp",
         "cseq": 1,
         "keycode": "0000FFFF9999AAAA",
@@ -285,7 +285,7 @@ async def test_async_get_server_info_missing_essential_keys(
         await api.async_get_server_info()
 
     # Test multiple missing fields
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         "cmd_name": "feature_list_resp",
         "cseq": 1,
         # "keycode": "0000FFFF9999AAAA", # Missing keycode
@@ -303,12 +303,12 @@ async def test_async_get_server_info_missing_essential_keys(
         await api.async_get_server_info()
 
 
-@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+@patch.object(Auth, "async_send_command")
 async def test_async_get_server_info_empty_feature_list(
     mock_send_command, auth_instance
 ):
     api = CameDomoticAPI(auth_instance)
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         "cmd_name": "feature_list_resp",
         "cseq": 1,
         "keycode": "0000FFFF9999AAAA",
@@ -332,10 +332,10 @@ async def test_async_get_server_info_empty_feature_list(
 
 
 # Test for async_get_lights method
-@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+@patch.object(Auth, "async_send_command")
 async def test_async_get_lights(mock_send_command, auth_instance):
     api = CameDomoticAPI(auth_instance)
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         "array": [
             {
                 "act_id": 1,
@@ -407,12 +407,12 @@ async def test_async_get_lights(mock_send_command, auth_instance):
     assert isinstance(lights[1], Light)
 
 
-@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+@patch.object(Auth, "async_send_command")
 async def test_async_get_lights_empty_array(mock_send_command, auth_instance):
     api = CameDomoticAPI(auth_instance)
 
     # Test empty list
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         "array": [],  # Empty array
         "cmd_name": "light_list_resp",
         "cseq": 1,
@@ -424,7 +424,7 @@ async def test_async_get_lights_empty_array(mock_send_command, auth_instance):
     assert isinstance(lights, list)
 
     # Test missing list
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         # "array": [],
         "cmd_name": "light_list_resp",
         "cseq": 1,
@@ -436,10 +436,10 @@ async def test_async_get_lights_empty_array(mock_send_command, auth_instance):
     assert isinstance(lights, list)
 
 
-@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+@patch.object(Auth, "async_send_command")
 async def test_async_get_lights_malformed_light_data(mock_send_command, auth_instance):
     api = CameDomoticAPI(auth_instance)
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         "array": [
             {
                 # Missing "act_id"
@@ -459,7 +459,7 @@ async def test_async_get_lights_malformed_light_data(mock_send_command, auth_ins
         await api.async_get_lights()
 
     # Test missing "name"
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         "array": [
             {
                 "act_id": 1,
@@ -483,10 +483,10 @@ async def test_async_get_lights_malformed_light_data(mock_send_command, auth_ins
 # region async_get_openings
 
 
-@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+@patch.object(Auth, "async_send_command")
 async def test_async_get_openings(mock_send_command, auth_instance):
     api = CameDomoticAPI(auth_instance)
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         "array": [
             {
                 "open_act_id": 1,
@@ -544,12 +544,12 @@ async def test_async_get_openings(mock_send_command, auth_instance):
     assert openings[2].partial_positions == ["20%", "50%", "80%"]
 
 
-@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+@patch.object(Auth, "async_send_command")
 async def test_async_get_openings_empty_array(mock_send_command, auth_instance):
     api = CameDomoticAPI(auth_instance)
 
     # Test empty list
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         "array": [],  # Empty array
         "cmd_name": "openings_list_resp",
         "cseq": 1,
@@ -561,7 +561,7 @@ async def test_async_get_openings_empty_array(mock_send_command, auth_instance):
     assert isinstance(openings, list)
 
     # Test missing array key
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         # "array": [],
         "cmd_name": "openings_list_resp",
         "cseq": 1,
@@ -573,13 +573,13 @@ async def test_async_get_openings_empty_array(mock_send_command, auth_instance):
     assert isinstance(openings, list)
 
 
-@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+@patch.object(Auth, "async_send_command")
 async def test_async_get_openings_malformed_opening_data(
     mock_send_command, auth_instance
 ):
     api = CameDomoticAPI(auth_instance)
     # Test missing open_act_id
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         "array": [
             {
                 # Missing "open_act_id"
@@ -600,7 +600,7 @@ async def test_async_get_openings_malformed_opening_data(
         await api.async_get_openings()
 
     # Test missing close_act_id
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         "array": [
             {
                 "open_act_id": 1,
@@ -621,7 +621,7 @@ async def test_async_get_openings_malformed_opening_data(
         await api.async_get_openings()
 
     # Test missing name
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         "array": [
             {
                 "open_act_id": 1,
@@ -642,10 +642,10 @@ async def test_async_get_openings_malformed_opening_data(
         await api.async_get_openings()
 
 
-@patch.object(Auth, "async_send_command", return_value=AsyncMock())
+@patch.object(Auth, "async_send_command")
 async def test_async_get_openings_unknown_enums(mock_send_command, auth_instance):
     api = CameDomoticAPI(auth_instance)
-    mock_send_command.return_value.json.return_value = {
+    mock_send_command.return_value = {
         "array": [
             {
                 "open_act_id": 1,
