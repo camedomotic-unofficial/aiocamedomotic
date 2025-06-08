@@ -16,7 +16,8 @@ RUN apk update && \
         nodejs \
         npm \
         coreutils \
-        github-cli
+        github-cli \
+        ripgrep
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 WORKDIR /usr/src

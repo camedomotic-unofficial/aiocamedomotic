@@ -251,9 +251,10 @@ class Auth:
         self,
         payload: dict,
         *,
+        response_command: Optional[str] = None,
         timeout: Optional[int] = 10,
         skip_ack_check: bool = False,
-    ) -> aiohttp.ClientResponse:
+    ) -> dict:
         """Send a command to the CAME Domotic server.
 
         Args:
@@ -263,7 +264,7 @@ class Auth:
                 False).
 
         Returns:
-            ClientResponse: the response.
+            dict: the JSON response from the server.
 
         Raises:
             CameDomoticServerError: if an error occurs during the command.
@@ -279,6 +280,8 @@ class Auth:
                 timeout=aiohttp.ClientTimeout(total=timeout),
             )
 
+            LOGGER.debug("HTTP response (%s): %s", response.status, response.text)
+
             # Check if the response HTTP status is 2xx
             if 200 <= response.status < 300:
                 # Increment the command sequence number
@@ -291,7 +294,22 @@ class Auth:
             if not skip_ack_check:
                 await self.async_raise_for_status_and_ack(response)
 
-            return response
+            # Parse JSON response
+            try:
+                json_response = await response.json(content_type=None)
+            except json.JSONDecodeError as e:
+                raise CameDomoticServerError(
+                    "Error decoding the response to JSON"
+                ) from e
+
+            cmd_name = json_response.get("sl_cmd")
+            if response_command is not None and cmd_name != response_command:
+                raise CameDomoticServerError(
+                    f"Invalid server response. Expected {repr(response_command)}. "
+                    f"Actual {repr(cmd_name)}"
+                )
+
+            return json_response
 
         except CameDomoticAuthError as e:
             cmd_name = (payload.get("sl_appl_msg") or {}).get("cmd_name")
@@ -378,8 +396,7 @@ class Auth:
 
             # skip_ack_check = True so that a bad ACK code is tracked as an
             # authentication error and not as a generic server error
-            response = await self.async_send_command(payload, skip_ack_check=True)
-            data = await response.json(content_type=None)
+            data = await self.async_send_command(payload, skip_ack_check=True)
 
             # Validate the response ACK code
             ack_reason = data.get("sl_data_ack_reason")

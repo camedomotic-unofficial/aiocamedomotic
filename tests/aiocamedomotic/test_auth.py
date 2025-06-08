@@ -164,7 +164,7 @@ async def test_async_send_command_success(mock_post, auth_instance):
     payload = {"command": "test_command"}
     response = await auth_instance.async_send_command(payload)
 
-    assert response == mock_response
+    assert response == mock_response.json.return_value
     assert auth_instance.cseq == 1
     assert (
         auth_instance.session_expiration_timestamp
@@ -355,21 +355,17 @@ async def test_validate_host_failure_exception():
 @freezegun.freeze_time("2020-01-01")
 async def test_async_login_success(auth_instance_not_logged_in: Auth):
     with (
-        patch.object(
-            Auth, "async_send_command", new_callable=AsyncMock
-        ) as mock_send_command,
+        patch.object(Auth, "async_send_command") as mock_send_command,
         patch.object(
             Auth, "is_session_valid", return_value=False
         ) as mock_is_session_valid,
     ):
         # Setup mock response with async json method returning the desired dictionary
-        mock_response = AsyncMock()
-        mock_response.json.return_value = {
+        mock_send_command.return_value = {
             "sl_data_ack_reason": 0,
             "sl_client_id": "test_client_id",
             "sl_keep_alive_timeout_sec": 900,
         }
-        mock_send_command.return_value = mock_response
 
         await auth_instance_not_logged_in.async_login()
 
@@ -642,12 +638,12 @@ async def test_concurrent_logins(auth_instance):
         await asyncio.gather(*(auth_instance.async_keep_alive() for _ in range(10)))
 
         # Check that login was initiated and is now valid
-        assert (
-            auth_instance.is_session_valid()
-        ), "Session should be valid after concurrent logins"
-        assert (
-            auth_instance._async_perform_login.call_count == 1
-        ), "Login should be called exactly once"
+        assert auth_instance.is_session_valid(), (
+            "Session should be valid after concurrent logins"
+        )
+        assert auth_instance._async_perform_login.call_count == 1, (
+            "Login should be called exactly once"
+        )
 
 
 @pytest.mark.asyncio
