@@ -28,7 +28,7 @@ def test_get_logger_returns_package_logger():
     """Test that get_logger returns the package logger."""
     from aiocamedomotic import get_logger
     from aiocamedomotic.utils import LOGGER
-    
+
     result = get_logger()
     assert result is LOGGER
 
@@ -36,42 +36,45 @@ def test_get_logger_returns_package_logger():
 def test_version_when_package_not_found():
     """Test version handling when package is not installed."""
     # Mock importlib.metadata.version to raise PackageNotFoundError
-    with patch('importlib.metadata.version') as mock_version:
+    with patch("importlib.metadata.version") as mock_version:
         from importlib.metadata import PackageNotFoundError
+
         mock_version.side_effect = PackageNotFoundError("Package not found")
-        
+
         # Reload the module to trigger the exception handling
         import importlib
         import aiocamedomotic
+
         importlib.reload(aiocamedomotic)
-        
+
         # Check that __version__ is set to "unknown"
         assert aiocamedomotic.__version__ == "unknown"
 
 
 def test_version_when_package_found():
     """Test version handling when package is properly installed."""
-    with patch('importlib.metadata.version') as mock_version:
+    with patch("importlib.metadata.version") as mock_version:
         mock_version.return_value = "1.2.3"
-        
+
         # Reload the module
         import importlib
         import aiocamedomotic
+
         importlib.reload(aiocamedomotic)
-        
+
         assert aiocamedomotic.__version__ == "1.2.3"
 
 
 def test_logger_configuration():
     """Test that the logger is properly configured."""
     from aiocamedomotic.utils import LOGGER
-    
+
     # Check logger has handlers
     assert len(LOGGER.handlers) > 0
-    
+
     # Check log level is set to WARNING
     assert LOGGER.level == logging.WARNING
-    
+
     # Check handler is StreamHandler to stdout
     handler = LOGGER.handlers[0]
     assert isinstance(handler, logging.StreamHandler)
@@ -81,10 +84,10 @@ def test_logger_configuration():
 def test_logger_formatter():
     """Test that the logger formatter is correctly configured."""
     from aiocamedomotic.utils import LOGGER
-    
+
     handler = LOGGER.handlers[0]
     formatter = handler.formatter
-    
+
     # Check formatter format string contains required elements
     format_string = formatter._fmt
     assert "%(asctime)s" in format_string

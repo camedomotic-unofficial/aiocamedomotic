@@ -192,7 +192,8 @@ async def test_async_send_command_bad_ack(mock_post, auth_instance):
     auth_instance.keep_alive_timeout_sec = 900
 
     payload = {"command": "test_command"}
-    with pytest.raises(CameDomoticServerError):
+    # ACK code 1 is "Invalid user" which is an authentication error
+    with pytest.raises(CameDomoticAuthError, match=r"ACK error 1: Invalid user\."):
         await auth_instance.async_send_command(payload)
 
     assert auth_instance.cseq == 1
@@ -448,7 +449,7 @@ async def test_async_login_bad_ack(
         mock_send_command.return_value = mock_response
 
         mock_is_session_valid.assert_not_called()
-        with pytest.raises(CameDomoticAuthError):
+        with pytest.raises(CameDomoticAuthError, match=r"ACK error 1: Invalid user\."):
             await auth_instance_not_logged_in.async_login()
 
 
@@ -736,17 +737,123 @@ async def test_update_auth_credentials(auth_instance):
 # require testing internal implementation details rather than public behavior
 
 
+@patch.object(ClientSession, "post", new_callable=AsyncMock)
+@freezegun.freeze_time("2020-01-01")
+async def test_async_send_command_server_ack_errors(mock_post, auth_instance):
+    """Test that server ACK error codes (4-11) raise CameDomoticServerError."""
+    auth_instance.keep_alive_timeout_sec = 900
+    payload = {"command": "test_command"}
+
+    # Test server error codes (non-authentication)
+    server_error_codes = [4, 5, 6, 7, 8, 9, 10, 11]
+    error_messages = [
+        "Error occurred in JSON Syntax.",
+        "No session layer command tag.",
+        "Unrecognized session layer command.",
+        "No client ID in request.",
+        "Wrong client ID in request.",
+        "Wrong application command.",
+        "No reply to application command, maybe service down.",
+        "Wrong application data.",
+    ]
+
+    for ack_code, expected_message in zip(server_error_codes, error_messages):
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {"sl_data_ack_reason": ack_code}
+        mock_post.return_value = mock_response
+
+        with pytest.raises(
+            CameDomoticServerError,
+            match=rf"ACK error {ack_code}: {expected_message.replace('.', r'\.')}",
+        ):
+            await auth_instance.async_send_command(payload)
+
+
+@patch.object(ClientSession, "post", new_callable=AsyncMock)
+@freezegun.freeze_time("2020-01-01")
+async def test_async_send_command_auth_ack_errors(mock_post, auth_instance):
+    """Test that authentication ACK error codes (1, 3) raise CameDomoticAuthError."""
+    auth_instance.keep_alive_timeout_sec = 900
+    payload = {"command": "test_command"}
+
+    # Test authentication error code 3
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.raise_for_status = Mock()
+    mock_response.json.return_value = {"sl_data_ack_reason": 3}
+    mock_post.return_value = mock_response
+
+    with pytest.raises(
+        CameDomoticAuthError, match=r"ACK error 3: Too many sessions during login\."
+    ):
+        await auth_instance.async_send_command(payload)
+
+
+async def test_async_login_too_many_sessions_ack(auth_instance_not_logged_in: Auth):
+    """Test login with ACK error code 3 (too many sessions)."""
+    with (
+        patch.object(
+            ClientSession, "post", new_callable=AsyncMock
+        ) as mock_send_command,
+        patch.object(
+            Auth, "is_session_valid", return_value=None
+        ) as mock_is_session_valid,
+    ):
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json.return_value = {
+            "sl_data_ack_reason": 3,
+            "sl_client_id": "client_id",
+            "sl_keep_alive_timeout_sec": 900,
+        }
+        mock_send_command.return_value = mock_response
+
+        mock_is_session_valid.assert_not_called()
+        with pytest.raises(
+            CameDomoticAuthError, match=r"ACK error 3: Too many sessions during login\."
+        ):
+            await auth_instance_not_logged_in.async_login()
+
+
+async def test_async_login_server_error_ack(auth_instance_not_logged_in: Auth):
+    """Test login with server ACK error code (non-authentication)."""
+    with (
+        patch.object(
+            ClientSession, "post", new_callable=AsyncMock
+        ) as mock_send_command,
+        patch.object(
+            Auth, "is_session_valid", return_value=None
+        ) as mock_is_session_valid,
+    ):
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json.return_value = {
+            "sl_data_ack_reason": 4,  # "Error occurred in JSON Syntax."
+            "sl_client_id": "client_id",
+            "sl_keep_alive_timeout_sec": 900,
+        }
+        mock_send_command.return_value = mock_response
+
+        mock_is_session_valid.assert_not_called()
+        with pytest.raises(
+            CameDomoticAuthError, match=r"ACK error 4: Error occurred in JSON Syntax\."
+        ):
+            await auth_instance_not_logged_in.async_login()
+
+
 def test_auth_backup_restore_credentials():
     """Test Auth backup and restore credentials methods."""
     mock_session = AsyncMock()
     auth = Auth(mock_session, "192.168.1.100", "user", "password")
-    
+
     # Set some test values
     auth.client_id = "test_client_123"
     auth.session_expiration_timestamp = 1234567890
     auth.keep_alive_timeout_sec = 300
     auth.cseq = 42
-    
+
     # Test backup
     backup = auth.backup_auth_credentials()
     assert isinstance(backup, tuple)
@@ -755,13 +862,13 @@ def test_auth_backup_restore_credentials():
     assert backup[3] == 1234567890  # session_expiration_timestamp
     assert backup[4] == 300  # keep_alive_timeout_sec
     assert backup[5] == 42  # cseq
-    
+
     # Modify values
     auth.client_id = "modified_client"
     auth.session_expiration_timestamp = 9876543210
     auth.keep_alive_timeout_sec = 600
     auth.cseq = 99
-    
+
     # Test restore
     auth.restore_auth_credentials(backup)
     assert auth.client_id == "test_client_123"
