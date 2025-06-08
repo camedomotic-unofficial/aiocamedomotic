@@ -280,7 +280,7 @@ async def test_async_get_server_info_missing_essential_keys(
         "sl_data_ack_reason": 0,
     }
     with pytest.raises(
-        ValueError, match="Missing required ServerInfo properties: list"
+        ValueError, match="Missing required ServerInfo properties: features"
     ):
         await api.async_get_server_info()
 
@@ -298,7 +298,7 @@ async def test_async_get_server_info_missing_essential_keys(
     }
     with pytest.raises(
         ValueError,
-        match="Missing required ServerInfo properties: keycode, serial, list",
+        match="Missing required ServerInfo properties: keycode, serial, features",
     ):
         await api.async_get_server_info()
 
