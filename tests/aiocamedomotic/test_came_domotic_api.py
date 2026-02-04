@@ -673,11 +673,8 @@ async def test_async_get_openings_unknown_enums(mock_send_command, auth_instance
 
 
 # region async_get_updates
-@patch.object(Auth, "async_send_command", return_value=AsyncMock())
-@patch.object(Auth, "async_get_valid_client_id", return_value="test_client_id")
-async def test_async_get_updates_success(
-    mock_get_client_id, mock_send_command, auth_instance
-):
+@patch.object(Auth, "async_send_command")
+async def test_async_get_updates_success(mock_send_command, auth_instance):
     """Test successful retrieval of status updates."""
     api = CameDomoticAPI(auth_instance)
 
@@ -690,22 +687,14 @@ async def test_async_get_updates_success(
     }
 
     # Mock the HTTP response
-    mock_send_command.return_value.json.return_value = mock_response_data
+    mock_send_command.return_value = mock_response_data
 
     # Execute the method
     result = await api.async_get_updates()
 
     # Assertions
     assert isinstance(result, UpdateList)
-    mock_get_client_id.assert_called_once()
     mock_send_command.assert_called_once()
-
-    # Verify the payload structure
-    call_args = mock_send_command.call_args[0][0]
-    assert call_args["sl_client_id"] == "test_client_id"
-    assert call_args["sl_cmd"] == "sl_data_req"
-    assert call_args["sl_appl_msg_type"] == "domo"
-    assert call_args["sl_appl_msg"]["cmd_name"] == "status_update_req"
 
 
 @patch.object(
@@ -733,19 +722,15 @@ async def test_async_get_updates_server_error(
         await api.async_get_updates()
 
 
-@patch.object(Auth, "async_send_command", return_value=AsyncMock())
-@patch.object(Auth, "async_get_valid_client_id", return_value="test_client_id")
-async def test_async_get_updates_empty_response(
-    mock_get_client_id, mock_send_command, auth_instance
-):
+@patch.object(Auth, "async_send_command", new_callable=AsyncMock, return_value={})
+async def test_async_get_updates_empty_response(mock_send_command, auth_instance):
     """Test async_get_updates with empty server response."""
     api = CameDomoticAPI(auth_instance)
-
-    mock_send_command.return_value.json.return_value = {}
 
     result = await api.async_get_updates()
 
     assert isinstance(result, UpdateList)
+    assert result.data == []
 
 
 # endregion

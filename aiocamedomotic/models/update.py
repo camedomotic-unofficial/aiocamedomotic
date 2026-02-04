@@ -33,11 +33,8 @@ from .base import CameEntity
 class UpdateList(UserList[dict[str, Any]], CameEntity):
     """Chronological list of status updates from the CameDomotic API."""
 
-    _raw_data: dict[str, Any] | None
-
-    def __init__(self, raw_data: dict[str, Any] | None = None):
-        self._raw_data = raw_data
-        if isinstance(raw_data, dict):
-            super().__init__(raw_data.get("result", []))
-        else:
+    def __init__(self, updates: UserList[dict[str, Any]] | None = None):
+        try:
+            super().__init__(updates)
+        except Exception:
             super().__init__()

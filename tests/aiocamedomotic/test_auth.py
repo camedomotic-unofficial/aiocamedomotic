@@ -148,132 +148,201 @@ async def test_async_get_valid_client_id_invalid_session_unsuccessful_login(
     mock_login.assert_called_once()
 
 
-@patch.object(ClientSession, "post", new_callable=AsyncMock)
 @freezegun.freeze_time("2020-01-01")
-async def test_async_send_command_success(mock_post, auth_instance):
+async def test_async_send_command_success(auth_instance):
     # Setup mock response with async json method returning the desired dictionary
     # Use AsyncMock for the response but Mock for raise_for_status since it's not async
     mock_response = AsyncMock()
     mock_response.status = 200
     mock_response.raise_for_status = Mock()  # Not async in real implementation
     mock_response.json.return_value = {"sl_data_ack_reason": 0}
-    mock_post.return_value = mock_response
 
     auth_instance.keep_alive_timeout_sec = 900
 
     payload = {"command": "test_command"}
-    response = await auth_instance.async_send_command(payload)
 
-    assert response == mock_response.json.return_value
-    assert auth_instance.cseq == 1
-    assert (
-        auth_instance.session_expiration_timestamp
-        == time.monotonic() + auth_instance.keep_alive_timeout_sec - 30
-    )
+    # Patch the instance method instead of the class method
+    with patch.object(auth_instance.websession, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = mock_response
+        
+        # Also patch async_get_valid_client_id to avoid any login attempts
+        with patch.object(auth_instance, "async_get_valid_client_id", new_callable=AsyncMock) as mock_get_client_id:
+            mock_get_client_id.return_value = "test_client_id"
+            
+            response = await auth_instance.async_send_command(payload)
 
-    mock_post.assert_called_once_with(
-        "http://192.168.x.x/domo/",
-        data={"command": json.dumps(payload)},
-        headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
-        timeout=aiohttp.ClientTimeout(total=10),
-    )
+            assert response == mock_response.json.return_value
+            assert auth_instance.cseq == 1
+            assert (
+                auth_instance.session_expiration_timestamp
+                == time.monotonic() + auth_instance.keep_alive_timeout_sec - 30
+            )
+
+            # The actual request payload includes additional fields
+            expected_request_payload = {
+                "sl_appl_msg": payload,
+                "sl_client_id": "test_client_id",
+                "sl_cmd": "sl_data_req",
+                "sl_appl_msg_type": "domo",
+            }
+
+            mock_post.assert_called_once_with(
+                "http://192.168.x.x/domo/",
+                data={"command": json.dumps(expected_request_payload)},
+                headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
+                timeout=aiohttp.ClientTimeout(total=10),
+            )
 
 
-@patch.object(ClientSession, "post", new_callable=AsyncMock)
 @freezegun.freeze_time("2020-01-01")
-async def test_async_send_command_bad_ack(mock_post, auth_instance):
+async def test_async_send_command_bad_ack(auth_instance):
     # Setup mock response with async json method returning the desired dictionary
     mock_response = AsyncMock()
     mock_response.status = 200
     mock_response.raise_for_status = Mock()  # Not async in real implementation
     mock_response.json.return_value = {"sl_data_ack_reason": 1}
-    mock_post.return_value = mock_response
 
     auth_instance.keep_alive_timeout_sec = 900
 
     payload = {"command": "test_command"}
-    # ACK code 1 is "Invalid user" which is an authentication error
-    with pytest.raises(CameDomoticAuthError, match=r"ACK error 1: Invalid user\."):
-        await auth_instance.async_send_command(payload)
 
-    assert auth_instance.cseq == 1
-    assert (
-        auth_instance.session_expiration_timestamp
-        == time.monotonic() + auth_instance.keep_alive_timeout_sec - 30
-    )
-    mock_post.assert_called_once_with(
-        "http://192.168.x.x/domo/",
-        data={"command": json.dumps(payload)},
-        headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
-        timeout=aiohttp.ClientTimeout(total=10),
-    )
+    # Patch the instance method instead of the class method
+    with patch.object(auth_instance.websession, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = mock_response
+        
+        # Also patch async_get_valid_client_id to avoid any login attempts
+        with patch.object(auth_instance, "async_get_valid_client_id", new_callable=AsyncMock) as mock_get_client_id:
+            mock_get_client_id.return_value = "test_client_id"
+            
+            # ACK code 1 is "Invalid user" which is an authentication error
+            with pytest.raises(CameDomoticAuthError, match=r"ACK error 1: Invalid user\."):
+                await auth_instance.async_send_command(payload)
+
+            assert auth_instance.cseq == 1
+            assert (
+                auth_instance.session_expiration_timestamp
+                == time.monotonic() + auth_instance.keep_alive_timeout_sec - 30
+            )
+
+            # The actual request payload includes additional fields
+            expected_request_payload = {
+                "sl_appl_msg": payload,
+                "sl_client_id": "test_client_id",
+                "sl_cmd": "sl_data_req",
+                "sl_appl_msg_type": "domo",
+            }
+
+            mock_post.assert_called_once_with(
+                "http://192.168.x.x/domo/",
+                data={"command": json.dumps(expected_request_payload)},
+                headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
+                timeout=aiohttp.ClientTimeout(total=10),
+            )
 
 
-@patch.object(ClientSession, "post", new_callable=AsyncMock)
-async def test_async_send_command_failure(mock_post, auth_instance):
-    mock_post.side_effect = Exception()
-
+async def test_async_send_command_failure(auth_instance):
     payload = {"command": "test_command"}
-    with pytest.raises(CameDomoticServerError):
-        await auth_instance.async_send_command(payload)
 
-    mock_post.assert_called_once_with(
-        "http://192.168.x.x/domo/",
-        data={"command": json.dumps(payload)},
-        headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
-        timeout=aiohttp.ClientTimeout(total=10),
-    )
+    # Patch the instance method instead of the class method
+    with patch.object(auth_instance.websession, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = Exception()
+        
+        # Also patch async_get_valid_client_id to avoid any login attempts
+        with patch.object(auth_instance, "async_get_valid_client_id", new_callable=AsyncMock) as mock_get_client_id:
+            mock_get_client_id.return_value = "test_client_id"
+            
+            with pytest.raises(CameDomoticServerError):
+                await auth_instance.async_send_command(payload)
+
+            # The actual request payload includes additional fields
+            expected_request_payload = {
+                "sl_appl_msg": payload,
+                "sl_client_id": "test_client_id",
+                "sl_cmd": "sl_data_req",
+                "sl_appl_msg_type": "domo",
+            }
+
+            mock_post.assert_called_once_with(
+                "http://192.168.x.x/domo/",
+                data={"command": json.dumps(expected_request_payload)},
+                headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
+                timeout=aiohttp.ClientTimeout(total=10),
+            )
 
 
-@patch.object(ClientSession, "post", new_callable=AsyncMock)
-async def test_async_send_command_timeout(mock_post, auth_instance):
-    mock_post.side_effect = ClientTimeout()
-
+async def test_async_send_command_timeout(auth_instance):
     payload = {"command": "test_command"}
-    with pytest.raises(CameDomoticServerError):
-        await auth_instance.async_send_command(payload)
 
-    mock_post.assert_called_once_with(
-        "http://192.168.x.x/domo/",
-        data={"command": json.dumps(payload)},
-        headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
-        timeout=aiohttp.ClientTimeout(total=10),
-    )
+    # Patch the instance method instead of the class method
+    with patch.object(auth_instance.websession, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = ClientTimeout()
+        
+        # Also patch async_get_valid_client_id to avoid any login attempts
+        with patch.object(auth_instance, "async_get_valid_client_id", new_callable=AsyncMock) as mock_get_client_id:
+            mock_get_client_id.return_value = "test_client_id"
+            
+            with pytest.raises(CameDomoticServerError):
+                await auth_instance.async_send_command(payload)
+
+            # The actual request payload includes additional fields
+            expected_request_payload = {
+                "sl_appl_msg": payload,
+                "sl_client_id": "test_client_id",
+                "sl_cmd": "sl_data_req",
+                "sl_appl_msg_type": "domo",
+            }
+
+            mock_post.assert_called_once_with(
+                "http://192.168.x.x/domo/",
+                data={"command": json.dumps(expected_request_payload)},
+                headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
+                timeout=aiohttp.ClientTimeout(total=10),
+            )
 
 
-@patch.object(ClientSession, "post", new_callable=AsyncMock)
 @patch.object(
     Auth,
     "async_raise_for_status_and_ack",
     new_callable=AsyncMock,
     side_effect=CameDomoticServerError,
 )
+@patch.object(Auth, "async_get_valid_client_id", new_callable=AsyncMock)
 async def test_async_send_command_non_2xx_status(
-    mock_raise_for_status_and_ack, mock_post, auth_instance: Auth
+    mock_get_client_id, mock_raise_for_status_and_ack, auth_instance: Auth
 ):
     mock_response = Mock()
     mock_response.status = 500
-    mock_post.return_value = mock_response
-
+    mock_get_client_id.return_value = "my_client_id"
     payload = {"command": "test_command"}
 
     previous_session_expiration_timestamp = auth_instance.session_expiration_timestamp
 
-    with pytest.raises(CameDomoticServerError):
-        await auth_instance.async_send_command(payload)
+    # Patch the instance method instead of the class method
+    with patch.object(auth_instance.websession, "post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = mock_response
+        
+        with pytest.raises(CameDomoticServerError):
+            await auth_instance.async_send_command(payload)
 
-    mock_post.assert_called_once_with(
-        "http://192.168.x.x/domo/",
-        data={"command": json.dumps(payload)},
-        headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
-        timeout=aiohttp.ClientTimeout(total=10),
-    )
-    mock_raise_for_status_and_ack.assert_called_once()
-    assert auth_instance.cseq == 0
-    assert (
-        auth_instance.session_expiration_timestamp
-        == previous_session_expiration_timestamp
-    )
+        full_payload = {
+            "sl_appl_msg": payload,
+            "sl_client_id": "my_client_id",
+            "sl_cmd": "sl_data_req",
+            "sl_appl_msg_type": "domo",
+        }
+
+        mock_post.assert_called_once_with(
+            "http://192.168.x.x/domo/",
+            data={"command": json.dumps(full_payload)},
+            headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
+            timeout=aiohttp.ClientTimeout(total=10),
+        )
+        mock_raise_for_status_and_ack.assert_called_once()
+        assert auth_instance.cseq == 0
+        assert (
+            auth_instance.session_expiration_timestamp
+            == previous_session_expiration_timestamp
+        )
 
 
 async def test_validate_host_success():
@@ -371,8 +440,9 @@ async def test_async_login_success(auth_instance_not_logged_in: Auth):
 
         mock_is_session_valid.assert_called_once()
         mock_send_command.assert_called_once_with(
-            {
-                "sl_cmd": "sl_registration_req",
+            {},
+            command_type="sl_registration_req",
+            additional_payload={
                 "sl_login": auth_instance_not_logged_in.cipher_suite.decrypt(
                     auth_instance_not_logged_in.username
                 ).decode(),
@@ -471,7 +541,7 @@ async def test_async_keep_alive_valid_session_successful_keep_alive(
     await auth_instance.async_keep_alive()
     mock_is_session_valid.assert_called_once()
     mock_send_command.assert_called_once_with(
-        {"sl_client_id": auth_instance.client_id, "sl_cmd": "sl_keep_alive_req"}
+        {}, command_type="sl_keep_alive_req"
     )
 
 
@@ -489,7 +559,7 @@ async def test_async_keep_alive_valid_session_unsuccessful_keep_alive(
         await auth_instance.async_keep_alive()
     mock_is_session_valid.assert_called_once()
     mock_send_command.assert_called_once_with(
-        {"sl_client_id": auth_instance.client_id, "sl_cmd": "sl_keep_alive_req"}
+        {}, command_type="sl_keep_alive_req"
     )
 
 
@@ -525,10 +595,7 @@ async def test_async_logout_valid_session(mock_send_command, auth_instance: Auth
 
     await auth_instance.async_logout()
     mock_send_command.assert_called_once_with(
-        {
-            "sl_client_id": valid_client_id,
-            "sl_cmd": "sl_logout_req",
-        }
+        {}, command_type="sl_logout_req"
     )
     assert auth_instance.client_id == ""
     assert auth_instance.session_expiration_timestamp <= time.monotonic()
@@ -664,8 +731,7 @@ async def test_no_deadlocks_under_load(auth_instance):
     assert all(task.done() for task in tasks), "All tasks should complete successfully"
 
 
-@patch.object(ClientSession, "post", new_callable=AsyncMock)
-async def test_async_raise_for_status_and_ack_http_error(mock_post):
+async def test_async_raise_for_status_and_ack_http_error():
     """Test handling of HTTP errors in async_raise_for_status_and_ack."""
     mock_response = AsyncMock()
     mock_response.status = 500
@@ -685,8 +751,7 @@ async def test_async_raise_for_status_and_ack_http_error(mock_post):
         await Auth.async_raise_for_status_and_ack(mock_response)
 
 
-@patch.object(ClientSession, "post", new_callable=AsyncMock)
-async def test_async_raise_for_status_and_ack_json_error(mock_post):
+async def test_async_raise_for_status_and_ack_json_error():
     """Test handling of JSON decode errors in async_raise_for_status_and_ack."""
     mock_response = AsyncMock()
     mock_response.status = 200
@@ -733,9 +798,10 @@ async def test_update_auth_credentials(auth_instance):
 # require testing internal implementation details rather than public behavior
 
 
+@patch.object(Auth, "async_get_valid_client_id", new_callable=AsyncMock, return_value="test_client_id")
 @patch.object(ClientSession, "post", new_callable=AsyncMock)
 @freezegun.freeze_time("2020-01-01")
-async def test_async_send_command_server_ack_errors(mock_post, auth_instance):
+async def test_async_send_command_server_ack_errors(mock_post, mock_get_client_id, auth_instance):
     """Test that server ACK error codes (4-11) raise CameDomoticServerError."""
     auth_instance.keep_alive_timeout_sec = 900
     payload = {"command": "test_command"}
@@ -767,9 +833,10 @@ async def test_async_send_command_server_ack_errors(mock_post, auth_instance):
             await auth_instance.async_send_command(payload)
 
 
+@patch.object(Auth, "async_get_valid_client_id", new_callable=AsyncMock, return_value="test_client_id")
 @patch.object(ClientSession, "post", new_callable=AsyncMock)
 @freezegun.freeze_time("2020-01-01")
-async def test_async_send_command_auth_ack_errors(mock_post, auth_instance):
+async def test_async_send_command_auth_ack_errors(mock_post, mock_get_client_id, auth_instance):
     """Test that authentication ACK error codes (1, 3) raise CameDomoticAuthError."""
     auth_instance.keep_alive_timeout_sec = 900
     payload = {"command": "test_command"}

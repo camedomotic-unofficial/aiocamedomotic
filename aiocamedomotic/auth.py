@@ -36,6 +36,8 @@ import aiohttp
 
 from cryptography.fernet import Fernet
 
+from .const import _CommandType
+
 # Get package version to avoid circular imports
 try:
     _LIBRARY_VERSION = version(__package__ or "aiocamedomotic")
@@ -249,19 +251,26 @@ class Auth:
     @handle_came_domotic_errors
     async def async_send_command(
         self,
-        payload: dict,
+        command: dict,
         *,
         response_command: Optional[str] = None,
         timeout: Optional[int] = 10,
         skip_ack_check: bool = False,
+        command_type: str = _CommandType.DATA_REQUEST.value,
+        additional_payload: Optional[dict] = None,
     ) -> dict:
         """Send a command to the CAME Domotic server.
 
         Args:
-            payload (dict): the payload to send.
+            command (dict): the command to send.
+            response_command (str, optional): expected response command name to validate
+                against the server response (default: None).
             timeout (int, optional): the timeout in seconds (default: 10s).
             skip_ack_check (bool, optional): whether to skip the ACK check (default:
                 False).
+            command_type (str, optional): the command type to send (default: "sl_data_req").
+            additional_payload (dict, optional): additional key-value pairs to include
+                in the request payload (default: None).
 
         Returns:
             dict: the JSON response from the server.
@@ -272,10 +281,30 @@ class Auth:
                 the remote CAME Domotic server.
         """
 
+        # For registration (login) requests, don't try to get a valid client_id
+        # as that would create a circular dependency/deadlock
+        if command_type == _CommandType.REGISTRATION_REQUEST.value:
+            client_id = ""
+        else:
+            client_id = await self.async_get_valid_client_id()
+
+        appl_msg = command.copy()
+
+        request_payload = {
+            "sl_appl_msg": appl_msg,
+            "sl_client_id": client_id,
+            "sl_cmd": command_type,
+            "sl_appl_msg_type": "domo",
+        }
+
+        if additional_payload:
+            # Add any additional key-value pairs to the request payload
+            request_payload.update(additional_payload)
+
         try:
             response = await self.websession.post(
                 self.get_endpoint_url(),
-                data={"command": json.dumps(payload)},
+                data={"command": json.dumps(request_payload)},
                 headers=Auth._DEFAULT_HTTP_HEADERS,
                 timeout=aiohttp.ClientTimeout(total=timeout),
             )
@@ -312,15 +341,15 @@ class Auth:
             return json_response
 
         except CameDomoticAuthError as e:
-            cmd_name = (payload.get("sl_appl_msg") or {}).get("cmd_name")
-            LOGGER.error("Error sending command '%s': %s", cmd_name, e)
+            cmd_name = (command or {}).get("cmd_name")
+            LOGGER.error("Auth error sending command '%s': %s", cmd_name, e)
             raise e
         except CameDomoticServerError as e:
-            cmd_name = (payload.get("sl_appl_msg") or {}).get("cmd_name")
+            cmd_name = (command or {}).get("cmd_name")
             LOGGER.error("Error sending command '%s': %s", cmd_name, e)
             raise e
         except Exception as e:
-            cmd_name = (payload.get("sl_appl_msg") or {}).get("cmd_name")
+            cmd_name = (command or {}).get("cmd_name")
             LOGGER.exception("Error sending command '%s': %s", cmd_name, e)
             raise CameDomoticServerError("Error sending command") from e
 
@@ -388,15 +417,19 @@ class Auth:
             CameDomoticAuthError: if an error occurs during the login.
         """
         try:
-            payload = {
-                "sl_cmd": "sl_registration_req",
+            login_payload = {
                 "sl_login": self.cipher_suite.decrypt(self.username).decode(),
                 "sl_pwd": self.cipher_suite.decrypt(self.password).decode(),
             }
 
             # skip_ack_check = True so that a bad ACK code is tracked as an
             # authentication error and not as a generic server error
-            data = await self.async_send_command(payload, skip_ack_check=True)
+            data = await self.async_send_command(
+                {},
+                command_type=_CommandType.REGISTRATION_REQUEST.value,
+                additional_payload=login_payload,
+                skip_ack_check=True,
+            )
 
             # Validate the response ACK code
             ack_reason = data.get("sl_data_ack_reason")
@@ -444,11 +477,10 @@ class Auth:
             CameDomoticServerError: if an error occurs during the keep-alive request.
             CameDomoticAuthError: if an error occurs during the login.
         """
-        payload = {
-            "sl_client_id": self.client_id,
-            "sl_cmd": "sl_keep_alive_req",
-        }
-        await self.async_send_command(payload)
+
+        await self.async_send_command(
+            {}, command_type=_CommandType.KEEP_ALIVE_REQUEST.value
+        )
 
     @handle_came_domotic_errors
     async def async_logout(self) -> None:
@@ -460,12 +492,9 @@ class Auth:
 
         # Logout only if the session is still valid
         if self.is_session_valid():
-            payload = {
-                "sl_client_id": self.client_id,
-                "sl_cmd": "sl_logout_req",
-            }
-
-            await self.async_send_command(payload)
+            await self.async_send_command(
+                {}, command_type=_CommandType.LOGOUT_REQUEST.value
+            )
 
             self.client_id = ""
             self.session_expiration_timestamp = time.monotonic()
