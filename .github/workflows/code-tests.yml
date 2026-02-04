@@ -23,12 +23,8 @@ on:
       - 'pyproject.toml'
       - '.github/workflows/code-tests.yml'
   pull_request:
+    # Always run for PRs to satisfy required status checks
     branches: [master,update-version]
-    paths:
-      - 'aiocamedomotic/**/*.py'
-      - 'tests/**/*.py'
-      - 'pyproject.toml'
-      - '.github/workflows/code-tests.yml'
   workflow_dispatch:
 
 # Define minimal required permissions at workflow level

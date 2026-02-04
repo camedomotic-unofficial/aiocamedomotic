@@ -23,12 +23,8 @@ on:
       - '.github/workflows/code-quality.yml'
       # - 'mypy.ini'
   pull_request:
+    # Always run for PRs to satisfy required status checks
     branches: [master,update-version]
-    paths:
-      - 'aiocamedomotic/**/*.py'
-      - 'pyproject.toml'
-      - '.github/workflows/code-quality.yml'
-      # - 'mypy.ini'
   schedule:
     # At 06:30 on day-of-month 24.
     - cron: '30 6 24 * *'
