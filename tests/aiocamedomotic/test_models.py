@@ -241,26 +241,22 @@ async def test_user_attempt_login_as_current_user_login_failure():
 
 
 def test_updatelist_init_with_data():
-    updates = UpdateList(STATUS_UPDATE_RESP)
-    assert updates._raw_data == STATUS_UPDATE_RESP
+    updates = UpdateList(STATUS_UPDATE_RESP.get("result"))
     assert updates.data == STATUS_UPDATE_RESP.get("result")
 
 
 def test_updatelist_init_without_data():
     updates = UpdateList()
-    assert updates._raw_data is None
     assert updates.data == []
 
 
 def test_updatelist_init_with_empty_data():
     updates = UpdateList({})
-    assert updates._raw_data == {}
     assert updates.data == []
 
 
 def test_updatelist_init_with_non_dict_data():
-    updates = UpdateList("non-dict data")
-    assert updates._raw_data == "non-dict data"
+    updates = UpdateList(12345)
     assert updates.data == []
 
 
@@ -648,16 +644,9 @@ async def test_came_opening_async_set_status(
     await opening.async_set_status(OpeningStatus.OPENING)
 
     expected_payload_opening = {
-        "sl_appl_msg": {
-            "act_id": opening.open_act_id,
-            "client": "mock_client_id",
-            "cmd_name": "opening_move_req",
-            "cseq": initial_cseq + 1,
-            "wanted_status": OpeningStatus.OPENING.value,
-        },
-        "sl_appl_msg_type": "domo",
-        "sl_client_id": "mock_client_id",
-        "sl_cmd": "sl_data_req",
+        "act_id": opening.open_act_id,
+        "cmd_name": "opening_move_req",
+        "wanted_status": OpeningStatus.OPENING.value,
     }
     mock_send_command.assert_called_with(expected_payload_opening)
     assert opening.status == OpeningStatus.OPENING  # Check internal state update
@@ -666,16 +655,9 @@ async def test_came_opening_async_set_status(
     await opening.async_set_status(OpeningStatus.CLOSING)
 
     expected_payload_closing = {
-        "sl_appl_msg": {
-            "act_id": opening.close_act_id,
-            "client": "mock_client_id",
-            "cmd_name": "opening_move_req",
-            "cseq": mock_send_command.call_args_list[-1][0][0]["sl_appl_msg"]["cseq"],
-            "wanted_status": OpeningStatus.CLOSING.value,
-        },
-        "sl_appl_msg_type": "domo",
-        "sl_client_id": "mock_client_id",
-        "sl_cmd": "sl_data_req",
+        "act_id": opening.close_act_id,
+        "cmd_name": "opening_move_req",
+        "wanted_status": OpeningStatus.CLOSING.value,
     }
     mock_send_command.assert_called_with(expected_payload_closing)
     assert opening.status == OpeningStatus.CLOSING
@@ -685,16 +667,9 @@ async def test_came_opening_async_set_status(
     await opening.async_set_status(OpeningStatus.STOPPED)
 
     expected_payload_stopped = {
-        "sl_appl_msg": {
-            "act_id": opening.open_act_id,
-            "client": "mock_client_id",
-            "cmd_name": "opening_move_req",
-            "cseq": mock_send_command.call_args_list[-1][0][0]["sl_appl_msg"]["cseq"],
-            "wanted_status": OpeningStatus.STOPPED.value,
-        },
-        "sl_appl_msg_type": "domo",
-        "sl_client_id": "mock_client_id",
-        "sl_cmd": "sl_data_req",
+        "act_id": opening.open_act_id,
+        "cmd_name": "opening_move_req",
+        "wanted_status": OpeningStatus.STOPPED.value,
     }
     mock_send_command.assert_called_with(expected_payload_stopped)
     assert opening.status == OpeningStatus.STOPPED

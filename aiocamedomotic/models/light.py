@@ -27,6 +27,7 @@ from enum import Enum
 from typing import Dict, Optional
 
 from ..auth import Auth
+from ..const import _CommandName
 from ..utils import (
     EntityValidator,
     LOGGER,
@@ -185,20 +186,13 @@ class Light(CameEntity):
     ) -> Dict:
         """Prepare the payload for the light control API call."""
         payload = {
-            "sl_appl_msg": {
-                "act_id": self.act_id,
-                "client": client_id,
-                "cmd_name": "light_switch_req",
-                "cseq": self.auth.cseq + 1,
-                "wanted_status": status.value,
-            },
-            "sl_appl_msg_type": "domo",
-            "sl_client_id": client_id,
-            "sl_cmd": "sl_data_req",
+            "act_id": self.act_id,
+            "cmd_name": _CommandName.LIGHT_SWITCH,
+            "wanted_status": status.value,
         }
 
         if brightness is not None and isinstance(brightness, int):
-            payload["sl_appl_msg"]["perc"] = max(  # type: ignore
+            payload["perc"] = max(  # type: ignore
                 0, min(brightness, 100)
             )  # Normalize and add brightness
 

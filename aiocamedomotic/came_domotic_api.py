@@ -23,7 +23,23 @@ import aiohttp
 from .utils import LOGGER
 
 from .auth import Auth
-from .models import ServerInfo, User, Light, UpdateList, Opening
+from .const import (
+    _CommandType,
+    _CommandName,
+    _CommandNameResponse,
+    _TopologicScope,
+    _ServerFeature,
+)
+from .models import (
+    CameEntity,
+    ServerInfo,
+    User,
+    Light,
+    UpdateList,
+    Opening,
+    Floor,
+    Room,
+)
 
 
 class CameDomoticAPI:
@@ -63,10 +79,9 @@ class CameDomoticAPI:
             CameDomoticServerError: If the server returns an error.
         """
 
-        client_id = await self.auth.async_get_valid_client_id()
-        payload = {"sl_client_id": client_id, "sl_cmd": "sl_users_list_req"}
-
-        json_response = await self.auth.async_send_command(payload)
+        json_response = await self.auth.async_send_command(
+            {}, _CommandType.USERS_LIST_REQUEST.value
+        )
 
         # Defaults to an empty list if the key is missing from the response JSON
         users_list = json_response.get("sl_users_list", [])
@@ -86,19 +101,13 @@ class CameDomoticAPI:
             CameDomoticServerError: If the server returns an error.
         """
 
-        client_id = await self.auth.async_get_valid_client_id()
         payload = {
-            "sl_appl_msg": {
-                "client": client_id,
-                "cmd_name": "feature_list_req",
-                "cseq": self.auth.cseq,
-            },
-            "sl_appl_msg_type": "domo",
-            "sl_client_id": client_id,
-            "sl_cmd": "sl_data_req",
+            "cmd_name": _CommandName.FEATURE_LIST.value,
         }
 
-        json_response = await self.auth.async_send_command(payload)
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.FEATURE_LIST.value
+        )
 
         return ServerInfo(
             keycode=json_response.get("keycode"),
@@ -108,6 +117,54 @@ class CameDomoticAPI:
             serial=json_response.get("serial"),
             features=json_response.get("list"),
         )
+
+    async def async_get_floors(self) -> List[Floor]:
+        """Get the list of all the floors defined on the server.
+
+        Returns:
+            List[Floor]: List of floors.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+
+        payload = {
+            "cmd_name": _CommandName.FLOOR_LIST.value,
+            "topologic_scope": _TopologicScope.PLANT.value,
+        }
+
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.FLOOR_LIST.value
+        )
+
+        # Defaults to an empty list if the key is missing from the response JSON
+        floor_list = json_response.get("floor_list", [])
+        return [Floor(floor) for floor in floor_list]
+
+    async def async_get_rooms(self) -> List[Room]:
+        """Get the list of all the rooms defined on the server.
+
+        Returns:
+            List[Room]: List of rooms.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+
+        payload = {
+            "cmd_name": _CommandName.ROOM_LIST.value,
+            "topologic_scope": _TopologicScope.PLANT.value,
+        }
+
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.ROOM_LIST.value
+        )
+
+        # Defaults to an empty list if the key is missing from the response JSON
+        room_list = json_response.get("room_list", [])
+        return [Room(room) for room in room_list]
 
     async def async_get_lights(self) -> List[Light]:
         """Get the list of all the light devices defined on the server.
@@ -120,21 +177,14 @@ class CameDomoticAPI:
             CameDomoticServerError: If the server returns an error.
         """
 
-        client_id = await self.auth.async_get_valid_client_id()
         payload = {
-            "sl_appl_msg": {
-                "client": client_id,
-                "cmd_name": "light_list_req",
-                "cseq": self.auth.cseq,
-                "topologic_scope": "plant",
-                "value": 0,
-            },
-            "sl_appl_msg_type": "domo",
-            "sl_client_id": client_id,
-            "sl_cmd": "sl_data_req",
+            "cmd_name": _CommandName.LIGHT_LIST.value,
+            "topologic_scope": _TopologicScope.PLANT.value,
         }
 
-        json_response = await self.auth.async_send_command(payload)
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.LIGHT_LIST
+        )
 
         # Defaults to an empty list if the key is missing from the response JSON
         lights_list = json_response.get("array", [])
@@ -151,19 +201,13 @@ class CameDomoticAPI:
             CameDomoticServerError: If the server returns an error.
         """
 
-        client_id = await self.auth.async_get_valid_client_id()
         payload = {
-            "sl_appl_msg": {
-                "client": client_id,
-                "cmd_name": "status_update_req",
-                "cseq": self.auth.cseq,
-            },
-            "sl_appl_msg_type": "domo",
-            "sl_client_id": client_id,
-            "sl_cmd": "sl_data_req",
+            "cmd_name": _CommandName.STATUS_UPDATE.value,
         }
-        json_response = await self.auth.async_send_command(payload)
-        return UpdateList(json_response)
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.STATUS_UPDATE
+        )
+        return UpdateList((json_response or {}).get("result", []))
 
     async def async_get_openings(self) -> List[Opening]:
         """Get the list of all opening devices defined on the server.
@@ -175,21 +219,14 @@ class CameDomoticAPI:
             CameDomoticAuthError: If the authentication fails.
             CameDomoticServerError: If the server returns an error.
         """
-        client_id = await self.auth.async_get_valid_client_id()
         payload = {
-            "sl_appl_msg": {
-                "client": client_id,
-                "cmd_name": "openings_list_req",
-                "cseq": self.auth.cseq,
-                "topologic_scope": "plant",
-                "value": 0,
-            },
-            "sl_appl_msg_type": "domo",
-            "sl_client_id": client_id,
-            "sl_cmd": "sl_data_req",
+            "cmd_name": _CommandName.OPENINGS_LIST.value,
+            "topologic_scope": _TopologicScope.PLANT.value,
         }
 
-        json_response = await self.auth.async_send_command(payload)
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.OPENINGS_LIST.value
+        )
 
         openings_data = json_response.get("array", [])
         return [Opening(opening_data, self.auth) for opening_data in openings_data]

@@ -26,6 +26,7 @@ from enum import Enum
 from typing import Dict, Optional, List
 
 from ..auth import Auth
+from ..const import _CommandName
 from ..utils import (
     EntityValidator,
     LOGGER,
@@ -168,32 +169,20 @@ class Opening(CameEntity):
             CameDomoticAuthError: If the authentication fails.
             CameDomoticServerError: If the server returns an error.
         """
-        client_id = await self.auth.async_get_valid_client_id()
         act_id = (
             self.close_act_id if status == OpeningStatus.CLOSING else self.open_act_id
         )
         LOGGER.debug(
-            "User auth ok, sending cmd 'opening_move_req' for ID %s to status %s.",
+            "Sending cmd 'opening_move_req' for ID %s to status %s.",
             act_id,
             status.name,
         )
 
         # Using the opening ID (open_act_id) for control commands
         payload = {
-            "sl_appl_msg": {
-                "act_id": (
-                    self.close_act_id
-                    if status == OpeningStatus.CLOSING
-                    else self.open_act_id
-                ),
-                "client": client_id,
-                "cmd_name": "opening_move_req",
-                "cseq": self.auth.cseq + 1,
-                "wanted_status": status.value,
-            },
-            "sl_appl_msg_type": "domo",
-            "sl_client_id": client_id,
-            "sl_cmd": "sl_data_req",
+            "act_id": act_id,
+            "cmd_name": _CommandName.OPENING_MOVE.value,
+            "wanted_status": status.value,
         }
 
         await self.auth.async_send_command(payload)
