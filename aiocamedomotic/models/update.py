@@ -27,6 +27,7 @@ from typing import Any
 from collections import UserList
 
 from .base import CameEntity
+from ..utils import LOGGER
 
 
 @dataclass
@@ -36,5 +37,6 @@ class UpdateList(UserList[dict[str, Any]], CameEntity):
     def __init__(self, updates: UserList[dict[str, Any]] | None = None):
         try:
             super().__init__(updates)
-        except Exception:
+        except Exception as exc:
+            LOGGER.warning("Catched exception in the UpdateList method", exc_info=exc)
             super().__init__()

@@ -183,7 +183,7 @@ class CameDomoticAPI:
         }
 
         json_response = await self.auth.async_send_command(
-            payload, response_command=_CommandNameResponse.LIGHT_LIST
+            payload, response_command=_CommandNameResponse.LIGHT_LIST.value
         )
 
         # Defaults to an empty list if the key is missing from the response JSON
@@ -205,7 +205,7 @@ class CameDomoticAPI:
             "cmd_name": _CommandName.STATUS_UPDATE.value,
         }
         json_response = await self.auth.async_send_command(
-            payload, response_command=_CommandNameResponse.STATUS_UPDATE
+            payload, response_command=_CommandNameResponse.STATUS_UPDATE.value
         )
         return UpdateList((json_response or {}).get("result", []))
 

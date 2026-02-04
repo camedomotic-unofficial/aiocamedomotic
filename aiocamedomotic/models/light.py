@@ -187,7 +187,7 @@ class Light(CameEntity):
         """Prepare the payload for the light control API call."""
         payload = {
             "act_id": self.act_id,
-            "cmd_name": _CommandName.LIGHT_SWITCH,
+            "cmd_name": _CommandName.LIGHT_SWITCH.value,
             "wanted_status": status.value,
         }
 
