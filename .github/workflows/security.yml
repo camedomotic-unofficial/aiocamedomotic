@@ -59,13 +59,11 @@ jobs:
     - name: Run Bandit
       run: bandit -r ./aiocamedomotic
 
-    # GitGuardian scan disabled - API key expired/invalid
-    # To re-enable, update GITGUARDIAN_API_KEY secret and uncomment:
-    # - name: GitGuardian scan
-    #   uses: GitGuardian/ggshield-action@v1.29.0
-    #   env:
-    #     GITHUB_PUSH_BEFORE_SHA: ${{ github.event.before }}
-    #     GITHUB_PUSH_BASE_SHA: ${{ github.event.base }}
-    #     GITHUB_PULL_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-    #     GITHUB_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-    #     GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+    - name: GitGuardian scan
+      uses: GitGuardian/ggshield-action@v1.29.0
+      env:
+        GITHUB_PUSH_BEFORE_SHA: ${{ github.event.before }}
+        GITHUB_PUSH_BASE_SHA: ${{ github.event.base }}
+        GITHUB_PULL_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        GITHUB_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
