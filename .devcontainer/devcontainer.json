@@ -2,9 +2,6 @@
     "name": "aiocamedomotic library development",
     "context": "..",
     "dockerFile": "../Dockerfile.dev",
-    "remoteEnv": {
-        "GH_TOKEN": "${localEnv:GH_TOKEN}"
-    },
     "customizations": {
         "vscode": {
             "extensions": [
