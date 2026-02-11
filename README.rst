@@ -19,9 +19,9 @@ Welcome!
    :target: https://opensource.org/licenses/Apache-2.0
    :alt: License: Apache 2.0
 
-.. image:: https://img.shields.io/badge/python-3.12%20%7C%203.13-417fb0.svg
+.. image:: https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-417fb0.svg
     :target: https://www.python.org
-    :alt: Python 3.12 | 3.13
+    :alt: Python 3.12 | 3.13 | 3.14
 
 .. image:: https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_aiocamedomotic&metric=security_rating
    :target: https://sonarcloud.io/project/overview?id=camedomotic-unofficial_aiocamedomotic
