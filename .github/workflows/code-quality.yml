@@ -40,12 +40,12 @@ jobs:
 
     steps:
     - name: Check out repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.12'
 
@@ -79,7 +79,7 @@ jobs:
     - name: SonarCloud Scan
       # continue-on-error for PRs where SONAR_TOKEN may not be available (e.g., dependabot)
       continue-on-error: true
-      uses: SonarSource/sonarcloud-github-action@v2
+      uses: SonarSource/sonarcloud-github-action@v5
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
