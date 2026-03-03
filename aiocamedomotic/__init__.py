@@ -27,7 +27,6 @@ from .auth import Auth  # noqa: F401
 from .came_domotic_api import CameDomoticAPI  # noqa: F401
 from .utils import LOGGER
 
-
 # Get the package version
 try:
     __version__ = version(__package__)

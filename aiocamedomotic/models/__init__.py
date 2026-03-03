@@ -22,6 +22,5 @@ from .light import Light, LightType, LightStatus  # noqa: F401
 from .update import UpdateList  # noqa: F401
 from .opening import Opening, OpeningStatus, OpeningType  # noqa: F401
 
-
 # Scenarios
 # Digital inputs
