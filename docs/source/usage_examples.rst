@@ -26,14 +26,14 @@ CAME Domotic Unofficial library.
 Essential imports for working with this library
 -----------------------------------------------
 
-To effectively interact with and control your CAME Domotic environment using this
-library, certain import directives are necessary at the beginning of your file.
+To interact with and control your CAME Domotic environment using this
+library, you need the following imports at the beginning of your file.
 
 Basic imports
 ^^^^^^^^^^^^^
 
-To initiate communication with the CAME Domotic server using this asynchronous library
-you must import the following:
+To communicate with the CAME Domotic server using this asynchronous library,
+you need to import the following:
 
 .. code-block:: python
 
@@ -44,34 +44,34 @@ you must import the following:
 Working with entities
 ^^^^^^^^^^^^^^^^^^^^^
 
-To work with the CAME devices you may need one or more of the following imports:
+To work with CAME devices, you may need one or more of the following imports:
 
 .. code-block:: python
 
-    from aiocamedomotic.models import LightStatus, OpeningStatus
+    from aiocamedomotic.models import LightStatus, OpeningStatus, ScenarioStatus
 
 
 Handling Exceptions
 ^^^^^^^^^^^^^^^^^^^
 
-To properly manage potential errors you can add these imports:
+To properly handle potential errors, you can add these imports:
 
 .. code-block:: python
 
     from aiocamedomotic.errors import (
-        CameDomoticError, # Generic error raised by the library
-        CameDomoticServerNotFoundError, # Raised by the constructor (bad IP/hostname?)
-        CameDomoticAuthError, # Authentication failure (bad credentials?)
-        CameDomoticServerError, # Error raised by the server
+        CameDomoticError, # Base error raised by the library
+        CameDomoticServerNotFoundError, # Server not reachable (wrong IP/hostname?)
+        CameDomoticAuthError, # Authentication failure (wrong credentials?)
+        CameDomoticServerError, # Server-side error
     )
 
 Initializing the API client
 ---------------------------
 
 Initialize a ``CameDomoticAPI`` instance to connect to your CAME Domotic server. This
-step verifies the server's **reachability** but **does not** immediately **validate
-credentials** or **establish a session**, since sessions are **initiated on-demand**,
-optimizing resource use and security.
+step verifies that the server is **reachable** but **does not** immediately **validate
+credentials** or **establish a session**, since sessions are **created on demand**,
+which optimizes resource usage and security.
 
 .. code-block:: python
 
@@ -87,9 +87,9 @@ optimizing resource use and security.
 
 .. note::
     If you want to reuse an existing ``aiohttp.ClientSession`` instead of letting the
-    library create and manage one for you, you can pass it as value of the
-    ``websession`` named parameter of the ``CameDomoticAPI.async_create`` method, and
-    the HTTP requests will be made using that session.
+    library create and manage one for you, you can pass it as the value of the
+    ``websession`` parameter of the ``CameDomoticAPI.async_create`` method. The
+    HTTP requests will then be made using that session.
 
     .. code-block:: python
 
@@ -118,7 +118,7 @@ property (i.e. the MAC address of the server).
     print(f"Board type: {server_info.board}")
     print(f"Serial number: {server_info.serial_number}")
 
-Assuming a successful interaction with the server, the output is:
+On success, the output looks like this:
 
 .. code-block:: text
 
@@ -131,8 +131,8 @@ Assuming a successful interaction with the server, the output is:
 Server features
 ---------------
 
-To understand which capabilities your CAME Domotic plant offers, you can fetch
-a list of all the features configured on the remote server using the
+To find out which capabilities your CAME Domotic system offers, you can fetch
+a list of all the features configured on the server using the
 ``async_get_features()`` method. These features represent the functional blocks you
 would see in the official CAME Domotic mobile app's homepage, such as lights, openings,
 or scenarios.
@@ -144,8 +144,8 @@ or scenarios.
     for feature in features:
         print(f"Feature: {feature.name}")
 
-Below is an example output, showcasing the server's available features. Please note that
-each server installation is unique and may support a different list of features.
+Below is example output showing the server's available features. Note that each
+server installation is unique and may support a different set of features.
 
 .. code-block:: text
 
@@ -171,7 +171,7 @@ To list the users configured on the CAME Domotic server, just run the
     for user in users:
         print(f"Username: {user.name}")
 
-The output of this will be similar to this:
+The output will look similar to this:
 
 .. code-block:: text
 
@@ -206,9 +206,9 @@ Example output for lights:
 Change light status
 ^^^^^^^^^^^^^^^^^^^
 
-You can switch on/off a light object with the ``async_set_status`` method. For dimmable
-lights, the method supports also setting the brightness level (the setting is ignored
-for non dimmable lights).
+You can turn a light on or off with the ``async_set_status`` method. For dimmable
+lights, the method also supports setting the brightness level (this setting is ignored
+for non-dimmable lights).
 
 The following example shows different ways to interact with a light device:
 
@@ -225,7 +225,7 @@ The following example shows different ways to interact with a light device:
         (l for l in lights if l.name == "Hallway Night Light"), None
     )
 
-    # Ensure the light is found (dimmable)
+    # Control a dimmable light if found
     if living_room_chandelier:
         # Turn the light on, setting the brightness to 50%
         await living_room_chandelier.async_set_status(LightStatus.ON, brightness=50)
@@ -236,7 +236,7 @@ The following example shows different ways to interact with a light device:
         # Turn the light on, leaving the brightness unchanged
         await living_room_chandelier.async_set_status(LightStatus.ON)
 
-    # Ensure the light is found
+    # Control a non-dimmable light if found
     if hallway_night_light:
         # Turn the light on
         await hallway_night_light.async_set_status(LightStatus.ON)
@@ -289,7 +289,7 @@ The following example shows different ways to interact with opening devices:
         (o for o in openings if o.name == "Patio Awning"), None
     )
 
-    # Ensure the opening is found
+    # Control the shutter if found
     if living_room_shutter:
         # Open the shutter
         await living_room_shutter.async_set_status(OpeningStatus.OPENING)
@@ -300,7 +300,7 @@ The following example shows different ways to interact with opening devices:
         # Close the shutter
         await living_room_shutter.async_set_status(OpeningStatus.CLOSING)
 
-    # Ensure the opening is found
+    # Control the awning if found
     if patio_awning:
         # Open the awning
         await patio_awning.async_set_status(OpeningStatus.OPENING)
@@ -309,11 +309,63 @@ The following example shows different ways to interact with opening devices:
         await patio_awning.async_set_status(OpeningStatus.CLOSING)
 
 
+Scenarios
+---------
+
+List of available scenarios
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can get the list of all the available scenarios with the ``async_get_scenarios()``
+method:
+
+.. code-block:: python
+
+    scenarios = await api.async_get_scenarios()
+
+    for scenario in scenarios:
+        print(f"ID: {scenario.id}, Name: {scenario.name}, Status: {scenario.scenario_status}")
+
+Example output for scenarios:
+
+.. code-block:: text
+
+    ID: 1, Name: Good Morning, Status: ScenarioStatus.OFF
+    ID: 2, Name: Good Night, Status: ScenarioStatus.OFF
+
+Activate a scenario
+^^^^^^^^^^^^^^^^^^^
+
+You can activate a scenario with the ``async_activate`` method. Scenarios represent
+pre-configured automation sequences that control multiple devices at once.
+
+The following example shows how to activate a scenario:
+
+.. code-block:: python
+
+    # Get the list of all the scenarios configured on the CAME server
+    scenarios = await api.async_get_scenarios()
+
+    # Get a specific scenario by ID
+    good_morning = next((s for s in scenarios if s.id == 1), None)
+
+    # Get a specific scenario by name
+    good_night = next(
+        (s for s in scenarios if s.name == "Good Night"), None
+    )
+
+    # Activate the scenario if found
+    if good_morning:
+        await good_morning.async_activate()
+
+    if good_night:
+        await good_night.async_activate()
+
+
 Checking Authentication Status
 ------------------------------
 
-**Session management** is automatic and **transparent to the user**, anyway, should you
-need for some reason to check the server session status, you can use the
+**Session management** is automatic and **transparent to the user**. However, if you
+need to check the server session status for any reason, you can use the
 ``is_session_valid()`` method on the ``auth`` attribute of the ``CameDomoticAPI``
 instance.
 
@@ -332,11 +384,11 @@ instance.
                 print("No valid session, but don't worry: it'll be renewed automatically.")
 
 .. note::
-    Please note that, in general, you don't need to check if the session is authenticated,
-    as the library will handle this for you, (re)authenticating as needed.
+    In general, you don't need to check whether the session is authenticated,
+    as the library handles this for you and reauthenticates as needed.
 
 Exploring further
 -----------------
 
-To check the technical specifications see the :doc:`api_reference`.
+For technical details, see the :doc:`api_reference`.
 
