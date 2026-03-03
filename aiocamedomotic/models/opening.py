@@ -42,11 +42,15 @@ class OpeningStatus(Enum):
         - STOPPED (0)
         - OPENING (1)
         - CLOSING (2)
+        - SLAT_OPEN (3)
+        - SLAT_CLOSE (4)
     """
 
     STOPPED = 0
     OPENING = 1
     CLOSING = 2
+    SLAT_OPEN = 3
+    SLAT_CLOSE = 4
     UNKNOWN = -1
 
 
@@ -98,8 +102,8 @@ class Opening(CameEntity):
 
     @property
     def status(self) -> OpeningStatus:
-        """Current status of the opening. Allowed values: STOPPED (0), OPENING (1) and
-        CLOSING (2)."""
+        """Current status of the opening. Allowed values: STOPPED (0), OPENING (1),
+        CLOSING (2), SLAT_OPEN (3) and SLAT_CLOSE (4)."""
         try:
             return OpeningStatus(self.raw_data["status"])
         except ValueError:
@@ -160,7 +164,7 @@ class Opening(CameEntity):
 
     async def async_set_status(self, status: OpeningStatus) -> None:
         """
-        Control the opening (open, close, stop).
+        Control the opening (open, close, stop, slat open, slat close).
 
         Args:
             status (OpeningStatus): Status to set for the opening.
@@ -170,7 +174,9 @@ class Opening(CameEntity):
             CameDomoticServerError: If the server returns an error.
         """
         act_id = (
-            self.close_act_id if status == OpeningStatus.CLOSING else self.open_act_id
+            self.close_act_id
+            if status in (OpeningStatus.CLOSING, OpeningStatus.SLAT_CLOSE)
+            else self.open_act_id
         )
         LOGGER.debug(
             "Sending cmd 'opening_move_req' for ID %s to status %s.",
