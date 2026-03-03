@@ -264,13 +264,19 @@ class CameDomoticAPI:
         Note:
             The session is not logged in until the first request is made.
         """
-        auth = await Auth.async_create(
-            websession or aiohttp.ClientSession(),
-            host,
-            username,
-            password,
-            close_websession_on_disposal=(
-                close_websession_on_disposal if websession else True
-            ),
-        )
+        session = websession or aiohttp.ClientSession()
+        try:
+            auth = await Auth.async_create(
+                session,
+                host,
+                username,
+                password,
+                close_websession_on_disposal=(
+                    close_websession_on_disposal if websession else True
+                ),
+            )
+        except Exception:
+            if not websession:
+                await session.close()
+            raise
         return cls(auth)
