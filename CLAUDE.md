@@ -89,6 +89,10 @@ Tests can run against a real CAME Domotic server (skipped by default):
 
 **Never commit** `test_config.ini` or leave `SKIP_TESTS_ON_REAL_SERVER = False`.
 
+## API Reference
+
+The complete CAME Domotic API reference, reverse engineered from another library, is available in `API_reference.md`.
+
 ## Other notes
 
 - The `master` git branch is protected, to merge you must create a new branch and raise a PR

@@ -48,7 +48,9 @@ To work with CAME devices, you may need one or more of the following imports:
 
 .. code-block:: python
 
-    from aiocamedomotic.models import LightStatus, OpeningStatus, ScenarioStatus
+    from aiocamedomotic.models import (
+        DeviceType, LightStatus, OpeningStatus, ScenarioStatus,
+    )
 
 
 Handling Exceptions

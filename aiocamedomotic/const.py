@@ -16,7 +16,7 @@
 Constants for the CAME Domotic API.
 """
 
-from enum import Enum
+from enum import Enum, IntEnum
 
 # ACK error codes and their meanings from the CAME Domotic server
 ACK_ERROR_CODES = {
@@ -58,6 +58,42 @@ def is_auth_error(ack_code: int) -> bool:
         bool: True if the error code is authentication-related.
     """
     return ack_code in AUTH_ERROR_CODES
+
+
+class DeviceType(IntEnum):
+    """Device type IDs used by the CAME ETI/Domo system.
+
+    Each device in the CAME Domotic system is associated with one of these type
+    identifiers. Not all device types are currently supported by this library.
+
+    Supported types:
+        - ENERGY_SENSOR (-2)
+        - ANALOG_SENSOR (-1)
+        - LIGHT (0)
+        - OPENING (1)
+        - THERMOSTAT (2)
+        - SCENARIO (4)
+        - GENERIC_RELAY (11)
+        - DIGITAL_INPUT (14)
+    """
+
+    ENERGY_SENSOR = -2
+    ANALOG_SENSOR = -1
+    LIGHT = 0
+    OPENING = 1
+    THERMOSTAT = 2
+    PAGE = 3
+    SCENARIO = 4
+    CAMERA = 5
+    SECURITY_PANEL = 6
+    SECURITY_AREA = 7
+    SECURITY_SCENARIO = 8
+    SECURITY_INPUT = 9
+    SECURITY_OUTPUT = 10
+    GENERIC_RELAY = 11
+    GENERIC_TEXT = 12
+    SOUND_ZONE = 13
+    DIGITAL_INPUT = 14
 
 
 # region Enums for building the JSON commands to be sent to the Came Domotic server
@@ -123,6 +159,7 @@ class _TopologicScope(Enum):
 class _ServerFeature(Enum):
     LIGHTS = "lights"
     OPENINGS = "openings"
+    RELAYS = "relays"
     THERMOREGULATION = "thermoregulation"
     SCENARIOS = "scenarios"
     DIGITALIN = "digitalin"
@@ -131,3 +168,27 @@ class _ServerFeature(Enum):
 
 
 # endregion
+
+
+# Mapping from status update cmd_name to DeviceType
+_UPDATE_CMD_TO_DEVICE_TYPE: dict[str, DeviceType] = {
+    "light_update_ind": DeviceType.LIGHT,
+    "opening_update_ind": DeviceType.OPENING,
+    "relay_update_ind": DeviceType.GENERIC_RELAY,
+    "thermo_update_ind": DeviceType.THERMOSTAT,
+    "thermo_zone_info_ind": DeviceType.THERMOSTAT,
+    "digitalin_update_ind": DeviceType.DIGITAL_INPUT,
+    "scenario_status_ind": DeviceType.SCENARIO,
+    "scenario_user_ind": DeviceType.SCENARIO,
+}
+
+# Mapping from DeviceType to the corresponding server feature
+_DEVICE_TYPE_TO_FEATURE: dict[DeviceType, _ServerFeature] = {
+    DeviceType.LIGHT: _ServerFeature.LIGHTS,
+    DeviceType.OPENING: _ServerFeature.OPENINGS,
+    DeviceType.GENERIC_RELAY: _ServerFeature.RELAYS,
+    DeviceType.THERMOSTAT: _ServerFeature.THERMOREGULATION,
+    DeviceType.SCENARIO: _ServerFeature.SCENARIOS,
+    DeviceType.DIGITAL_INPUT: _ServerFeature.DIGITALIN,
+    DeviceType.ENERGY_SENSOR: _ServerFeature.ENERGY,
+}

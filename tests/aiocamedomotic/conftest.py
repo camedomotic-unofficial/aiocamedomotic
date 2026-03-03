@@ -150,6 +150,20 @@ def light_data_dimmable():
 
 
 @pytest.fixture
+def light_data_rgb():
+    return {
+        "act_id": 1,
+        "floor_ind": 2,
+        "name": "Test RGB Light",
+        "room_ind": 3,
+        "status": 1,
+        "type": "RGB",
+        "perc": 75,
+        "rgb": [255, 128, 0],
+    }
+
+
+@pytest.fixture
 def opening_data_shutter_stopped():
     """Mock data for a stopped shutter opening."""
     return {
