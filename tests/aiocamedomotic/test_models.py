@@ -22,6 +22,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from aiocamedomotic import Auth
 from aiocamedomotic.errors import CameDomoticAuthError
+from aiocamedomotic.const import DeviceType, _UPDATE_CMD_TO_DEVICE_TYPE, _DEVICE_TYPE_TO_FEATURE, _ServerFeature
 from aiocamedomotic.models import (
     ServerInfo,
     User,
@@ -36,9 +37,59 @@ from aiocamedomotic.models import (
     Room,
     Scenario,
     ScenarioStatus,
+    get_update_device_type,
 )
 
 from tests.aiocamedomotic.mocked_responses import STATUS_UPDATE_RESP
+
+
+class TestDeviceType:
+    def test_enum_values(self):
+        assert DeviceType.ENERGY_SENSOR == -2
+        assert DeviceType.ANALOG_SENSOR == -1
+        assert DeviceType.LIGHT == 0
+        assert DeviceType.OPENING == 1
+        assert DeviceType.THERMOSTAT == 2
+        assert DeviceType.PAGE == 3
+        assert DeviceType.SCENARIO == 4
+        assert DeviceType.CAMERA == 5
+        assert DeviceType.SECURITY_PANEL == 6
+        assert DeviceType.SECURITY_AREA == 7
+        assert DeviceType.SECURITY_SCENARIO == 8
+        assert DeviceType.SECURITY_INPUT == 9
+        assert DeviceType.SECURITY_OUTPUT == 10
+        assert DeviceType.GENERIC_RELAY == 11
+        assert DeviceType.GENERIC_TEXT == 12
+        assert DeviceType.SOUND_ZONE == 13
+        assert DeviceType.DIGITAL_INPUT == 14
+
+    def test_lookup_by_value(self):
+        assert DeviceType(0) == DeviceType.LIGHT
+        assert DeviceType(-2) == DeviceType.ENERGY_SENSOR
+        assert DeviceType(14) == DeviceType.DIGITAL_INPUT
+
+    def test_unknown_value_raises(self):
+        with pytest.raises(ValueError):
+            DeviceType(99)
+
+    def test_update_cmd_to_device_type_mapping(self):
+        assert _UPDATE_CMD_TO_DEVICE_TYPE["light_update_ind"] == DeviceType.LIGHT
+        assert _UPDATE_CMD_TO_DEVICE_TYPE["opening_update_ind"] == DeviceType.OPENING
+        assert _UPDATE_CMD_TO_DEVICE_TYPE["relay_update_ind"] == DeviceType.GENERIC_RELAY
+        assert _UPDATE_CMD_TO_DEVICE_TYPE["thermo_update_ind"] == DeviceType.THERMOSTAT
+        assert _UPDATE_CMD_TO_DEVICE_TYPE["thermo_zone_info_ind"] == DeviceType.THERMOSTAT
+        assert _UPDATE_CMD_TO_DEVICE_TYPE["digitalin_update_ind"] == DeviceType.DIGITAL_INPUT
+        assert _UPDATE_CMD_TO_DEVICE_TYPE["scenario_status_ind"] == DeviceType.SCENARIO
+        assert _UPDATE_CMD_TO_DEVICE_TYPE["scenario_user_ind"] == DeviceType.SCENARIO
+
+    def test_device_type_to_feature_mapping(self):
+        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.LIGHT] == _ServerFeature.LIGHTS
+        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.OPENING] == _ServerFeature.OPENINGS
+        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.GENERIC_RELAY] == _ServerFeature.RELAYS
+        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.THERMOSTAT] == _ServerFeature.THERMOREGULATION
+        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.SCENARIO] == _ServerFeature.SCENARIOS
+        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.DIGITAL_INPUT] == _ServerFeature.DIGITALIN
+        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.ENERGY_SENSOR] == _ServerFeature.ENERGY
 
 
 class TestServerInfo:
@@ -215,6 +266,17 @@ class TestUpdateList:
         updates = UpdateList(12345)
         assert updates.data == []
 
+    def test_get_update_device_type_known(self):
+        assert get_update_device_type({"cmd_name": "light_update_ind"}) == DeviceType.LIGHT
+        assert get_update_device_type({"cmd_name": "opening_update_ind"}) == DeviceType.OPENING
+        assert get_update_device_type({"cmd_name": "thermo_zone_info_ind"}) == DeviceType.THERMOSTAT
+
+    def test_get_update_device_type_unknown(self):
+        assert get_update_device_type({"cmd_name": "plant_update_ind"}) is None
+
+    def test_get_update_device_type_missing_cmd_name(self):
+        assert get_update_device_type({}) is None
+
 
 class TestLight:
     def test_initialization(self, light_data_on_off, auth_instance):
@@ -328,6 +390,150 @@ class TestLight:
         assert light.act_id == 1
         assert light.status == LightStatus.ON
 
+    def test_status_auto(self, auth_instance):
+        light_data = {
+            "act_id": 1,
+            "name": "Auto Light",
+            "status": 4,
+            "type": "STEP_STEP",
+        }
+
+        light = Light(light_data, auth_instance)
+
+        assert light.status == LightStatus.AUTO
+
+    def test_rgb_type(self, light_data_rgb, auth_instance):
+        light = Light(light_data_rgb, auth_instance)
+
+        assert light.type == LightType.RGB
+        assert light.perc == 75
+        assert light.rgb == [255, 128, 0]
+
+    def test_rgb_property_non_rgb_light(self, light_data_on_off, auth_instance):
+        light = Light(light_data_on_off, auth_instance)
+
+        assert light.rgb is None
+
+    @pytest.mark.asyncio
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="my_session_id",
+    )
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_status_rgb(
+        self,
+        mock_send_command,
+        mock_get_client_id,
+        light_data_rgb,
+        auth_instance,
+    ):
+        light = Light(light_data_rgb, auth_instance)
+
+        await light.async_set_status(LightStatus.ON, brightness=80, rgb=[0, 255, 0])
+
+        mock_send_command.assert_called_once()
+        payload = mock_send_command.call_args[0][0]
+        assert payload["wanted_status"] == LightStatus.ON.value
+        assert payload["perc"] == 80
+        assert payload["rgb"] == [0, 255, 0]
+        assert light.rgb == [0, 255, 0]
+        assert light.perc == 80
+
+    @pytest.mark.asyncio
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="my_session_id",
+    )
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_status_rgb_ignored_for_non_rgb(
+        self,
+        mock_send_command,
+        mock_get_client_id,
+        light_data_dimmable,
+        auth_instance,
+    ):
+        light = Light(light_data_dimmable, auth_instance)
+
+        await light.async_set_status(LightStatus.ON, brightness=50, rgb=[0, 255, 0])
+
+        payload = mock_send_command.call_args[0][0]
+        assert "rgb" not in payload
+        assert payload["perc"] == 50
+        assert light.rgb is None
+
+    @pytest.mark.asyncio
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="my_session_id",
+    )
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_status_rgb_brightness_supported(
+        self,
+        mock_send_command,
+        mock_get_client_id,
+        light_data_rgb,
+        auth_instance,
+    ):
+        light = Light(light_data_rgb, auth_instance)
+
+        await light.async_set_status(LightStatus.ON, brightness=60)
+
+        payload = mock_send_command.call_args[0][0]
+        assert payload["perc"] == 60
+        assert "rgb" not in payload
+
+    @pytest.mark.asyncio
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="my_session_id",
+    )
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_status_rgb_clamps_values(
+        self,
+        mock_send_command,
+        mock_get_client_id,
+        light_data_rgb,
+        auth_instance,
+    ):
+        light = Light(light_data_rgb, auth_instance)
+
+        await light.async_set_status(LightStatus.ON, rgb=[300, -10, 128])
+
+        payload = mock_send_command.call_args[0][0]
+        assert payload["rgb"] == [255, 0, 128]
+        assert light.rgb == [255, 0, 128]
+
+    @pytest.mark.asyncio
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="my_session_id",
+    )
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_status_auto(
+        self,
+        mock_send_command,
+        mock_get_client_id,
+        light_data_on_off,
+        auth_instance,
+    ):
+        light = Light(light_data_on_off, auth_instance)
+
+        await light.async_set_status(LightStatus.AUTO)
+
+        payload = mock_send_command.call_args[0][0]
+        assert payload["wanted_status"] == 4
+        assert light.status == LightStatus.AUTO
+
     def test_status_unknown_value(self, auth_instance):
         light_data = {
             "act_id": 1,
@@ -397,6 +603,8 @@ class TestOpening:
         assert OpeningStatus.STOPPED.value == 0
         assert OpeningStatus.OPENING.value == 1
         assert OpeningStatus.CLOSING.value == 2
+        assert OpeningStatus.SLAT_OPEN.value == 3
+        assert OpeningStatus.SLAT_CLOSE.value == 4
 
     def test_type_enum(self):
         assert OpeningType.SHUTTER.value == 0
@@ -517,6 +725,88 @@ class TestOpening:
         mock_send_command.assert_called_with(expected_payload_stopped)
         assert opening.status == OpeningStatus.STOPPED
         assert mock_send_command.call_count == 3
+
+    @pytest.mark.asyncio
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="mock_client_id",
+    )
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_status_slat_open(
+        self,
+        mock_send_command,
+        mock_get_client_id,
+        opening_data_shutter_stopped,
+        auth_instance,
+    ):
+        opening = Opening(opening_data_shutter_stopped, auth_instance)
+
+        await opening.async_set_status(OpeningStatus.SLAT_OPEN)
+
+        expected_payload = {
+            "act_id": opening.open_act_id,
+            "cmd_name": "opening_move_req",
+            "wanted_status": OpeningStatus.SLAT_OPEN.value,
+        }
+        mock_send_command.assert_called_with(expected_payload)
+        assert opening.status == OpeningStatus.SLAT_OPEN
+
+    @pytest.mark.asyncio
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="mock_client_id",
+    )
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_status_slat_close(
+        self,
+        mock_send_command,
+        mock_get_client_id,
+        opening_data_shutter_stopped,
+        auth_instance,
+    ):
+        opening = Opening(opening_data_shutter_stopped, auth_instance)
+
+        await opening.async_set_status(OpeningStatus.SLAT_CLOSE)
+
+        expected_payload = {
+            "act_id": opening.close_act_id,
+            "cmd_name": "opening_move_req",
+            "wanted_status": OpeningStatus.SLAT_CLOSE.value,
+        }
+        mock_send_command.assert_called_with(expected_payload)
+        assert opening.status == OpeningStatus.SLAT_CLOSE
+
+    def test_status_slat_open_from_raw_data(self, auth_instance):
+        data = {
+            "open_act_id": 10,
+            "close_act_id": 11,
+            "name": "Slat Opening",
+            "status": 3,
+            "type": 0,
+            "partial": [],
+        }
+
+        opening = Opening(data, auth_instance)
+
+        assert opening.status == OpeningStatus.SLAT_OPEN
+
+    def test_status_slat_close_from_raw_data(self, auth_instance):
+        data = {
+            "open_act_id": 10,
+            "close_act_id": 11,
+            "name": "Slat Opening",
+            "status": 4,
+            "type": 0,
+            "partial": [],
+        }
+
+        opening = Opening(data, auth_instance)
+
+        assert opening.status == OpeningStatus.SLAT_CLOSE
 
     def test_auth_type_validation(self):
         opening_data = {
