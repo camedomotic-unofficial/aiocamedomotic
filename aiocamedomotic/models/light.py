@@ -182,8 +182,7 @@ class Light(CameEntity):
         # Ignore RGB for non-RGB lights
         if self.type != LightType.RGB and rgb is not None:
             LOGGER.debug(
-                "Light '%s' (type: %s) does not support RGB. "
-                "Ignoring rgb setting.",
+                "Light '%s' (type: %s) does not support RGB. " "Ignoring rgb setting.",
                 self.name,
                 self.type.name,
             )
