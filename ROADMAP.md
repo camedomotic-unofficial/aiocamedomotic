@@ -22,18 +22,17 @@ reflects our commitment to making home automation more accessible and manageable
 This roadmap is subject to change based on community feedback and ongoing development
 insights. We look forward to growing this library together with our users and contributors.
 
-## Current Features (Version 1.1)
+## Current Features (Version 1.2)
 
 - **Session management**: Automated handling of login and logout processes for the API.
 - **Lights management**: List and set the status of lights in the domotic environment.
 - **Openings management**: Control and monitor shutters, including listing and setting
 their status.
+- **Scenarios management**: List available scenarios and trigger them.
 
 ## Planned Features
 
-### Short-term goals (Versions 1.2 to 1.3)
-
-- **Scenarios management**: Support for listing available scenarios and triggering them.
+### Short-term goals (Version 1.3)
 
 - **Thermoregulation management**:
   - List thermo zones within the domotic environment.
