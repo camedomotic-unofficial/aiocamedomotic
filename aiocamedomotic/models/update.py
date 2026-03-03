@@ -23,11 +23,29 @@ the CAME Domotic API, facilitating the consumption of system state changes.
 
 from dataclasses import dataclass
 
-from typing import Any
+from typing import Any, Optional
 from collections import UserList
 
 from .base import CameEntity
+from ..const import DeviceType, _UPDATE_CMD_TO_DEVICE_TYPE
 from ..utils import LOGGER
+
+
+def get_update_device_type(update: dict[str, Any]) -> Optional[DeviceType]:
+    """Return the device type for a status update dict, or None if unknown.
+
+    Args:
+        update: A single update dict from the ``status_update_resp`` result
+            array. Must contain a ``cmd_name`` key.
+
+    Returns:
+        The corresponding :class:`~aiocamedomotic.const.DeviceType`, or
+        ``None`` if the ``cmd_name`` is not recognized.
+    """
+    cmd_name: str | None = update.get("cmd_name")
+    if cmd_name is None:
+        return None
+    return _UPDATE_CMD_TO_DEVICE_TYPE.get(cmd_name)
 
 
 @dataclass
