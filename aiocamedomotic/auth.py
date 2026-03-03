@@ -31,6 +31,7 @@ import time
 from typing import Optional
 from asyncio import Lock
 from importlib.metadata import version, PackageNotFoundError
+from urllib.parse import urlsplit
 
 import aiohttp
 
@@ -116,7 +117,6 @@ class Auth:
         "Accept": "application/json, text/plain, */*",  # Desumed from pycame library
         "Content-Type": "application/x-www-form-urlencoded",
         "Connection": "Keep-Alive",
-        # "Authorization": f"access_token {self._token}", # Desumed from pycame library
     }
 
     # Factory method to create an Auth instance
@@ -188,9 +188,28 @@ class Auth:
                 close the websession when disposing the Auth instance (default: True).
 
         Note:
-            This method doesn't check the validity of the host URL.
             The session is not logged in until the first request is made.
+
+        Raises:
+            ValueError: if the host contains invalid characters.
         """
+
+        # Validate the host to prevent URL injection by constructing the full
+        # URL and parsing it. This correctly handles IPv4, IPv6 (bracketed),
+        # FQDNs, and optional port suffixes.
+        parsed = urlsplit(f"http://{host}/domo/")
+        if (
+            not parsed.hostname
+            or parsed.path != "/domo/"
+            or parsed.query
+            or parsed.fragment
+            or "@" in (parsed.netloc or "")
+        ):
+            raise ValueError(
+                f"Invalid host: '{host}'. Expected a hostname, IPv4 address, "
+                "or bracketed IPv6 address, optionally followed by a port "
+                "(e.g., '192.168.1.100', 'my-server:8080', or '[::1]')."
+            )
 
         # Encrypt the username and password for security reasons:
         # the encryption key is generated at runtime and not stored anywhere.
@@ -309,7 +328,7 @@ class Auth:
                 timeout=aiohttp.ClientTimeout(total=timeout),
             )
 
-            LOGGER.debug("HTTP response (%s): %s", response.status, response.text)
+            LOGGER.debug("HTTP response status: %s", response.status)
 
             # Check if the response HTTP status is 2xx
             if 200 <= response.status < 300:
