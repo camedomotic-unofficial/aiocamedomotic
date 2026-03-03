@@ -11,7 +11,7 @@ AIOCameDomotic is an unofficial Python library that provides an asynchronous API
 - Install with dependencies: `poetry install`
 - Install with specific groups: `poetry install --with tests,code-quality,docs`
 - Run tests: `pytest`
-- Run specific test: `pytest tests/aiocamedomotic/test_auth.py::test_init`
+- Run specific test: `pytest tests/aiocamedomotic/test_auth.py::TestAuthInit::test_init`
 - Run tests with coverage: `pytest --cov=aiocamedomotic --cov-report=term-missing --cov-report=html`
 - Format code: `black .`
 - Lint code: `pylint aiocamedomotic tests`
@@ -68,6 +68,15 @@ All custom exceptions inherit from `CameDomoticError` (in errors.py):
 - `CameDomoticServerNotFoundError`: Host not available
 - `CameDomoticAuthError`: Authentication failures (ACK codes 1, 3)
 - `CameDomoticServerError`: Other server errors; includes `create_ack_error()` factory method
+
+## Unit Test Conventions
+
+- **Test organization**: Tests are grouped into classes by feature area (e.g., `TestAuthLogin`, `TestAPILights`, `TestLight`). Each test method takes `self` as the first parameter.
+- **Fixtures**: All shared fixtures live in `tests/aiocamedomotic/conftest.py`. Do not define fixtures elsewhere.
+- **Reference data**: `mocked_requests.py` and `mocked_responses.py` are reference files documenting real API request/response formats. Do not modify, reorder, or add edge-case variants to them. Import from `mocked_responses.py` for happy-path tests; keep edge-case test data inline in the test file.
+- **One concern per test**: Each test function should verify a single scenario. Do not combine "empty list" and "missing key" into one test.
+- **Mocking pattern**: Use `@patch.object(Auth, "method_name")` decorators on test methods. With `@patch` decorators on class methods, the mock is injected before the fixture parameters (e.g., `async def test_foo(self, mock_send_command, auth_instance)`).
+- **Async tests**: pytest-asyncio is configured in `auto` mode (`asyncio_mode = "auto"` in pyproject.toml), so `async def` tests run automatically without `@pytest.mark.asyncio` for tests discovered inside classes. Use `@pytest.mark.asyncio` only for standalone async test functions.
 
 ## Testing with Real Servers
 
