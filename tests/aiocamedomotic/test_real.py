@@ -22,20 +22,13 @@ variable to False.
 # pylint: disable=missing-function-docstring
 # pylint: disable=redefined-outer-name
 
-# flake8: noqa: F811
-
 import asyncio
-import os
 import pytest
 
 from aiocamedomotic import CameDomoticAPI
 from aiocamedomotic.models import LightStatus
-from aiocamedomotic.models.opening import Opening, OpeningStatus, OpeningType
+from aiocamedomotic.models.opening import OpeningStatus
 
-from tests.aiocamedomotic.const import (
-    api_instance_real as api,
-    real_server_config,
-)  # pylint: disable=unused-import  # noqa: F401
 
 
 SKIP_TESTS_ON_REAL_SERVER = True
@@ -47,16 +40,16 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-async def test_async_get_users(api: CameDomoticAPI):
-    users = await api.async_get_users()
+async def test_async_get_users(api_instance_real: CameDomoticAPI):
+    users = await api_instance_real.async_get_users()
     # Print the username of each user in a human readable format
     for user in users:
         print(f"Username: {user.name}")
 
 
 # Test for async_get_server_info method
-async def test_async_get_server_info(api: CameDomoticAPI):
-    server_info = await api.async_get_server_info()
+async def test_async_get_server_info(api_instance_real: CameDomoticAPI):
+    server_info = await api_instance_real.async_get_server_info()
     # Print the server_info attributes in a human readable format
     print(f"Server Info - Keycode: {server_info.keycode}")
     print(f"Server Info - Swver: {server_info.swver}")
@@ -68,15 +61,15 @@ async def test_async_get_server_info(api: CameDomoticAPI):
 
 
 # Test for async_get_lights method
-async def test_async_get_lights(api: CameDomoticAPI):
-    lights = await api.async_get_lights()
+async def test_async_get_lights(api_instance_real: CameDomoticAPI):
+    lights = await api_instance_real.async_get_lights()
     # Print the id, name and status of each light in a human readable format
     for light in lights:
         print(f"ID: {light.act_id}, Name: {light.name}, Status: {light.status}")
 
 
-async def test_async_change_light_status(api: CameDomoticAPI, real_server_config):
-    lights = await api.async_get_lights()
+async def test_async_change_light_status(api_instance_real: CameDomoticAPI, real_server_config):
+    lights = await api_instance_real.async_get_lights()
 
     # Get device name from config, provide a default if not found or section is missing
     light_name_to_test = "Lampada cabina armadio camera m"  # Default
@@ -103,10 +96,10 @@ async def test_async_change_light_status(api: CameDomoticAPI, real_server_config
         )
 
 
-async def test_async_get_openings(api: CameDomoticAPI):
+async def test_async_get_openings(api_instance_real: CameDomoticAPI):
     """Tests fetching all openings from the server."""
     print("\nFetching all openings...")
-    openings = await api.async_get_openings()
+    openings = await api_instance_real.async_get_openings()
     if not openings:
         print("No openings found on the server.")
         return
@@ -122,7 +115,7 @@ async def test_async_get_openings(api: CameDomoticAPI):
     assert openings is not None, "Failed to get openings"
 
 
-async def test_async_control_specific_shutter(api: CameDomoticAPI, real_server_config):
+async def test_async_control_specific_shutter(api_instance_real: CameDomoticAPI, real_server_config):
     """Tests shutter control: CLOSE -> STOPPED -> OPEN sequence."""
     wait_time_sec = 3
     shutter_name = "Tapparella Camera matrimoniale"
@@ -138,7 +131,7 @@ async def test_async_control_specific_shutter(api: CameDomoticAPI, real_server_c
         )
 
     print(f"\nLooking for shutter: '{shutter_name}'...")
-    openings = await api.async_get_openings()
+    openings = await api_instance_real.async_get_openings()
     if not openings:
         pytest.skip("No openings found on server")
         return
@@ -177,9 +170,9 @@ async def test_async_control_specific_shutter(api: CameDomoticAPI, real_server_c
     assert target_shutter.status == OpeningStatus.OPENING
 
 
-async def test_async_usage_example(api: CameDomoticAPI, real_server_config):
+async def test_async_usage_example(api_instance_real: CameDomoticAPI, real_server_config):
     # Get the list of all the lights configured on the CAME server
-    lights = await api.async_get_lights()
+    lights = await api_instance_real.async_get_lights()
 
     dimmable_light_id_to_test = 13  # Default
     if (

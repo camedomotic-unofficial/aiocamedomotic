@@ -16,15 +16,20 @@
 # pylint: disable=missing-function-docstring
 # pylint: disable=redefined-outer-name
 
+"""Shared fixtures for aiocamedomotic tests."""
+
+import configparser
 import time
+from pathlib import Path
 from typing import AsyncGenerator
 from unittest.mock import patch
+
 import aiohttp
 import pytest
-import configparser
-from pathlib import Path
 
 from aiocamedomotic import Auth, CameDomoticAPI
+
+# region Auth fixtures
 
 
 @pytest.fixture
@@ -49,6 +54,11 @@ async def auth_instance() -> AsyncGenerator[Auth, None]:
                 auth.keep_alive_timeout_sec = 900  # 15min
                 auth.session_expiration_timestamp = time.monotonic() + 3600  # 1h
                 yield auth
+
+
+# endregion
+
+# region Real server fixtures
 
 
 @pytest.fixture(scope="session")
@@ -107,3 +117,66 @@ async def api_instance_real(real_server_config) -> AsyncGenerator[CameDomoticAPI
 
     async with await CameDomoticAPI.async_create(host, username, password) as api:
         yield api
+
+
+# endregion
+
+# region Model fixtures
+
+
+@pytest.fixture
+def light_data_on_off():
+    return {
+        "act_id": 1,
+        "floor_ind": 2,
+        "name": "Test Light",
+        "room_ind": 3,
+        "status": 1,
+        "type": "STEP_STEP",
+    }
+
+
+@pytest.fixture
+def light_data_dimmable():
+    return {
+        "act_id": 1,
+        "floor_ind": 2,
+        "name": "Test Light",
+        "room_ind": 3,
+        "status": 1,
+        "type": "DIMMER",
+        "perc": 80,
+    }
+
+
+@pytest.fixture
+def opening_data_shutter_stopped():
+    """Mock data for a stopped shutter opening."""
+    return {
+        "open_act_id": 10,
+        "close_act_id": 11,
+        "floor_ind": 1,
+        "name": "Living Room Shutter",
+        "room_ind": 2,
+        "status": 0,  # Corresponds to OpeningStatus.STOPPED
+        "type": 0,  # Corresponds to OpeningType.SHUTTER
+        "partial": [],
+    }
+
+
+@pytest.fixture
+def opening_data_awning_opening():
+    """Mock data for an opening awning."""
+    return {
+        "open_act_id": 20,
+        "close_act_id": 21,
+        "floor_ind": 1,
+        "name": "Patio Shutter",
+        "room_ind": 3,
+        "status": 1,  # Corresponds to OpeningStatus.OPENING
+        "type": 0,  # OpeningType.SHUTTER
+        "partial": [],
+    }
+
+
+# endregion
