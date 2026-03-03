@@ -15,19 +15,22 @@
 # pylint: disable=missing-module-docstring
 # pylint: disable=missing-function-docstring
 # pylint: disable=redefined-outer-name
-# flake8: noqa: F811
-
 from unittest.mock import AsyncMock, patch
 import pytest
 
-# from .mocked_responses import SL_USERS_LIST_RESP
 from aiocamedomotic import Auth, CameDomoticAPI
+from tests.aiocamedomotic.mocked_responses import (
+    FEATURE_LIST_RESP,
+    LIGHT_LIST_RESP,
+)
 from aiocamedomotic.models import (
     ServerInfo,
     User,
     Light,
     Opening,
     UpdateList,
+    Floor,
+    Room,
 )
 from aiocamedomotic.errors import (
     CameDomoticServerNotFoundError,
@@ -37,700 +40,745 @@ from aiocamedomotic.errors import (
 )
 
 
-from tests.aiocamedomotic.const import (
-    auth_instance,  # noqa: F401, pylint: disable=unused-import
-    auth_instance_not_logged_in,  # noqa: F401, pylint: disable=unused-import
-)
+class TestAPIInit:
+    async def test_init(self, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        assert api.auth == auth_instance
 
-
-# region basic tests
-async def test_init(auth_instance):
-    api = CameDomoticAPI(auth_instance)
-    assert api.auth == auth_instance
-
-
-@patch.object(Auth, "async_dispose")
-async def test_aexit_calls_async_dispose(mock_async_dispose, auth_instance):
-    api = CameDomoticAPI(auth_instance)
-    await api.__aexit__(None, None, None)
-    mock_async_dispose.assert_called_once()
-
-
-@patch.object(Auth, "async_dispose")
-async def test_aexit_no_exceptions(mock_async_dispose, auth_instance):
-    mock_async_dispose.side_effect = CameDomoticError("error")
-    api = CameDomoticAPI(auth_instance)
-    try:
+    @patch.object(Auth, "async_dispose")
+    async def test_aexit_calls_async_dispose(self, mock_async_dispose, auth_instance):
+        api = CameDomoticAPI(auth_instance)
         await api.__aexit__(None, None, None)
-    except Exception as e:  # pylint: disable=broad-except
-        pytest.fail(f"__aexit__ raised an exception: {e}")
+        mock_async_dispose.assert_called_once()
 
+    @patch.object(Auth, "async_dispose")
+    async def test_aexit_no_exceptions(self, mock_async_dispose, auth_instance):
+        mock_async_dispose.side_effect = CameDomoticError("error")
+        api = CameDomoticAPI(auth_instance)
+        try:
+            await api.__aexit__(None, None, None)
+        except Exception as e:  # pylint: disable=broad-except
+            pytest.fail(f"__aexit__ raised an exception: {e}")
 
-@patch.object(Auth, "async_dispose")
-async def test_async_dispose_disposes_auth(mock_async_dispose, auth_instance):
-    api = CameDomoticAPI(auth_instance)
-    await api.async_dispose()
-    mock_async_dispose.assert_called_once()
-
-
-@patch.object(Auth, "async_dispose")
-async def test_async_dispose_no_exceptions(mock_async_dispose, auth_instance):
-    mock_async_dispose.side_effect = CameDomoticError("error")
-    api = CameDomoticAPI(auth_instance)
-    try:
+    @patch.object(Auth, "async_dispose")
+    async def test_async_dispose_disposes_auth(self, mock_async_dispose, auth_instance):
+        api = CameDomoticAPI(auth_instance)
         await api.async_dispose()
-    except Exception as e:  # pylint: disable=broad-except
-        pytest.fail(f"async_dispose raised an exception: {e}")
+        mock_async_dispose.assert_called_once()
 
+    @patch.object(Auth, "async_dispose")
+    async def test_async_dispose_no_exceptions(self, mock_async_dispose, auth_instance):
+        mock_async_dispose.side_effect = CameDomoticError("error")
+        api = CameDomoticAPI(auth_instance)
+        try:
+            await api.async_dispose()
+        except Exception as e:  # pylint: disable=broad-except
+            pytest.fail(f"async_dispose raised an exception: {e}")
 
-@patch.object(Auth, "async_dispose")
-async def test_context_manager(mock_async_dispose, auth_instance):
-    async with CameDomoticAPI(auth_instance):
-        pass
-    mock_async_dispose.assert_called_once()
-
-
-@patch.object(Auth, "async_dispose")
-async def test_context_manager_no_exceptions(mock_async_dispose, auth_instance):
-    mock_async_dispose.side_effect = CameDomoticError("error")
-    try:
+    @patch.object(Auth, "async_dispose")
+    async def test_context_manager(self, mock_async_dispose, auth_instance):
         async with CameDomoticAPI(auth_instance):
             pass
         mock_async_dispose.assert_called_once()
-    except Exception as e:  # pylint: disable=broad-except
-        pytest.fail(f"__aexit__ raised an exception: {e}")
+
+    @patch.object(Auth, "async_dispose")
+    async def test_context_manager_no_exceptions(
+        self, mock_async_dispose, auth_instance
+    ):
+        mock_async_dispose.side_effect = CameDomoticError("error")
+        try:
+            async with CameDomoticAPI(auth_instance):
+                pass
+            mock_async_dispose.assert_called_once()
+        except Exception as e:  # pylint: disable=broad-except
+            pytest.fail(f"__aexit__ raised an exception: {e}")
+
+    @patch.object(Auth, "async_create")
+    async def test_async_create_all_params(self, mock_async_create):
+        mock_auth = AsyncMock()
+        mock_session = AsyncMock()
+        mock_async_create.return_value = mock_auth
+
+        api = await CameDomoticAPI.async_create(
+            "host",
+            "username",
+            "password",
+            websession=mock_session,
+            close_websession_on_disposal=True,
+        )
+
+        mock_async_create.assert_called_once_with(
+            mock_session,
+            "host",
+            "username",
+            "password",
+            close_websession_on_disposal=True,
+        )
+        assert api.auth == mock_auth
+
+    @patch("aiohttp.ClientSession")
+    @patch.object(Auth, "async_create")
+    async def test_async_create_default_params(
+        self,
+        mock_async_create,
+        mock_session,  # pylint: disable=unused-argument
+    ):
+        mock_auth = AsyncMock()
+        mock_async_create.return_value = mock_auth
+
+        api = await CameDomoticAPI.async_create("host", "username", "password")
+
+        mock_async_create.assert_called_once()
+        assert api.auth == mock_auth
+
+    @patch.object(Auth, "async_create")
+    async def test_async_create_exception(self, mock_async_create):
+        mock_async_create.side_effect = CameDomoticServerNotFoundError("error")
+
+        with pytest.raises(CameDomoticServerNotFoundError, match="error"):
+            await CameDomoticAPI.async_create("host", "username", "password")
 
 
-@patch.object(Auth, "async_create")
-async def test_async_create_all_params(mock_async_create):
-    mock_auth = AsyncMock()
-    mock_session = AsyncMock()
-    mock_async_create.return_value = mock_auth
+class TestAPIUsers:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_users(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "sl_cmd": "sl_users_list_resp",
+            "sl_data_ack_reason": 0,
+            "sl_client_id": "75c6c33a",
+            "sl_users_list": [{"name": "admin"}, {"name": "user"}],
+        }
 
-    api = await CameDomoticAPI.async_create(
-        "host",
-        "username",
-        "password",
-        websession=mock_session,
-        close_websession_on_disposal=True,
+        users = await api.async_get_users()
+        assert len(users) == 2
+        assert isinstance(users[0], User)
+        assert isinstance(users[1], User)
+        assert users[0].name == "admin"
+        assert users[1].name == "user"
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_users_empty_list(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "sl_cmd": "sl_users_list_resp",
+            "sl_data_ack_reason": 0,
+            "sl_client_id": "75c6c33a",
+            "sl_users_list": [],  # Empty list
+        }
+
+        users = await api.async_get_users()
+        assert len(users) == 0
+        assert isinstance(users, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_users_missing_key(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "sl_cmd": "sl_users_list_resp",
+            "sl_data_ack_reason": 0,
+            "sl_client_id": "75c6c33a",
+            # "sl_users_list" key is missing
+        }
+
+        users = await api.async_get_users()
+        assert len(users) == 0
+        assert isinstance(users, list)
+
+
+class TestAPIServerInfo:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_server_info(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = FEATURE_LIST_RESP
+
+        server_info = await api.async_get_server_info()
+        assert isinstance(server_info, ServerInfo)
+        assert server_info.keycode == FEATURE_LIST_RESP["keycode"]
+        assert server_info.swver == FEATURE_LIST_RESP["swver"]
+        assert server_info.type == FEATURE_LIST_RESP["type"]
+        assert server_info.board == FEATURE_LIST_RESP["board"]
+        assert server_info.serial == FEATURE_LIST_RESP["serial"]
+
+        features = server_info.features
+        assert len(features) == len(FEATURE_LIST_RESP["list"])
+        assert features[0] == "lights"
+        assert features[1] == "openings"
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_server_info_missing_essential_keys(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "cmd_name": "feature_list_resp",
+            "cseq": 1,
+            # "keycode": "0000FFFF9999AAAA", # Missing keycode
+            "swver": "1.2.3",
+            "type": "0",
+            "board": "3",
+            "serial": "0011ffee",
+            "list": ["lights"],
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(
+            ValueError, match="Missing required ServerInfo properties: keycode"
+        ):
+            await api.async_get_server_info()
+
+        # Test missing 'list'
+        mock_send_command.return_value = {
+            "cmd_name": "feature_list_resp",
+            "cseq": 1,
+            "keycode": "0000FFFF9999AAAA",
+            "swver": "1.2.3",
+            "serial": "0011ffee",
+            # "list": ["lights"], # Missing list
+            "sl_data_ack_reason": 0,
+        }
+        with pytest.raises(
+            ValueError, match="Missing required ServerInfo properties: features"
+        ):
+            await api.async_get_server_info()
+
+        # Test multiple missing fields
+        mock_send_command.return_value = {
+            "cmd_name": "feature_list_resp",
+            "cseq": 1,
+            # "keycode": "0000FFFF9999AAAA", # Missing keycode
+            "swver": "1.2.3",
+            "type": "0",
+            "board": "3",
+            # "serial": "0011ffee", # Missing serial
+            # "list": ["lights"], # Missing list
+            "sl_data_ack_reason": 0,
+        }
+        with pytest.raises(
+            ValueError,
+            match="Missing required ServerInfo properties: keycode, serial, features",
+        ):
+            await api.async_get_server_info()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_server_info_empty_feature_list(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "cmd_name": "feature_list_resp",
+            "cseq": 1,
+            "keycode": "0000FFFF9999AAAA",
+            "swver": "1.2.3",
+            "type": "0",
+            "board": "3",
+            "serial": "0011ffee",
+            "list": [],  # Empty feature list
+            "recovery_status": 0,
+            "sl_data_ack_reason": 0,
+        }
+
+        server_info = await api.async_get_server_info()
+        assert len(server_info.features) == 0
+
+
+class TestAPIFloors:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_floors(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "floor_list": [
+                {"floor_ind": 1, "name": "Ground Floor"},
+                {"floor_ind": 2, "name": "First Floor"},
+            ],
+            "cmd_name": "floor_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        floors = await api.async_get_floors()
+        assert len(floors) == 2
+        assert isinstance(floors[0], Floor)
+        assert isinstance(floors[1], Floor)
+        assert floors[0].id == 1
+        assert floors[0].name == "Ground Floor"
+        assert floors[1].id == 2
+        assert floors[1].name == "First Floor"
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_floors_empty(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "floor_list": [],
+            "cmd_name": "floor_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        floors = await api.async_get_floors()
+        assert len(floors) == 0
+        assert isinstance(floors, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_floors_missing_key(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            # "floor_list" key is missing
+            "cmd_name": "floor_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        floors = await api.async_get_floors()
+        assert len(floors) == 0
+        assert isinstance(floors, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_floors_malformed_data(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "floor_list": [
+                {"name": "Ground Floor"},  # Missing floor_ind
+            ],
+            "cmd_name": "floor_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(
+            ValueError, match="Data is missing required keys: floor_ind"
+        ):
+            await api.async_get_floors()
+
+
+class TestAPIRooms:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_rooms(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "room_list": [
+                {"room_ind": 5, "name": "Living Room", "floor_ind": 1},
+                {"room_ind": 6, "name": "Kitchen", "floor_ind": 1},
+            ],
+            "cmd_name": "room_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        rooms = await api.async_get_rooms()
+        assert len(rooms) == 2
+        assert isinstance(rooms[0], Room)
+        assert isinstance(rooms[1], Room)
+        assert rooms[0].id == 5
+        assert rooms[0].name == "Living Room"
+        assert rooms[0].floor_id == 1
+        assert rooms[1].id == 6
+        assert rooms[1].name == "Kitchen"
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_rooms_empty(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "room_list": [],
+            "cmd_name": "room_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        rooms = await api.async_get_rooms()
+        assert len(rooms) == 0
+        assert isinstance(rooms, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_rooms_missing_key(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            # "room_list" key is missing
+            "cmd_name": "room_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        rooms = await api.async_get_rooms()
+        assert len(rooms) == 0
+        assert isinstance(rooms, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_rooms_malformed_data(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "room_list": [
+                {"name": "Living Room", "floor_ind": 1},  # Missing room_ind
+            ],
+            "cmd_name": "room_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: room_ind"):
+            await api.async_get_rooms()
+
+
+class TestAPILights:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_lights(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = LIGHT_LIST_RESP
+
+        lights = await api.async_get_lights()
+        assert len(lights) == len(LIGHT_LIST_RESP["array"])
+        assert isinstance(lights[0], Light)
+        assert isinstance(lights[1], Light)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_lights_empty_array(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [],  # Empty array
+            "cmd_name": "light_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        lights = await api.async_get_lights()
+        assert len(lights) == 0
+        assert isinstance(lights, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_lights_missing_array_key(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            # "array" key is missing
+            "cmd_name": "light_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        lights = await api.async_get_lights()
+        assert len(lights) == 0
+        assert isinstance(lights, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_lights_missing_act_id(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [
+                {
+                    # Missing "act_id"
+                    "floor_ind": 19,
+                    "name": "light_ChQQs",
+                    "room_ind": 23,
+                    "status": 1,
+                    "type": "STEP_STEP",
+                }
+            ],
+            "cmd_name": "light_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: act_id"):
+            await api.async_get_lights()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_lights_missing_name(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [
+                {
+                    "act_id": 1,
+                    "floor_ind": 19,
+                    # Missing "name"
+                    "room_ind": 23,
+                    "status": 1,
+                    "type": "STEP_STEP",
+                }
+            ],
+            "cmd_name": "light_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: name"):
+            await api.async_get_lights()
+
+
+class TestAPIOpenings:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_openings(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [
+                {
+                    "open_act_id": 1,
+                    "close_act_id": 2,
+                    "floor_ind": 19,
+                    "name": "opening_ChQQs",
+                    "room_ind": 23,
+                    "status": 0,
+                    "type": 0,
+                },
+                {
+                    "open_act_id": 3,
+                    "close_act_id": 4,
+                    "floor_ind": 19,
+                    "name": "opening_vdAEA",
+                    "room_ind": 23,
+                    "status": 1,
+                    "type": 0,
+                },
+                {
+                    "open_act_id": 5,
+                    "close_act_id": 6,
+                    "floor_ind": 19,
+                    "name": "opening_onbFB",
+                    "room_ind": 23,
+                    "status": 2,
+                    "type": 0,
+                    "partial": ["20%", "50%", "80%"],
+                },
+            ],
+            "cmd_name": "openings_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        openings = await api.async_get_openings()
+        assert len(openings) == 3
+        assert isinstance(openings[0], Opening)
+        assert isinstance(openings[1], Opening)
+        assert isinstance(openings[2], Opening)
+        # Check properties of first opening
+        assert openings[0].name == "opening_ChQQs"
+        assert openings[0].open_act_id == 1
+        assert openings[0].close_act_id == 2
+        assert openings[0].status.value == 0  # STOPPED
+        assert openings[0].type.value == 0  # SHUTTER
+
+        # Check properties of second opening
+        assert openings[1].name == "opening_vdAEA"
+        assert openings[1].status.value == 1  # OPENING
+
+        # Check properties of third opening with partial positions
+        assert openings[2].name == "opening_onbFB"
+        assert openings[2].status.value == 2  # CLOSING
+        assert openings[2].partial_positions == ["20%", "50%", "80%"]
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_openings_empty_array(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [],  # Empty array
+            "cmd_name": "openings_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        openings = await api.async_get_openings()
+        assert len(openings) == 0
+        assert isinstance(openings, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_openings_missing_array_key(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            # "array" key is missing
+            "cmd_name": "openings_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        openings = await api.async_get_openings()
+        assert len(openings) == 0
+        assert isinstance(openings, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_openings_missing_open_act_id(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [
+                {
+                    # Missing "open_act_id"
+                    "close_act_id": 2,
+                    "floor_ind": 19,
+                    "name": "opening_ChQQs",
+                    "room_ind": 23,
+                    "status": 0,
+                    "type": 0,
+                }
+            ],
+            "cmd_name": "openings_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(
+            ValueError, match="Data is missing required keys: open_act_id"
+        ):
+            await api.async_get_openings()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_openings_missing_close_act_id(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [
+                {
+                    "open_act_id": 1,
+                    # Missing "close_act_id"
+                    "floor_ind": 19,
+                    "name": "opening_ChQQs",
+                    "room_ind": 23,
+                    "status": 0,
+                    "type": 0,
+                }
+            ],
+            "cmd_name": "openings_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(
+            ValueError, match="Data is missing required keys: close_act_id"
+        ):
+            await api.async_get_openings()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_openings_missing_name(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [
+                {
+                    "open_act_id": 1,
+                    "close_act_id": 2,
+                    "floor_ind": 19,
+                    # Missing "name"
+                    "room_ind": 23,
+                    "status": 0,
+                    "type": 0,
+                }
+            ],
+            "cmd_name": "openings_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: name"):
+            await api.async_get_openings()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_openings_unknown_enums(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [
+                {
+                    "open_act_id": 1,
+                    "close_act_id": 2,
+                    "floor_ind": 19,
+                    "name": "opening_ChQQs",
+                    "room_ind": 23,
+                    "status": 99,  # Unknown status value
+                    "type": 99,  # Unknown type value
+                }
+            ],
+            "cmd_name": "openings_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        # Should not raise an exception, but instead return UNKNOWN enum values
+        openings = await api.async_get_openings()
+        assert len(openings) == 1
+        assert openings[0].status.value == -1  # OpeningStatus.UNKNOWN
+        assert openings[0].type.value == -1  # OpeningType.UNKNOWN
+
+
+class TestAPIUpdates:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_updates_success(self, mock_send_command, auth_instance):
+        """Test successful retrieval of status updates."""
+        api = CameDomoticAPI(auth_instance)
+
+        mock_response_data = {
+            "update_list": [
+                {
+                    "device_id": 1,
+                    "status": "on",
+                    "timestamp": "2024-01-01T12:00:00Z",
+                },
+                {
+                    "device_id": 2,
+                    "status": "off",
+                    "timestamp": "2024-01-01T12:01:00Z",
+                },
+            ]
+        }
+
+        mock_send_command.return_value = mock_response_data
+
+        result = await api.async_get_updates()
+
+        assert isinstance(result, UpdateList)
+        mock_send_command.assert_called_once()
+
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        side_effect=CameDomoticAuthError("Auth failed"),
     )
+    async def test_async_get_updates_auth_error(
+        self, mock_get_client_id, auth_instance
+    ):
+        """Test async_get_updates when authentication fails."""
+        api = CameDomoticAPI(auth_instance)
 
-    mock_async_create.assert_called_once_with(
-        mock_session, "host", "username", "password", close_websession_on_disposal=True
+        with pytest.raises(CameDomoticAuthError, match="Auth failed"):
+            await api.async_get_updates()
+
+    @patch.object(Auth, "async_get_valid_client_id", return_value="test_client_id")
+    @patch.object(
+        Auth,
+        "async_send_command",
+        side_effect=CameDomoticServerError("Server error"),
     )
-    assert api.auth == mock_auth
-
-
-@patch("aiohttp.ClientSession")
-@patch.object(Auth, "async_create")
-async def test_async_create_default_params(
-    mock_async_create,
-    mock_session,  # pylint: disable=unused-argument
-):
-    mock_auth = AsyncMock()
-    mock_async_create.return_value = mock_auth
-
-    # Define an AsyncMock
-
-    api = await CameDomoticAPI.async_create("host", "username", "password")
-
-    mock_async_create.assert_called_once()
-    assert api.auth == mock_auth
-
-
-@patch.object(Auth, "async_create")
-async def test_async_create_exception(mock_async_create):
-    mock_async_create.side_effect = CameDomoticServerNotFoundError("error")
-
-    with pytest.raises(CameDomoticServerNotFoundError, match="error"):
-        await CameDomoticAPI.async_create("host", "username", "password")
-
-
-# endregion
-
-# region async_get_users
-
-
-@patch.object(Auth, "async_send_command")
-async def test_async_get_users(mock_send_command, auth_instance):
-    api = CameDomoticAPI(auth_instance)
-    mock_send_command.return_value = {
-        "sl_cmd": "sl_users_list_resp",
-        "sl_data_ack_reason": 0,
-        "sl_client_id": "75c6c33a",
-        "sl_users_list": [{"name": "admin"}, {"name": "user"}],
-    }
-
-    users = await api.async_get_users()
-    assert len(users) == 2
-    assert isinstance(users[0], User)
-    assert isinstance(users[1], User)
-    assert users[0].name == "admin"
-    assert users[1].name == "user"
-
-
-@patch.object(Auth, "async_send_command")
-async def test_async_get_users_empty_list(mock_send_command, auth_instance):
-    api = CameDomoticAPI(auth_instance)
-
-    # Test empty list
-    mock_send_command.return_value = {
-        "sl_cmd": "sl_users_list_resp",
-        "sl_data_ack_reason": 0,
-        "sl_client_id": "75c6c33a",
-        "sl_users_list": [],  # Empty list
-    }
-
-    users = await api.async_get_users()
-    assert len(users) == 0
-    assert isinstance(users, list)
-
-    # Test missing key
-    mock_send_command.return_value = {
-        "sl_cmd": "sl_users_list_resp",
-        "sl_data_ack_reason": 0,
-        "sl_client_id": "75c6c33a",
-        # "sl_users_list" key is missing
-    }
-
-    users = await api.async_get_users()
-    assert len(users) == 0
-    assert isinstance(users, list)
-
-    users = await api.async_get_users()
-    assert len(users) == 0
-    assert isinstance(users, list)
-
-
-# endregion
-
-# region async_get_server_info
-
-
-# Test for async_get_server_info method
-@patch.object(Auth, "async_send_command")
-async def test_async_get_server_info(mock_send_command, auth_instance):
-    api = CameDomoticAPI(auth_instance)
-    mock_send_command.return_value = {
-        "cmd_name": "feature_list_resp",
-        "cseq": 1,
-        "keycode": "0000FFFF9999AAAA",
-        "swver": "1.2.3",
-        "type": "0",
-        "board": "3",
-        "serial": "0011ffee",
-        "list": [
-            "lights",
-            "openings",
-            "thermoregulation",
-            "scenarios",
-            "digitalin",
-            "energy",
-            "loadsctrl",
-        ],
-        "recovery_status": 0,
-        "sl_data_ack_reason": 0,
-    }
-
-    server_info = await api.async_get_server_info()
-    assert isinstance(server_info, ServerInfo)
-    assert server_info.keycode == "0000FFFF9999AAAA"
-    assert server_info.swver == "1.2.3"
-    assert server_info.type == "0"
-    assert server_info.board == "3"
-    assert server_info.serial == "0011ffee"
-
-    features = server_info.features
-    assert len(features) == 7
-    assert features[0] == "lights"
-    assert features[1] == "openings"
-
-
-@patch.object(Auth, "async_send_command")
-async def test_async_get_server_info_missing_essential_keys(
-    mock_send_command, auth_instance
-):
-    api = CameDomoticAPI(auth_instance)
-    mock_send_command.return_value = {
-        "cmd_name": "feature_list_resp",
-        "cseq": 1,
-        # "keycode": "0000FFFF9999AAAA", # Missing keycode
-        "swver": "1.2.3",
-        "type": "0",
-        "board": "3",
-        "serial": "0011ffee",
-        "list": ["lights"],
-        "sl_data_ack_reason": 0,
-    }
-
-    # ServerInfo model instantiation will now raise ValueError with description
-    with pytest.raises(
-        ValueError, match="Missing required ServerInfo properties: keycode"
+    async def test_async_get_updates_server_error(
+        self, mock_send_command, mock_get_client_id, auth_instance
     ):
-        await api.async_get_server_info()
+        """Test async_get_updates when server returns an error."""
+        api = CameDomoticAPI(auth_instance)
 
-    # Test missing 'list'
-    mock_send_command.return_value = {
-        "cmd_name": "feature_list_resp",
-        "cseq": 1,
-        "keycode": "0000FFFF9999AAAA",
-        "swver": "1.2.3",
-        "serial": "0011ffee",
-        # "list": ["lights"], # Missing list
-        "sl_data_ack_reason": 0,
-    }
-    with pytest.raises(
-        ValueError, match="Missing required ServerInfo properties: features"
+        with pytest.raises(CameDomoticServerError, match="Server error"):
+            await api.async_get_updates()
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock, return_value={})
+    async def test_async_get_updates_empty_response(
+        self, mock_send_command, auth_instance
     ):
-        await api.async_get_server_info()
+        """Test async_get_updates with empty server response."""
+        api = CameDomoticAPI(auth_instance)
 
-    # Test multiple missing fields
-    mock_send_command.return_value = {
-        "cmd_name": "feature_list_resp",
-        "cseq": 1,
-        # "keycode": "0000FFFF9999AAAA", # Missing keycode
-        "swver": "1.2.3",
-        "type": "0",
-        "board": "3",
-        # "serial": "0011ffee", # Missing serial
-        # "list": ["lights"], # Missing list
-        "sl_data_ack_reason": 0,
-    }
-    with pytest.raises(
-        ValueError,
-        match="Missing required ServerInfo properties: keycode, serial, features",
-    ):
-        await api.async_get_server_info()
+        result = await api.async_get_updates()
 
-
-@patch.object(Auth, "async_send_command")
-async def test_async_get_server_info_empty_feature_list(
-    mock_send_command, auth_instance
-):
-    api = CameDomoticAPI(auth_instance)
-    mock_send_command.return_value = {
-        "cmd_name": "feature_list_resp",
-        "cseq": 1,
-        "keycode": "0000FFFF9999AAAA",
-        "swver": "1.2.3",
-        "type": "0",
-        "board": "3",
-        "serial": "0011ffee",
-        "list": [],  # Empty feature list
-        "recovery_status": 0,
-        "sl_data_ack_reason": 0,
-    }
-
-    server_info = await api.async_get_server_info()
-    assert len(server_info.features) == 0
-
-
-# endregion
-
-
-# region async_get_lights
-
-
-# Test for async_get_lights method
-@patch.object(Auth, "async_send_command")
-async def test_async_get_lights(mock_send_command, auth_instance):
-    api = CameDomoticAPI(auth_instance)
-    mock_send_command.return_value = {
-        "array": [
-            {
-                "act_id": 1,
-                "floor_ind": 19,
-                "name": "light_ChQQs",
-                "room_ind": 23,
-                "status": 1,
-                "type": "STEP_STEP",
-            },
-            {
-                "act_id": 2,
-                "floor_ind": 19,
-                "name": "light_vdAEA",
-                "room_ind": 23,
-                "status": 1,
-                "type": "STEP_STEP",
-            },
-            {
-                "act_id": 3,
-                "floor_ind": 19,
-                "name": "light_onbFB",
-                "room_ind": 23,
-                "status": 0,
-                "type": "STEP_STEP",
-            },
-            {
-                "act_id": 4,
-                "floor_ind": 19,
-                "name": "light_xoOyy",
-                "perc": 52,
-                "room_ind": 23,
-                "status": 0,
-                "type": "DIMMER",
-            },
-            {
-                "act_id": 5,
-                "floor_ind": 19,
-                "name": "light_epChT",
-                "room_ind": 23,
-                "status": 0,
-                "type": "STEP_STEP",
-            },
-            {
-                "act_id": 6,
-                "floor_ind": 19,
-                "name": "light_DVyyO",
-                "room_ind": 23,
-                "status": 0,
-                "type": "STEP_STEP",
-            },
-            {
-                "act_id": 7,
-                "floor_ind": 19,
-                "name": "light_XeXgB",
-                "perc": 14,
-                "room_ind": 29,
-                "status": 0,
-                "type": "DIMMER",
-            },
-        ],
-        "cmd_name": "light_list_resp",
-        "cseq": 1,
-        "sl_data_ack_reason": 0,
-    }
-
-    lights = await api.async_get_lights()
-    assert len(lights) == 7
-    assert isinstance(lights[0], Light)
-    assert isinstance(lights[1], Light)
-
-
-@patch.object(Auth, "async_send_command")
-async def test_async_get_lights_empty_array(mock_send_command, auth_instance):
-    api = CameDomoticAPI(auth_instance)
-
-    # Test empty list
-    mock_send_command.return_value = {
-        "array": [],  # Empty array
-        "cmd_name": "light_list_resp",
-        "cseq": 1,
-        "sl_data_ack_reason": 0,
-    }
-
-    lights = await api.async_get_lights()
-    assert len(lights) == 0
-    assert isinstance(lights, list)
-
-    # Test missing list
-    mock_send_command.return_value = {
-        # "array": [],
-        "cmd_name": "light_list_resp",
-        "cseq": 1,
-        "sl_data_ack_reason": 0,
-    }
-
-    lights = await api.async_get_lights()
-    assert len(lights) == 0
-    assert isinstance(lights, list)
-
-
-@patch.object(Auth, "async_send_command")
-async def test_async_get_lights_malformed_light_data(mock_send_command, auth_instance):
-    api = CameDomoticAPI(auth_instance)
-    mock_send_command.return_value = {
-        "array": [
-            {
-                # Missing "act_id"
-                "floor_ind": 19,
-                "name": "light_ChQQs",
-                "room_ind": 23,
-                "status": 1,
-                "type": "STEP_STEP",
-            }
-        ],
-        "cmd_name": "light_list_resp",
-        "cseq": 1,
-        "sl_data_ack_reason": 0,
-    }
-
-    with pytest.raises(ValueError, match="Data is missing required keys: act_id"):
-        await api.async_get_lights()
-
-    # Test missing "name"
-    mock_send_command.return_value = {
-        "array": [
-            {
-                "act_id": 1,
-                "floor_ind": 19,
-                # Missing "name"
-                "room_ind": 23,
-                "status": 1,
-                "type": "STEP_STEP",
-            }
-        ],
-        "cmd_name": "light_list_resp",
-        "cseq": 1,
-        "sl_data_ack_reason": 0,
-    }
-    with pytest.raises(ValueError, match="Data is missing required keys: name"):
-        await api.async_get_lights()
-
-
-# endregion
-
-# region async_get_openings
-
-
-@patch.object(Auth, "async_send_command")
-async def test_async_get_openings(mock_send_command, auth_instance):
-    api = CameDomoticAPI(auth_instance)
-    mock_send_command.return_value = {
-        "array": [
-            {
-                "open_act_id": 1,
-                "close_act_id": 2,
-                "floor_ind": 19,
-                "name": "opening_ChQQs",
-                "room_ind": 23,
-                "status": 0,
-                "type": 0,
-            },
-            {
-                "open_act_id": 3,
-                "close_act_id": 4,
-                "floor_ind": 19,
-                "name": "opening_vdAEA",
-                "room_ind": 23,
-                "status": 1,
-                "type": 0,
-            },
-            {
-                "open_act_id": 5,
-                "close_act_id": 6,
-                "floor_ind": 19,
-                "name": "opening_onbFB",
-                "room_ind": 23,
-                "status": 2,
-                "type": 0,
-                "partial": ["20%", "50%", "80%"],
-            },
-        ],
-        "cmd_name": "openings_list_resp",
-        "cseq": 1,
-        "sl_data_ack_reason": 0,
-    }
-
-    openings = await api.async_get_openings()
-    assert len(openings) == 3
-    assert isinstance(openings[0], Opening)
-    assert isinstance(openings[1], Opening)
-    assert isinstance(openings[2], Opening)
-    # Check properties of first opening
-    assert openings[0].name == "opening_ChQQs"
-    assert openings[0].open_act_id == 1
-    assert openings[0].close_act_id == 2
-    assert openings[0].status.value == 0  # STOPPED
-    assert openings[0].type.value == 0  # SHUTTER
-
-    # Check properties of second opening
-    assert openings[1].name == "opening_vdAEA"
-    assert openings[1].status.value == 1  # OPENING
-
-    # Check properties of third opening with partial positions
-    assert openings[2].name == "opening_onbFB"
-    assert openings[2].status.value == 2  # CLOSING
-    assert openings[2].partial_positions == ["20%", "50%", "80%"]
-
-
-@patch.object(Auth, "async_send_command")
-async def test_async_get_openings_empty_array(mock_send_command, auth_instance):
-    api = CameDomoticAPI(auth_instance)
-
-    # Test empty list
-    mock_send_command.return_value = {
-        "array": [],  # Empty array
-        "cmd_name": "openings_list_resp",
-        "cseq": 1,
-        "sl_data_ack_reason": 0,
-    }
-
-    openings = await api.async_get_openings()
-    assert len(openings) == 0
-    assert isinstance(openings, list)
-
-    # Test missing array key
-    mock_send_command.return_value = {
-        # "array": [],
-        "cmd_name": "openings_list_resp",
-        "cseq": 1,
-        "sl_data_ack_reason": 0,
-    }
-
-    openings = await api.async_get_openings()
-    assert len(openings) == 0
-    assert isinstance(openings, list)
-
-
-@patch.object(Auth, "async_send_command")
-async def test_async_get_openings_malformed_opening_data(
-    mock_send_command, auth_instance
-):
-    api = CameDomoticAPI(auth_instance)
-    # Test missing open_act_id
-    mock_send_command.return_value = {
-        "array": [
-            {
-                # Missing "open_act_id"
-                "close_act_id": 2,
-                "floor_ind": 19,
-                "name": "opening_ChQQs",
-                "room_ind": 23,
-                "status": 0,
-                "type": 0,
-            }
-        ],
-        "cmd_name": "openings_list_resp",
-        "cseq": 1,
-        "sl_data_ack_reason": 0,
-    }
-
-    with pytest.raises(ValueError, match="Data is missing required keys: open_act_id"):
-        await api.async_get_openings()
-
-    # Test missing close_act_id
-    mock_send_command.return_value = {
-        "array": [
-            {
-                "open_act_id": 1,
-                # Missing "close_act_id"
-                "floor_ind": 19,
-                "name": "opening_ChQQs",
-                "room_ind": 23,
-                "status": 0,
-                "type": 0,
-            }
-        ],
-        "cmd_name": "openings_list_resp",
-        "cseq": 1,
-        "sl_data_ack_reason": 0,
-    }
-
-    with pytest.raises(ValueError, match="Data is missing required keys: close_act_id"):
-        await api.async_get_openings()
-
-    # Test missing name
-    mock_send_command.return_value = {
-        "array": [
-            {
-                "open_act_id": 1,
-                "close_act_id": 2,
-                "floor_ind": 19,
-                # Missing "name"
-                "room_ind": 23,
-                "status": 0,
-                "type": 0,
-            }
-        ],
-        "cmd_name": "openings_list_resp",
-        "cseq": 1,
-        "sl_data_ack_reason": 0,
-    }
-
-    with pytest.raises(ValueError, match="Data is missing required keys: name"):
-        await api.async_get_openings()
-
-
-@patch.object(Auth, "async_send_command")
-async def test_async_get_openings_unknown_enums(mock_send_command, auth_instance):
-    api = CameDomoticAPI(auth_instance)
-    mock_send_command.return_value = {
-        "array": [
-            {
-                "open_act_id": 1,
-                "close_act_id": 2,
-                "floor_ind": 19,
-                "name": "opening_ChQQs",
-                "room_ind": 23,
-                "status": 99,  # Unknown status value
-                "type": 99,  # Unknown type value
-            }
-        ],
-        "cmd_name": "openings_list_resp",
-        "cseq": 1,
-        "sl_data_ack_reason": 0,
-    }
-
-    # Should not raise an exception, but instead return UNKNOWN enum values
-    openings = await api.async_get_openings()
-    assert len(openings) == 1
-    assert openings[0].status.value == -1  # OpeningStatus.UNKNOWN
-    assert openings[0].type.value == -1  # OpeningType.UNKNOWN
-
-
-# endregion
-
-
-# region async_get_updates
-@patch.object(Auth, "async_send_command")
-async def test_async_get_updates_success(mock_send_command, auth_instance):
-    """Test successful retrieval of status updates."""
-    api = CameDomoticAPI(auth_instance)
-
-    # Mock response data
-    mock_response_data = {
-        "update_list": [
-            {"device_id": 1, "status": "on", "timestamp": "2024-01-01T12:00:00Z"},
-            {"device_id": 2, "status": "off", "timestamp": "2024-01-01T12:01:00Z"},
-        ]
-    }
-
-    # Mock the HTTP response
-    mock_send_command.return_value = mock_response_data
-
-    # Execute the method
-    result = await api.async_get_updates()
-
-    # Assertions
-    assert isinstance(result, UpdateList)
-    mock_send_command.assert_called_once()
-
-
-@patch.object(
-    Auth, "async_get_valid_client_id", side_effect=CameDomoticAuthError("Auth failed")
-)
-async def test_async_get_updates_auth_error(mock_get_client_id, auth_instance):
-    """Test async_get_updates when authentication fails."""
-    api = CameDomoticAPI(auth_instance)
-
-    with pytest.raises(CameDomoticAuthError, match="Auth failed"):
-        await api.async_get_updates()
-
-
-@patch.object(Auth, "async_get_valid_client_id", return_value="test_client_id")
-@patch.object(
-    Auth, "async_send_command", side_effect=CameDomoticServerError("Server error")
-)
-async def test_async_get_updates_server_error(
-    mock_send_command, mock_get_client_id, auth_instance
-):
-    """Test async_get_updates when server returns an error."""
-    api = CameDomoticAPI(auth_instance)
-
-    with pytest.raises(CameDomoticServerError, match="Server error"):
-        await api.async_get_updates()
-
-
-@patch.object(Auth, "async_send_command", new_callable=AsyncMock, return_value={})
-async def test_async_get_updates_empty_response(mock_send_command, auth_instance):
-    """Test async_get_updates with empty server response."""
-    api = CameDomoticAPI(auth_instance)
-
-    result = await api.async_get_updates()
-
-    assert isinstance(result, UpdateList)
-    assert result.data == []
-
-
-# endregion
+        assert isinstance(result, UpdateList)
+        assert result.data == []
