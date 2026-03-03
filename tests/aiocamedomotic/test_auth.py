@@ -41,6 +41,46 @@ from tests.aiocamedomotic.const import (
 )
 
 
+@pytest.mark.parametrize(
+    "host",
+    [
+        "192.168.1.100",
+        "192.168.1.100:8080",
+        "10.0.0.1",
+        "my-server",
+        "came.local",
+        "came.example.com",
+        "came.local:443",
+        "[::1]",
+        "[2001:db8::1]",
+        "[::1]:8080",
+        "[fe80::1%25eth0]",
+    ],
+)
+def test_init_valid_hosts(host):
+    session = Mock()
+    auth = Auth(session, host, "user", "password")
+    assert auth.host == host
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "",
+        "example.com/../../admin",
+        "example.com?q=1",
+        "example.com#frag",
+        "user:pass@example.com",
+        "@evil.com",
+        "example.com/@evil",
+    ],
+)
+def test_init_invalid_hosts(host):
+    session = Mock()
+    with pytest.raises(ValueError, match="Invalid host"):
+        Auth(session, host, "user", "password")
+
+
 @freezegun.freeze_time(
     "2022-01-01 12:00:00"
 )  # To ensure that the session expiration timestamp is in the past

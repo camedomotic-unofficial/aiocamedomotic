@@ -42,14 +42,14 @@ jobs:
 
     steps:
     - name: Check out repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0 # fetch all history so multiple commits can be scanned
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
-        python-version: '3.12'
+        python-version: '3.14'
 
     - name: Install dependencies
       run: |
@@ -60,7 +60,7 @@ jobs:
       run: bandit -r ./aiocamedomotic
 
     - name: GitGuardian scan
-      uses: GitGuardian/ggshield-action@v1.29.0
+      uses: GitGuardian/ggshield-action@v1.47.0
       env:
         GITHUB_PUSH_BEFORE_SHA: ${{ github.event.before }}
         GITHUB_PUSH_BASE_SHA: ${{ github.event.base }}

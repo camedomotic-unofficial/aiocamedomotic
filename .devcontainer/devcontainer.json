@@ -10,7 +10,7 @@
                 "ms-python.pylint",
                 "ms-python.vscode-pylance",
                 "ms-azuretools.vscode-docker",
-                "visualstudioexptteam.vscodeintellicode",
+                "anthropic.claude-code",
                 "redhat.vscode-yaml",
                 "esbenp.prettier-vscode",
                 "GitHub.vscode-pull-request-github",

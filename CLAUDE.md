@@ -84,5 +84,5 @@ Tests can run against a real CAME Domotic server (skipped by default):
 
 - The `master` git branch is protected, to merge you must create a new branch and raise a PR
 - Never mention in comments (commits, PRs, etc.) Claude or any other AI tool
-- Python 3.12 and 3.13 are supported
+- Python 3.12, 3.13 and 3.14 are supported
 - Library is available under Apache License 2.0
