@@ -16,15 +16,15 @@
 CAME Domotic light entity models and control functionality.
 
 This module implements the classes for working with lights in a CAME Domotic
-system, supporting both standard on/off lights (STEP_STEP type) and dimmable
-lights (DIMMER type). It provides properties to access light attributes and
-methods to control light state, including on/off functionality and brightness
-control for dimmable lights.
+system, supporting standard on/off lights (STEP_STEP type), dimmable lights
+(DIMMER type), and RGB color lights (RGB type). It provides properties to
+access light attributes and methods to control light state, including on/off
+functionality, brightness control, and RGB color control.
 """
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from ..auth import Auth
 from ..const import _CommandName
@@ -42,10 +42,12 @@ class LightStatus(Enum):
     Allowed values are:
         - OFF (0)
         - ON (1)
+        - AUTO (4)
     """
 
     OFF = 0
     ON = 1
+    AUTO = 4
 
 
 class LightType(Enum):
@@ -54,10 +56,12 @@ class LightType(Enum):
     Allowed values are:
         - STEP_STEP (normal lights)
         - DIMMER (dimmable lights)
+        - RGB (color lights with brightness via HSV V channel)
     """
 
     STEP_STEP = "STEP_STEP"
     DIMMER = "DIMMER"
+    RGB = "RGB"
     UNKNOWN = "UNKNOWN_LIGHT_TYPE"
 
 
@@ -104,14 +108,14 @@ class Light(CameEntity):
 
     @property
     def status(self) -> LightStatus:
-        """Status of the light. Allowed values are ON (1) and OFF (0)."""
+        """Status of the light. Allowed values are OFF (0), ON (1) and AUTO (4)."""
         return LightStatus(self.raw_data["status"])
 
     @property
     def type(self) -> LightType:
         """
-        Light type. Allowed values are "STEP_STEP" (normal lights) and "DIMMER"
-        (dimmable lights).
+        Light type. Allowed values are "STEP_STEP" (normal lights),
+        "DIMMER" (dimmable lights), and "RGB" (color lights).
 
         Raises:
             ValueError: If the light type is not recognized.
@@ -136,8 +140,19 @@ class Light(CameEntity):
         """
         return self.raw_data.get("perc", 100)
 
+    @property
+    def rgb(self) -> Optional[List[int]]:
+        """
+        RGB color values of the light as [R, G, B], each in range 0-255.
+        Returns None for non-RGB lights.
+        """
+        return self.raw_data.get("rgb")
+
     async def async_set_status(
-        self, status: LightStatus, brightness: Optional[int] = None
+        self,
+        status: LightStatus,
+        brightness: Optional[int] = None,
+        rgb: Optional[List[int]] = None,
     ) -> None:
         """Control the light.
 
@@ -145,21 +160,34 @@ class Light(CameEntity):
             status (LightStatus): Status of the light.
             brightness (Optional[int]): Brightness percentage of the light (range
                 0-100). If the brightness is not provided, it will stay unchanged.
-                This argument is ignored for non-dimmable lights.
+                This argument is ignored for STEP_STEP lights.
+            rgb (Optional[List[int]]): RGB color values as [R, G, B], each in
+                range 0-255. If not provided, the color stays unchanged.
+                This argument is ignored for non-RGB lights.
 
         Raises:
             CameDomoticAuthError: If the authentication fails.
             CameDomoticServerError: If the server returns an error.
         """
-        # Early exit for non-dimmable lights receiving a brightness value
-        if self.type != LightType.DIMMER:
+        # Ignore brightness for non-dimmable/non-RGB lights
+        if self.type not in (LightType.DIMMER, LightType.RGB):
             LOGGER.debug(
                 "Light '%s' (type: %s) is not dimmable or type is unknown. "
                 "Ignoring brightness setting.",
                 self.name,
                 self.type.name,
             )
-            brightness = None  # Ignore brightness since it's not applicable
+            brightness = None
+
+        # Ignore RGB for non-RGB lights
+        if self.type != LightType.RGB and rgb is not None:
+            LOGGER.debug(
+                "Light '%s' (type: %s) does not support RGB. "
+                "Ignoring rgb setting.",
+                self.name,
+                self.type.name,
+            )
+            rgb = None
 
         if self.type == LightType.UNKNOWN:
             LOGGER.warning(
@@ -173,16 +201,22 @@ class Light(CameEntity):
         LOGGER.debug(
             "User authenticated, sending 'light_switch_req' command to the API."
         )
-        payload = self._prepare_light_payload(status, brightness, client_id)
+        payload = self._prepare_light_payload(status, brightness, rgb, client_id)
         await self.auth.async_send_command(payload)
 
         # Update the status of the light if everything went as expected
         self.raw_data["status"] = status.value
         if brightness is not None:
             self.raw_data["perc"] = max(0, min(brightness, 100))
+        if rgb is not None:
+            self.raw_data["rgb"] = [max(0, min(v, 255)) for v in rgb]
 
     def _prepare_light_payload(
-        self, status: LightStatus, brightness: Optional[int], client_id: str
+        self,
+        status: LightStatus,
+        brightness: Optional[int],
+        rgb: Optional[List[int]],
+        client_id: str,
     ) -> Dict:
         """Prepare the payload for the light control API call."""
         payload = {
@@ -192,8 +226,9 @@ class Light(CameEntity):
         }
 
         if brightness is not None and isinstance(brightness, int):
-            payload["perc"] = max(  # type: ignore
-                0, min(brightness, 100)
-            )  # Normalize and add brightness
+            payload["perc"] = max(0, min(brightness, 100))
+
+        if rgb is not None and isinstance(rgb, list) and len(rgb) == 3:
+            payload["rgb"] = [max(0, min(v, 255)) for v in rgb]
 
         return payload
