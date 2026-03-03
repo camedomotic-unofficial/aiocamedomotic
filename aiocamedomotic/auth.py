@@ -350,7 +350,7 @@ class Auth:
                     "Error decoding the response to JSON"
                 ) from e
 
-            cmd_name = json_response.get("sl_cmd")
+            cmd_name = json_response.get("cmd_name")
             if response_command is not None and cmd_name != response_command:
                 raise CameDomoticServerError(
                     f"Invalid server response. Expected {repr(response_command)}. "

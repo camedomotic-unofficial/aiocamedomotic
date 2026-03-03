@@ -179,4 +179,30 @@ def opening_data_awning_opening():
     }
 
 
+@pytest.fixture
+def scenario_data_off():
+    """Mock data for an inactive scenario."""
+    return {
+        "icon_id": 14,
+        "id": 0,
+        "name": "Test Scenario",
+        "scenario_status": 0,
+        "status": 0,
+        "user-defined": 0,
+    }
+
+
+@pytest.fixture
+def scenario_data_on():
+    """Mock data for an active scenario."""
+    return {
+        "icon_id": 5,
+        "id": 7,
+        "name": "Evening Lights",
+        "scenario_status": 1,
+        "status": 0,
+        "user-defined": 1,
+    }
+
+
 # endregion

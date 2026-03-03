@@ -37,6 +37,7 @@ from .models import (
     Light,
     UpdateList,
     Opening,
+    Scenario,
     Floor,
     Room,
 )
@@ -230,6 +231,28 @@ class CameDomoticAPI:
 
         openings_data = json_response.get("array", [])
         return [Opening(opening_data, self.auth) for opening_data in openings_data]
+
+    async def async_get_scenarios(self) -> List[Scenario]:
+        """Get the list of all scenarios defined on the server.
+
+        Returns:
+            List[Scenario]: List of scenarios.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        payload = {
+            "cmd_name": _CommandName.SCENARIOS_LIST.value,
+        }
+
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.SCENARIOS_LIST.value
+        )
+
+        # Defaults to an empty list if the key is missing from the response JSON
+        scenarios_list = json_response.get("array", [])
+        return [Scenario(data, self.auth) for data in scenarios_list]
 
     @classmethod
     async def async_create(

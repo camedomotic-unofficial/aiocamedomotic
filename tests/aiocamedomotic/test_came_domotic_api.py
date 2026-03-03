@@ -22,12 +22,14 @@ from aiocamedomotic import Auth, CameDomoticAPI
 from tests.aiocamedomotic.mocked_responses import (
     FEATURE_LIST_RESP,
     LIGHT_LIST_RESP,
+    SCENARIOS_LIST_RESP,
 )
 from aiocamedomotic.models import (
     ServerInfo,
     User,
     Light,
     Opening,
+    Scenario,
     UpdateList,
     Floor,
     Room,
@@ -712,6 +714,104 @@ class TestAPIOpenings:
         assert len(openings) == 1
         assert openings[0].status.value == -1  # OpeningStatus.UNKNOWN
         assert openings[0].type.value == -1  # OpeningType.UNKNOWN
+
+
+class TestAPIScenarios:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_scenarios(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = SCENARIOS_LIST_RESP
+
+        scenarios = await api.async_get_scenarios()
+        assert len(scenarios) == len(SCENARIOS_LIST_RESP["array"])
+        assert isinstance(scenarios[0], Scenario)
+        assert isinstance(scenarios[1], Scenario)
+        assert isinstance(scenarios[2], Scenario)
+        # Check properties of first scenario
+        assert scenarios[0].name == "scenario_SGgbR"
+        assert scenarios[0].id == 0
+        assert scenarios[1].name == "scenario_OjEUl"
+        assert scenarios[1].id == 1
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_scenarios_empty_array(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [],
+            "cmd_name": "scenarios_list_resp",
+            "cseq": 2,
+            "sl_data_ack_reason": 0,
+        }
+
+        scenarios = await api.async_get_scenarios()
+        assert len(scenarios) == 0
+        assert isinstance(scenarios, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_scenarios_missing_array_key(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            # "array" key is missing
+            "cmd_name": "scenarios_list_resp",
+            "cseq": 2,
+            "sl_data_ack_reason": 0,
+        }
+
+        scenarios = await api.async_get_scenarios()
+        assert len(scenarios) == 0
+        assert isinstance(scenarios, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_scenarios_missing_id(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [
+                {
+                    # Missing "id"
+                    "icon_id": 14,
+                    "name": "scenario_SGgbR",
+                    "scenario_status": 0,
+                    "status": 0,
+                    "user-defined": 0,
+                }
+            ],
+            "cmd_name": "scenarios_list_resp",
+            "cseq": 2,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: id"):
+            await api.async_get_scenarios()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_scenarios_missing_name(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [
+                {
+                    "icon_id": 14,
+                    "id": 0,
+                    # Missing "name"
+                    "scenario_status": 0,
+                    "status": 0,
+                    "user-defined": 0,
+                }
+            ],
+            "cmd_name": "scenarios_list_resp",
+            "cseq": 2,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: name"):
+            await api.async_get_scenarios()
 
 
 class TestAPIUpdates:
