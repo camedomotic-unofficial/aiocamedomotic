@@ -50,6 +50,13 @@ Entity models
    :members:
 
 
+Constants
+---------
+
+.. automodule:: aiocamedomotic.const
+   :members: DeviceType
+
+
 Errors
 ------
 
