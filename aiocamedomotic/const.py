@@ -82,6 +82,7 @@ class _CommandName(Enum):
     ROOM_LIST = "room_list_req"
     LIGHT_LIST = "light_list_req"
     OPENINGS_LIST = "openings_list_req"
+    SCENARIOS_LIST = "scenarios_list_req"
     RELAYS_LIST = "relays_list_req"
     THERMO_LIST = "thermo_list_req"
     METERS_LIST = "meters_list_req"
@@ -91,6 +92,7 @@ class _CommandName(Enum):
     # Actions
     LIGHT_SWITCH = "light_switch_req"
     OPENING_MOVE = "opening_move_req"
+    SCENARIO_ACTIVATION = "scenario_activation_req"
 
 
 class _CommandNameResponse(Enum):
@@ -102,6 +104,7 @@ class _CommandNameResponse(Enum):
     ROOM_LIST = "room_list_resp"
     LIGHT_LIST = "light_list_resp"
     OPENINGS_LIST = "openings_list_resp"
+    SCENARIOS_LIST = "scenarios_list_resp"
     RELAYS_LIST = "relays_list_resp"
     THERMO_LIST = "thermo_list_resp"
     METERS_LIST = "meters_list_resp"

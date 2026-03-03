@@ -34,6 +34,8 @@ from aiocamedomotic.models import (
     OpeningType,
     Floor,
     Room,
+    Scenario,
+    ScenarioStatus,
 )
 
 from tests.aiocamedomotic.mocked_responses import STATUS_UPDATE_RESP
@@ -644,3 +646,97 @@ class TestRoom:
         assert room.id == "10"  # Returns as-is from raw_data
         assert room.name == "Kitchen"
         assert room.floor_id == "2"  # Returns as-is from raw_data
+
+
+class TestScenario:
+    def test_initialization(self, scenario_data_off, auth_instance):
+        scenario = Scenario(scenario_data_off, auth_instance)
+        assert scenario.raw_data == scenario_data_off
+        assert scenario.auth == auth_instance
+
+        # Test post_init validation - missing id
+        with pytest.raises(ValueError):
+            Scenario({"name": "Test"}, auth_instance)
+        # Test post_init validation - missing name
+        with pytest.raises(ValueError):
+            Scenario({"id": 1}, auth_instance)
+
+    def test_properties(self, scenario_data_on, auth_instance):
+        scenario = Scenario(scenario_data_on, auth_instance)
+        assert scenario.id == scenario_data_on["id"]
+        assert scenario.name == scenario_data_on["name"]
+        assert scenario.icon_id == scenario_data_on["icon_id"]
+        assert scenario.scenario_status == ScenarioStatus(
+            scenario_data_on["scenario_status"]
+        )
+        assert scenario.status == scenario_data_on["status"]
+        assert scenario.user_defined == scenario_data_on["user-defined"]
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_activate(
+        self,
+        mock_send_command,
+        scenario_data_off,
+        auth_instance,
+    ):
+        scenario = Scenario(scenario_data_off, auth_instance)
+
+        await scenario.async_activate()
+
+        expected_payload = {
+            "cmd_name": "scenario_activation_req",
+            "id": scenario.id,
+        }
+        mock_send_command.assert_called_once_with(expected_payload)
+
+    def test_unknown_status(self, auth_instance):
+        unknown_status_data = {
+            "id": 5,
+            "name": "Unknown Status Scenario",
+            "scenario_status": 999,
+            "status": 0,
+            "user-defined": 0,
+        }
+
+        scenario = Scenario(unknown_status_data, auth_instance)
+
+        assert scenario.raw_data == unknown_status_data
+        assert scenario.name == "Unknown Status Scenario"
+        assert scenario.scenario_status == ScenarioStatus.UNKNOWN
+
+    def test_auth_type_validation(self):
+        scenario_data = {
+            "id": 1,
+            "name": "Test Scenario",
+            "scenario_status": 0,
+            "status": 0,
+            "user-defined": 0,
+        }
+
+        # Test with non-Auth object (string)
+        with pytest.raises(
+            ValueError, match="'auth' must be an instance of Auth, got str"
+        ):
+            Scenario(scenario_data, "not_an_auth_instance")
+
+        # Test with non-Auth object (dict)
+        with pytest.raises(
+            ValueError, match="'auth' must be an instance of Auth, got dict"
+        ):
+            Scenario(scenario_data, {"fake": "auth"})
+
+    def test_edge_case_missing_optional_field(self, auth_instance):
+        scenario_data = {
+            "id": 1,
+            "name": "Minimal Scenario",
+        }
+
+        scenario = Scenario(scenario_data, auth_instance)
+
+        assert scenario.name == "Minimal Scenario"
+        assert scenario.id == 1
+        assert scenario.icon_id == 0
+        assert scenario.scenario_status == ScenarioStatus.UNKNOWN
+        assert scenario.status == 0
+        assert scenario.user_defined == 0

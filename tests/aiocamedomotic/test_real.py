@@ -30,12 +30,11 @@ from aiocamedomotic.models import LightStatus
 from aiocamedomotic.models.opening import OpeningStatus
 
 
-
-SKIP_TESTS_ON_REAL_SERVER = True
+RUN_TESTS_ON_REAL_SERVER = False
 
 # Skip all tests in this module by default
 pytestmark = pytest.mark.skipif(
-    SKIP_TESTS_ON_REAL_SERVER,
+    not RUN_TESTS_ON_REAL_SERVER,
     reason="All tests in this module are disabled by default.",
 )
 
@@ -68,7 +67,9 @@ async def test_async_get_lights(api_instance_real: CameDomoticAPI):
         print(f"ID: {light.act_id}, Name: {light.name}, Status: {light.status}")
 
 
-async def test_async_change_light_status(api_instance_real: CameDomoticAPI, real_server_config):
+async def test_async_change_light_status(
+    api_instance_real: CameDomoticAPI, real_server_config
+):
     lights = await api_instance_real.async_get_lights()
 
     # Get device name from config, provide a default if not found or section is missing
@@ -115,7 +116,9 @@ async def test_async_get_openings(api_instance_real: CameDomoticAPI):
     assert openings is not None, "Failed to get openings"
 
 
-async def test_async_control_specific_shutter(api_instance_real: CameDomoticAPI, real_server_config):
+async def test_async_control_specific_shutter(
+    api_instance_real: CameDomoticAPI, real_server_config
+):
     """Tests shutter control: CLOSE -> STOPPED -> OPEN sequence."""
     wait_time_sec = 3
     shutter_name = "Tapparella Camera matrimoniale"
@@ -170,7 +173,61 @@ async def test_async_control_specific_shutter(api_instance_real: CameDomoticAPI,
     assert target_shutter.status == OpeningStatus.OPENING
 
 
-async def test_async_usage_example(api_instance_real: CameDomoticAPI, real_server_config):
+async def test_async_get_scenarios(api_instance_real: CameDomoticAPI):
+    """Tests fetching all scenarios from the server."""
+    print("\nFetching all scenarios...")
+    scenarios = await api_instance_real.async_get_scenarios()
+    if not scenarios:
+        print("No scenarios found on the server.")
+        return
+
+    print(f"Found {len(scenarios)} scenario(s):")
+    for scenario in scenarios:
+        print(
+            f"  ID: {scenario.id}"
+            f" - Name: {scenario.name}"
+            f" - Status: {scenario.scenario_status.name}"
+            f" - Icon: {scenario.icon_id}"
+            f" - User-defined: {scenario.user_defined}"
+        )
+    assert scenarios is not None, "Failed to get scenarios"
+
+
+@pytest.mark.timeout(130)
+async def test_scenario_activation_openings_down_and_up(
+    api_instance_real: CameDomoticAPI,
+):
+    """Tests scenario activation: close all shutters, wait 1 minute, then open them."""
+    scenarios = await api_instance_real.async_get_scenarios()
+    if not scenarios:
+        pytest.skip("No scenarios found on the server.")
+        return
+
+    scenario_down = next((s for s in scenarios if s.id == 8), None)
+    scenario_up = next((s for s in scenarios if s.id == 5), None)
+
+    if scenario_down is None:
+        pytest.skip("Scenario 8 not found on the server.")
+        return
+
+    if scenario_up is None:
+        pytest.skip("Scenario 5 not found on the server.")
+        return
+
+    print(f"\nActivating scenario '{scenario_down.name}' (ID: {scenario_down.id})...")
+    await scenario_down.async_activate()
+
+    print("Waiting 60 seconds...")
+    await asyncio.sleep(60)
+
+    print(f"Activating scenario '{scenario_up.name}' (ID: {scenario_up.id})...")
+    await scenario_up.async_activate()
+    print("Done.")
+
+
+async def test_async_usage_example(
+    api_instance_real: CameDomoticAPI, real_server_config
+):
     # Get the list of all the lights configured on the CAME server
     lights = await api_instance_real.async_get_lights()
 
