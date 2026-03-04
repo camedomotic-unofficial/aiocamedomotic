@@ -980,6 +980,32 @@ class TestScenario:
         }
         mock_send_command.assert_called_once_with(expected_payload)
 
+    def test_active_status(self, auth_instance):
+        active_status_data = {
+            "id": 5,
+            "name": "Tapparelle apri",
+            "scenario_status": 2,
+            "status": 0,
+            "user-defined": 0,
+        }
+
+        scenario = Scenario(active_status_data, auth_instance)
+
+        assert scenario.scenario_status == ScenarioStatus.ACTIVE
+
+    def test_triggered_status(self, auth_instance):
+        triggered_status_data = {
+            "id": 3,
+            "name": "Luci notte spente",
+            "scenario_status": 1,
+            "status": 0,
+            "user-defined": 0,
+        }
+
+        scenario = Scenario(triggered_status_data, auth_instance)
+
+        assert scenario.scenario_status == ScenarioStatus.TRIGGERED
+
     def test_unknown_status(self, auth_instance):
         unknown_status_data = {
             "id": 5,

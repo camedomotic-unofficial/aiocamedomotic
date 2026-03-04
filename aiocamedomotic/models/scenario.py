@@ -38,12 +38,14 @@ class ScenarioStatus(Enum):
     """Status of a scenario.
 
     Allowed values are:
-        - OFF (0)
-        - ON (1)
+        - OFF (0): scenario is not active
+        - TRIGGERED (1): scenario has just been activated and is executing
+        - ACTIVE (2): scenario is currently in effect
     """
 
     OFF = 0
-    ON = 1
+    TRIGGERED = 1
+    ACTIVE = 2
     UNKNOWN = -1
 
 
@@ -88,7 +90,7 @@ class Scenario(CameEntity):
 
     @property
     def scenario_status(self) -> ScenarioStatus:
-        """Scenario-specific status. Allowed values: OFF (0) and ON (1)."""
+        """Scenario-specific status: OFF (0), TRIGGERED (1), or ACTIVE (2)."""
         try:
             return ScenarioStatus(self.raw_data["scenario_status"])
         except (ValueError, KeyError):
