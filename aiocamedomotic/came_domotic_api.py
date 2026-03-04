@@ -40,6 +40,8 @@ from .models import (
     Scenario,
     Floor,
     Room,
+    ThermoZone,
+    AnalogSensor,
 )
 
 
@@ -190,6 +192,65 @@ class CameDomoticAPI:
         # Defaults to an empty list if the key is missing from the response JSON
         lights_list = json_response.get("array", [])
         return [Light(light, self.auth) for light in lights_list]
+
+    async def async_get_thermo_zones(self) -> List[ThermoZone]:
+        """Get the list of all thermoregulation zones defined on the server.
+
+        Returns:
+            List[ThermoZone]: List of thermoregulation zones.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+
+        payload = {
+            "cmd_name": _CommandName.THERMO_LIST.value,
+            "topologic_scope": _TopologicScope.PLANT.value,
+        }
+
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.THERMO_LIST.value
+        )
+
+        # Defaults to an empty list if the key is missing from the response JSON
+        zones_list = json_response.get("array", [])
+        return [ThermoZone(zone, self.auth) for zone in zones_list]
+
+    async def async_get_analog_sensors(self) -> List[AnalogSensor]:
+        """Get analog sensor readings from the thermoregulation system.
+
+        Retrieves top-level temperature, humidity, and pressure sensor
+        readings from the thermoregulation list response.
+
+        Note:
+            Temperature sensor values follow the x10 convention
+            (e.g., 215 = 21.5 degrees C). Humidity and pressure values
+            are returned as-is from the API.
+
+        Returns:
+            List[AnalogSensor]: List of analog sensors found in the response.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+
+        payload = {
+            "cmd_name": _CommandName.THERMO_LIST.value,
+            "topologic_scope": _TopologicScope.PLANT.value,
+        }
+
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.THERMO_LIST.value
+        )
+
+        sensors = []
+        for key in ("temperature", "humidity", "pressure"):
+            sensor_data = json_response.get(key)
+            if sensor_data and isinstance(sensor_data, dict):
+                sensors.append(AnalogSensor(sensor_data))
+        return sensors
 
     async def async_get_updates(self) -> UpdateList:
         """Get the list of status updates from the server.

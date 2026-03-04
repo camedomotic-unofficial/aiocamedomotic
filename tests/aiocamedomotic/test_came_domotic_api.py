@@ -23,6 +23,7 @@ from tests.aiocamedomotic.mocked_responses import (
     FEATURE_LIST_RESP,
     LIGHT_LIST_RESP,
     SCENARIOS_LIST_RESP,
+    THERMO_LIST_RESP,
 )
 from aiocamedomotic.models import (
     ServerInfo,
@@ -33,6 +34,8 @@ from aiocamedomotic.models import (
     UpdateList,
     Floor,
     Room,
+    ThermoZone,
+    AnalogSensor,
 )
 from aiocamedomotic.errors import (
     CameDomoticServerNotFoundError,
@@ -883,3 +886,233 @@ class TestAPIUpdates:
 
         assert isinstance(result, UpdateList)
         assert result.data == []
+
+
+class TestAPIThermoZones:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_thermo_zones(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = THERMO_LIST_RESP
+
+        zones = await api.async_get_thermo_zones()
+        assert len(zones) == len(THERMO_LIST_RESP["array"])
+        assert isinstance(zones[0], ThermoZone)
+        assert isinstance(zones[1], ThermoZone)
+        assert zones[0].act_id == 1
+        assert zones[0].name == "Room 1"
+        assert zones[0].temperature == 20.0
+        assert zones[0].set_point == 34.8
+        assert zones[0].mode.name == "AUTO"
+        assert zones[0].season.name == "WINTER"
+        assert zones[1].act_id == 52
+        assert zones[1].name == "Room 2"
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_thermo_zones_empty_array(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [],
+            "cmd_name": "thermo_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        zones = await api.async_get_thermo_zones()
+        assert len(zones) == 0
+        assert isinstance(zones, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_thermo_zones_missing_array_key(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "cmd_name": "thermo_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        zones = await api.async_get_thermo_zones()
+        assert len(zones) == 0
+        assert isinstance(zones, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_thermo_zones_missing_act_id(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [
+                {
+                    "name": "Zone Without ID",
+                    "floor_ind": 37,
+                    "room_ind": 57,
+                    "status": 0,
+                    "temp": 200,
+                    "mode": 2,
+                    "season": "winter",
+                }
+            ],
+            "cmd_name": "thermo_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: act_id"):
+            await api.async_get_thermo_zones()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_thermo_zones_missing_name(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [
+                {
+                    "act_id": 1,
+                    "floor_ind": 37,
+                    "room_ind": 57,
+                    "status": 0,
+                    "temp": 200,
+                    "mode": 2,
+                    "season": "winter",
+                }
+            ],
+            "cmd_name": "thermo_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: name"):
+            await api.async_get_thermo_zones()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_thermo_zones_unknown_enums(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [
+                {
+                    "act_id": 1,
+                    "name": "Unknown Zone",
+                    "status": 0,
+                    "temp": 200,
+                    "mode": 99,
+                    "season": "nonexistent",
+                }
+            ],
+            "cmd_name": "thermo_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        zones = await api.async_get_thermo_zones()
+        assert len(zones) == 1
+        assert (
+            zones[0].mode
+            == ThermoZone({"act_id": 1, "name": "x", "mode": 99}, auth_instance).mode
+        )
+        assert zones[0].mode.value == -1
+        assert zones[0].season.value == "unknown"
+
+
+class TestAPIAnalogSensors:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_analog_sensors(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "cmd_name": "thermo_list_resp",
+            "cseq": 1,
+            "array": [],
+            "sl_data_ack_reason": 0,
+            "temperature": {
+                "name": "Outdoor Temp",
+                "value": 215,
+                "unit": "\u00b0C",
+                "act_id": 100,
+            },
+            "humidity": {
+                "name": "Indoor Humidity",
+                "value": 55,
+                "unit": "%",
+                "act_id": 101,
+            },
+            "pressure": {
+                "name": "Barometric Pressure",
+                "value": 1013,
+                "unit": "hPa",
+                "act_id": 102,
+            },
+        }
+
+        sensors = await api.async_get_analog_sensors()
+        assert len(sensors) == 3
+        assert isinstance(sensors[0], AnalogSensor)
+        assert sensors[0].name == "Outdoor Temp"
+        assert sensors[0].value == 215
+        assert sensors[0].unit == "\u00b0C"
+        assert sensors[1].name == "Indoor Humidity"
+        assert sensors[1].value == 55
+        assert sensors[2].name == "Barometric Pressure"
+        assert sensors[2].value == 1013
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_analog_sensors_partial(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "cmd_name": "thermo_list_resp",
+            "cseq": 1,
+            "array": [],
+            "sl_data_ack_reason": 0,
+            "temperature": {
+                "name": "Outdoor Temp",
+                "value": 215,
+                "unit": "\u00b0C",
+                "act_id": 100,
+            },
+        }
+
+        sensors = await api.async_get_analog_sensors()
+        assert len(sensors) == 1
+        assert sensors[0].name == "Outdoor Temp"
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_analog_sensors_none_present(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "cmd_name": "thermo_list_resp",
+            "cseq": 1,
+            "array": [],
+            "sl_data_ack_reason": 0,
+        }
+
+        sensors = await api.async_get_analog_sensors()
+        assert len(sensors) == 0
+        assert isinstance(sensors, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_analog_sensors_missing_required_field(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "cmd_name": "thermo_list_resp",
+            "cseq": 1,
+            "array": [],
+            "sl_data_ack_reason": 0,
+            "temperature": {
+                "value": 215,
+                "unit": "\u00b0C",
+                "act_id": 100,
+            },
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: name"):
+            await api.async_get_analog_sensors()

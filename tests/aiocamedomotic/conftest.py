@@ -219,4 +219,62 @@ def scenario_data_on():
     }
 
 
+@pytest.fixture
+def thermo_zone_data_winter_auto():
+    """Mock data for a thermoregulation zone in winter/auto mode."""
+    return {
+        "act_id": 1,
+        "name": "Living Room",
+        "floor_ind": 37,
+        "room_ind": 57,
+        "status": 0,
+        "temp": 200,
+        "mode": 2,
+        "set_point": 348,
+        "thermo_algo": {"type": "D", "diff_t_dec": 2, "pi_set_in_use": 1},
+        "season": "winter",
+        "leaf": True,
+    }
+
+
+@pytest.fixture
+def thermo_zone_data_summer_manual():
+    """Mock data for a thermoregulation zone in summer/manual mode."""
+    return {
+        "act_id": 52,
+        "name": "Bedroom",
+        "floor_ind": 37,
+        "room_ind": 59,
+        "status": 1,
+        "temp": 265,
+        "mode": 1,
+        "set_point": 250,
+        "season": "summer",
+        "antifreeze": 60,
+        "leaf": True,
+    }
+
+
+@pytest.fixture
+def analog_sensor_data_temperature():
+    """Mock data for an analog temperature sensor."""
+    return {
+        "name": "Outdoor Temperature",
+        "value": 215,
+        "unit": "\u00b0C",
+        "act_id": 100,
+    }
+
+
+@pytest.fixture
+def analog_sensor_data_humidity():
+    """Mock data for an analog humidity sensor."""
+    return {
+        "name": "Indoor Humidity",
+        "value": 55,
+        "unit": "%",
+        "act_id": 101,
+    }
+
+
 # endregion

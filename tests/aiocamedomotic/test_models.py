@@ -22,7 +22,12 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from aiocamedomotic import Auth
 from aiocamedomotic.errors import CameDomoticAuthError
-from aiocamedomotic.const import DeviceType, _UPDATE_CMD_TO_DEVICE_TYPE, _DEVICE_TYPE_TO_FEATURE, _ServerFeature
+from aiocamedomotic.const import (
+    DeviceType,
+    _UPDATE_CMD_TO_DEVICE_TYPE,
+    _DEVICE_TYPE_TO_FEATURE,
+    _ServerFeature,
+)
 from aiocamedomotic.models import (
     ServerInfo,
     User,
@@ -37,6 +42,11 @@ from aiocamedomotic.models import (
     Room,
     Scenario,
     ScenarioStatus,
+    ThermoZone,
+    ThermoZoneStatus,
+    ThermoZoneMode,
+    ThermoZoneSeason,
+    AnalogSensor,
     get_update_device_type,
 )
 
@@ -75,21 +85,38 @@ class TestDeviceType:
     def test_update_cmd_to_device_type_mapping(self):
         assert _UPDATE_CMD_TO_DEVICE_TYPE["light_update_ind"] == DeviceType.LIGHT
         assert _UPDATE_CMD_TO_DEVICE_TYPE["opening_update_ind"] == DeviceType.OPENING
-        assert _UPDATE_CMD_TO_DEVICE_TYPE["relay_update_ind"] == DeviceType.GENERIC_RELAY
+        assert (
+            _UPDATE_CMD_TO_DEVICE_TYPE["relay_update_ind"] == DeviceType.GENERIC_RELAY
+        )
         assert _UPDATE_CMD_TO_DEVICE_TYPE["thermo_update_ind"] == DeviceType.THERMOSTAT
-        assert _UPDATE_CMD_TO_DEVICE_TYPE["thermo_zone_info_ind"] == DeviceType.THERMOSTAT
-        assert _UPDATE_CMD_TO_DEVICE_TYPE["digitalin_update_ind"] == DeviceType.DIGITAL_INPUT
+        assert (
+            _UPDATE_CMD_TO_DEVICE_TYPE["thermo_zone_info_ind"] == DeviceType.THERMOSTAT
+        )
+        assert (
+            _UPDATE_CMD_TO_DEVICE_TYPE["digitalin_update_ind"]
+            == DeviceType.DIGITAL_INPUT
+        )
         assert _UPDATE_CMD_TO_DEVICE_TYPE["scenario_status_ind"] == DeviceType.SCENARIO
         assert _UPDATE_CMD_TO_DEVICE_TYPE["scenario_user_ind"] == DeviceType.SCENARIO
 
     def test_device_type_to_feature_mapping(self):
         assert _DEVICE_TYPE_TO_FEATURE[DeviceType.LIGHT] == _ServerFeature.LIGHTS
         assert _DEVICE_TYPE_TO_FEATURE[DeviceType.OPENING] == _ServerFeature.OPENINGS
-        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.GENERIC_RELAY] == _ServerFeature.RELAYS
-        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.THERMOSTAT] == _ServerFeature.THERMOREGULATION
+        assert (
+            _DEVICE_TYPE_TO_FEATURE[DeviceType.GENERIC_RELAY] == _ServerFeature.RELAYS
+        )
+        assert (
+            _DEVICE_TYPE_TO_FEATURE[DeviceType.THERMOSTAT]
+            == _ServerFeature.THERMOREGULATION
+        )
         assert _DEVICE_TYPE_TO_FEATURE[DeviceType.SCENARIO] == _ServerFeature.SCENARIOS
-        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.DIGITAL_INPUT] == _ServerFeature.DIGITALIN
-        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.ENERGY_SENSOR] == _ServerFeature.ENERGY
+        assert (
+            _DEVICE_TYPE_TO_FEATURE[DeviceType.DIGITAL_INPUT]
+            == _ServerFeature.DIGITALIN
+        )
+        assert (
+            _DEVICE_TYPE_TO_FEATURE[DeviceType.ENERGY_SENSOR] == _ServerFeature.ENERGY
+        )
 
 
 class TestServerInfo:
@@ -267,9 +294,17 @@ class TestUpdateList:
         assert updates.data == []
 
     def test_get_update_device_type_known(self):
-        assert get_update_device_type({"cmd_name": "light_update_ind"}) == DeviceType.LIGHT
-        assert get_update_device_type({"cmd_name": "opening_update_ind"}) == DeviceType.OPENING
-        assert get_update_device_type({"cmd_name": "thermo_zone_info_ind"}) == DeviceType.THERMOSTAT
+        assert (
+            get_update_device_type({"cmd_name": "light_update_ind"}) == DeviceType.LIGHT
+        )
+        assert (
+            get_update_device_type({"cmd_name": "opening_update_ind"})
+            == DeviceType.OPENING
+        )
+        assert (
+            get_update_device_type({"cmd_name": "thermo_zone_info_ind"})
+            == DeviceType.THERMOSTAT
+        )
 
     def test_get_update_device_type_unknown(self):
         assert get_update_device_type({"cmd_name": "plant_update_ind"}) is None
@@ -1056,3 +1091,156 @@ class TestScenario:
         assert scenario.scenario_status == ScenarioStatus.UNKNOWN
         assert scenario.status == 0
         assert scenario.user_defined == 0
+
+
+class TestThermoZone:
+    def test_initialization(self, thermo_zone_data_winter_auto, auth_instance):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        assert zone.raw_data == thermo_zone_data_winter_auto
+        assert zone.auth == auth_instance
+
+    def test_properties_winter_auto(self, thermo_zone_data_winter_auto, auth_instance):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        assert zone.act_id == 1
+        assert zone.name == "Living Room"
+        assert zone.floor_ind == 37
+        assert zone.room_ind == 57
+        assert zone.status == ThermoZoneStatus.OFF
+        assert zone.temperature == 20.0
+        assert zone.mode == ThermoZoneMode.AUTO
+        assert zone.set_point == 34.8
+        assert zone.season == ThermoZoneSeason.WINTER
+        assert zone.leaf is True
+
+    def test_properties_summer_manual(
+        self, thermo_zone_data_summer_manual, auth_instance
+    ):
+        zone = ThermoZone(thermo_zone_data_summer_manual, auth_instance)
+        assert zone.act_id == 52
+        assert zone.name == "Bedroom"
+        assert zone.status == ThermoZoneStatus.ON
+        assert zone.temperature == 26.5
+        assert zone.mode == ThermoZoneMode.MANUAL
+        assert zone.set_point == 25.0
+        assert zone.season == ThermoZoneSeason.SUMMER
+        assert zone.antifreeze == 6.0
+
+    def test_temperature_from_temp_dec(self, auth_instance):
+        zone_data = {
+            "act_id": 10,
+            "name": "Indication Zone",
+            "temp_dec": 185,
+        }
+        zone = ThermoZone(zone_data, auth_instance)
+        assert zone.temperature == 18.5
+
+    def test_unknown_mode(self, auth_instance):
+        zone_data = {
+            "act_id": 1,
+            "name": "Test Zone",
+            "mode": 99,
+        }
+        zone = ThermoZone(zone_data, auth_instance)
+        assert zone.mode == ThermoZoneMode.UNKNOWN
+
+    def test_unknown_status(self, auth_instance):
+        zone_data = {
+            "act_id": 1,
+            "name": "Test Zone",
+            "status": 99,
+        }
+        zone = ThermoZone(zone_data, auth_instance)
+        assert zone.status == ThermoZoneStatus.OFF
+
+    def test_unknown_season(self, auth_instance):
+        zone_data = {
+            "act_id": 1,
+            "name": "Test Zone",
+            "season": "foo",
+        }
+        zone = ThermoZone(zone_data, auth_instance)
+        assert zone.season == ThermoZoneSeason.UNKNOWN
+
+    def test_missing_act_id(self, auth_instance):
+        zone_data = {"name": "Test Zone"}
+        with pytest.raises(ValueError, match="Data is missing required keys: act_id"):
+            ThermoZone(zone_data, auth_instance)
+
+    def test_missing_name(self, auth_instance):
+        zone_data = {"act_id": 1}
+        with pytest.raises(ValueError, match="Data is missing required keys: name"):
+            ThermoZone(zone_data, auth_instance)
+
+    def test_auth_type_validation(self):
+        zone_data = {"act_id": 1, "name": "Test Zone"}
+        with pytest.raises(
+            ValueError, match="'auth' must be an instance of Auth, got dict"
+        ):
+            ThermoZone(zone_data, {"fake": "auth"})
+
+    def test_optional_fields_missing(self, auth_instance):
+        zone_data = {"act_id": 1, "name": "Minimal Zone"}
+        zone = ThermoZone(zone_data, auth_instance)
+        assert zone.act_id == 1
+        assert zone.name == "Minimal Zone"
+        assert zone.temperature == 0.0
+        assert zone.set_point == 0.0
+        assert zone.mode == ThermoZoneMode.UNKNOWN
+        assert zone.season == ThermoZoneSeason.UNKNOWN
+        assert zone.antifreeze is None
+        assert zone.leaf is True
+
+    def test_antifreeze_none(self, thermo_zone_data_winter_auto, auth_instance):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        assert zone.antifreeze is None
+
+    def test_status_on(self, thermo_zone_data_summer_manual, auth_instance):
+        zone = ThermoZone(thermo_zone_data_summer_manual, auth_instance)
+        assert zone.status == ThermoZoneStatus.ON
+
+    def test_plant_off_season(self, auth_instance):
+        zone_data = {
+            "act_id": 1,
+            "name": "Test Zone",
+            "season": "plant_off",
+        }
+        zone = ThermoZone(zone_data, auth_instance)
+        assert zone.season == ThermoZoneSeason.PLANT_OFF
+
+
+class TestAnalogSensor:
+    def test_initialization(self, analog_sensor_data_temperature):
+        sensor = AnalogSensor(analog_sensor_data_temperature)
+        assert sensor.raw_data == analog_sensor_data_temperature
+
+    def test_properties(self, analog_sensor_data_temperature):
+        sensor = AnalogSensor(analog_sensor_data_temperature)
+        assert sensor.act_id == 100
+        assert sensor.name == "Outdoor Temperature"
+        assert sensor.value == 215
+        assert sensor.unit == "\u00b0C"
+
+    def test_humidity_properties(self, analog_sensor_data_humidity):
+        sensor = AnalogSensor(analog_sensor_data_humidity)
+        assert sensor.act_id == 101
+        assert sensor.name == "Indoor Humidity"
+        assert sensor.value == 55
+        assert sensor.unit == "%"
+
+    def test_missing_name(self):
+        sensor_data = {"act_id": 100, "value": 215}
+        with pytest.raises(ValueError, match="Data is missing required keys: name"):
+            AnalogSensor(sensor_data)
+
+    def test_missing_act_id(self):
+        sensor_data = {"name": "Test Sensor", "value": 215}
+        with pytest.raises(ValueError, match="Data is missing required keys: act_id"):
+            AnalogSensor(sensor_data)
+
+    def test_optional_fields_missing(self):
+        sensor_data = {"name": "Minimal Sensor", "act_id": 200}
+        sensor = AnalogSensor(sensor_data)
+        assert sensor.name == "Minimal Sensor"
+        assert sensor.act_id == 200
+        assert sensor.value == 0
+        assert sensor.unit == ""
