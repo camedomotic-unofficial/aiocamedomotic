@@ -158,6 +158,7 @@ class TestAPIUsers:
         assert isinstance(users[1], User)
         assert users[0].name == "admin"
         assert users[1].name == "user"
+        mock_send_command.assert_called_once_with({}, command_type="sl_users_list_req")
 
     @patch.object(Auth, "async_send_command")
     async def test_async_get_users_empty_list(self, mock_send_command, auth_instance):

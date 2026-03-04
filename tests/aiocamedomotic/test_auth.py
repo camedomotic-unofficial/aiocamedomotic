@@ -230,8 +230,13 @@ class TestAuthSendCommand:
                     == time.monotonic() + auth_instance.keep_alive_timeout_sec - 30
                 )
 
+                expected_appl_msg = {
+                    **payload,
+                    "cseq": 1,
+                    "client": "test_client_id",
+                }
                 expected_request_payload = {
-                    "sl_appl_msg": payload,
+                    "sl_appl_msg": expected_appl_msg,
                     "sl_client_id": "test_client_id",
                     "sl_cmd": "sl_data_req",
                     "sl_appl_msg_type": "domo",
@@ -254,6 +259,9 @@ class TestAuthSendCommand:
         auth_instance.keep_alive_timeout_sec = 900
 
         payload = {"command": "test_command"}
+        previous_session_expiration_timestamp = (
+            auth_instance.session_expiration_timestamp
+        )
 
         with patch.object(
             auth_instance.websession, "post", new_callable=AsyncMock
@@ -270,14 +278,20 @@ class TestAuthSendCommand:
                 ):
                     await auth_instance.async_send_command(payload)
 
-                assert auth_instance.cseq == 1
+                # Session state should NOT be refreshed on ACK error
+                assert auth_instance.cseq == 0
                 assert (
                     auth_instance.session_expiration_timestamp
-                    == time.monotonic() + auth_instance.keep_alive_timeout_sec - 30
+                    == previous_session_expiration_timestamp
                 )
 
+                expected_appl_msg = {
+                    **payload,
+                    "cseq": 1,
+                    "client": "test_client_id",
+                }
                 expected_request_payload = {
-                    "sl_appl_msg": payload,
+                    "sl_appl_msg": expected_appl_msg,
                     "sl_client_id": "test_client_id",
                     "sl_cmd": "sl_data_req",
                     "sl_appl_msg_type": "domo",
@@ -306,8 +320,13 @@ class TestAuthSendCommand:
                 with pytest.raises(CameDomoticServerError):
                     await auth_instance.async_send_command(payload)
 
+                expected_appl_msg = {
+                    **payload,
+                    "cseq": 1,
+                    "client": "test_client_id",
+                }
                 expected_request_payload = {
-                    "sl_appl_msg": payload,
+                    "sl_appl_msg": expected_appl_msg,
                     "sl_client_id": "test_client_id",
                     "sl_cmd": "sl_data_req",
                     "sl_appl_msg_type": "domo",
@@ -336,8 +355,13 @@ class TestAuthSendCommand:
                 with pytest.raises(CameDomoticServerError):
                     await auth_instance.async_send_command(payload)
 
+                expected_appl_msg = {
+                    **payload,
+                    "cseq": 1,
+                    "client": "test_client_id",
+                }
                 expected_request_payload = {
-                    "sl_appl_msg": payload,
+                    "sl_appl_msg": expected_appl_msg,
                     "sl_client_id": "test_client_id",
                     "sl_cmd": "sl_data_req",
                     "sl_appl_msg_type": "domo",
@@ -377,8 +401,13 @@ class TestAuthSendCommand:
             with pytest.raises(CameDomoticServerError):
                 await auth_instance.async_send_command(payload)
 
+            expected_appl_msg = {
+                **payload,
+                "cseq": 1,
+                "client": "my_client_id",
+            }
             full_payload = {
-                "sl_appl_msg": payload,
+                "sl_appl_msg": expected_appl_msg,
                 "sl_client_id": "my_client_id",
                 "sl_cmd": "sl_data_req",
                 "sl_appl_msg_type": "domo",
@@ -436,6 +465,36 @@ class TestAuthSendCommand:
                 match=rf"ACK error {ack_code}: {expected_message.replace('.', r'\.')}",
             ):
                 await auth_instance.async_send_command(payload)
+
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="test_client_id",
+    )
+    @patch.object(ClientSession, "post", new_callable=AsyncMock)
+    @freezegun.freeze_time("2020-01-01")
+    @pytest.mark.parametrize("ack_code", [7, 8])
+    async def test_session_invalidated_on_session_ack_errors(
+        self, mock_post, mock_get_client_id, auth_instance, ack_code
+    ):
+        """Test that ACK errors 7/8 invalidate the session for re-login."""
+        auth_instance.keep_alive_timeout_sec = 900
+        auth_instance.client_id = "test_client_id"
+        auth_instance.session_expiration_timestamp = time.monotonic() + 3600
+        payload = {"command": "test_command"}
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {"sl_data_ack_reason": ack_code}
+        mock_post.return_value = mock_response
+
+        with pytest.raises(CameDomoticServerError):
+            await auth_instance.async_send_command(payload)
+
+        assert auth_instance.client_id == ""
+        assert auth_instance.session_expiration_timestamp < time.monotonic()
 
     @patch.object(
         Auth,
