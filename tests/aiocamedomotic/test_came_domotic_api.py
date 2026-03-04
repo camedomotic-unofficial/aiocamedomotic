@@ -1052,12 +1052,12 @@ class TestAPIAnalogSensors:
         assert len(sensors) == 3
         assert isinstance(sensors[0], AnalogSensor)
         assert sensors[0].name == "Outdoor Temp"
-        assert sensors[0].value == 215
+        assert sensors[0].value == 21.5
         assert sensors[0].unit == "\u00b0C"
         assert sensors[1].name == "Indoor Humidity"
-        assert sensors[1].value == 55
+        assert sensors[1].value == 55.0
         assert sensors[2].name == "Barometric Pressure"
-        assert sensors[2].value == 1013
+        assert sensors[2].value == 1013.0
 
     @patch.object(Auth, "async_send_command")
     async def test_async_get_analog_sensors_partial(

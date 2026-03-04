@@ -1217,14 +1217,14 @@ class TestAnalogSensor:
         sensor = AnalogSensor(analog_sensor_data_temperature)
         assert sensor.act_id == 100
         assert sensor.name == "Outdoor Temperature"
-        assert sensor.value == 215
+        assert sensor.value == 21.5
         assert sensor.unit == "\u00b0C"
 
     def test_humidity_properties(self, analog_sensor_data_humidity):
         sensor = AnalogSensor(analog_sensor_data_humidity)
         assert sensor.act_id == 101
         assert sensor.name == "Indoor Humidity"
-        assert sensor.value == 55
+        assert sensor.value == 55.0
         assert sensor.unit == "%"
 
     def test_missing_name(self):
@@ -1242,5 +1242,5 @@ class TestAnalogSensor:
         sensor = AnalogSensor(sensor_data)
         assert sensor.name == "Minimal Sensor"
         assert sensor.act_id == 200
-        assert sensor.value == 0
+        assert sensor.value == 0.0
         assert sensor.unit == ""
