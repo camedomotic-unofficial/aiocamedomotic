@@ -218,10 +218,8 @@ class AnalogSensor(CameEntity):
     separate from the thermoregulation zones.
 
     Note:
-        The ``value`` property returns the raw value from the API.
-        Temperature sensor values follow the x10 convention
-        (e.g., 215 = 21.5 degrees C). Humidity and pressure values
-        are returned as-is.
+        The ``value`` property returns the real sensor reading in the
+        unit reported by ``unit`` (e.g., degrees C, %, hPa).
 
     Raises:
         ValueError: If ``name`` or ``act_id`` keys are missing from
@@ -245,13 +243,11 @@ class AnalogSensor(CameEntity):
 
     @property
     def value(self) -> float:
-        """Raw sensor value from the API.
-
-        For temperature sensors, this is the temperature multiplied
-        by 10 (e.g., 215 means 21.5 degrees C). For humidity and pressure
-        sensors, this is the direct reading.
-        """
-        return self.raw_data.get("value", 0)
+        """Sensor reading in the unit reported by ``unit``."""
+        raw = self.raw_data.get("value", 0)
+        if self.unit == "°C":
+            return raw / 10.0
+        return float(raw)
 
     @property
     def unit(self) -> str:
