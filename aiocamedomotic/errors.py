@@ -22,7 +22,7 @@ from .const import get_ack_error_message, is_auth_error
 class CameDomoticError(Exception):
     """Base exception class for the CAME Domotic package."""
 
-    ack_code = None
+    ack_code: int | None = None
 
 
 class CameDomoticServerNotFoundError(CameDomoticError):
@@ -65,6 +65,7 @@ class CameDomoticServerError(CameDomoticError):
         """
         message = CameDomoticServerError.format_ack_error(ack_code)
 
+        exc: CameDomoticError
         if is_auth_error(ack_code):
             exc = CameDomoticAuthError(message)
         else:
