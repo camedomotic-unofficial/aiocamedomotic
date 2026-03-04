@@ -91,7 +91,7 @@ Tests can run against a real CAME Domotic server (skipped by default):
 
 ## API Reference
 
-The complete CAME Domotic API reference, reverse engineered from another library, is available in `API_reference.md`.
+The full documentation of the CAME Domotic API that this library wraps is in `local_only/llms.md` (summary) and `local_only/llms-full.md` (full details).
 
 ## Other notes
 
