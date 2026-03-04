@@ -81,7 +81,7 @@ class CameDomoticAPI:
         """
 
         json_response = await self.auth.async_send_command(
-            {}, _CommandType.USERS_LIST_REQUEST.value
+            {}, command_type=_CommandType.USERS_LIST_REQUEST.value
         )
 
         # Defaults to an empty list if the key is missing from the response JSON

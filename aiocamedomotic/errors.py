@@ -22,6 +22,8 @@ from .const import get_ack_error_message, is_auth_error
 class CameDomoticError(Exception):
     """Base exception class for the CAME Domotic package."""
 
+    ack_code = None
+
 
 class CameDomoticServerNotFoundError(CameDomoticError):
     """Raised when the specified host is not available."""
@@ -64,6 +66,8 @@ class CameDomoticServerError(CameDomoticError):
         message = CameDomoticServerError.format_ack_error(ack_code)
 
         if is_auth_error(ack_code):
-            return CameDomoticAuthError(message)
+            exc = CameDomoticAuthError(message)
         else:
-            return CameDomoticServerError(message)
+            exc = CameDomoticServerError(message)
+        exc.ack_code = ack_code
+        return exc

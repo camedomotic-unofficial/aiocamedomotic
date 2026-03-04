@@ -268,7 +268,7 @@ class Auth:
             return self.client_id
 
     @handle_came_domotic_errors
-    async def async_send_command(
+    async def async_send_command(  # pylint: disable=too-many-branches
         self,
         command: dict,
         *,
@@ -307,14 +307,24 @@ class Auth:
         else:
             client_id = await self.async_get_valid_client_id()
 
-        appl_msg = command.copy()
+        is_data_request = command_type == _CommandType.DATA_REQUEST.value
 
-        request_payload = {
-            "sl_appl_msg": appl_msg,
-            "sl_client_id": client_id,
-            "sl_cmd": command_type,
-            "sl_appl_msg_type": "domo",
-        }
+        if is_data_request:
+            appl_msg = command.copy()
+            appl_msg["cseq"] = self.cseq + 1
+            appl_msg["client"] = client_id
+
+            request_payload = {
+                "sl_appl_msg": appl_msg,
+                "sl_client_id": client_id,
+                "sl_cmd": command_type,
+                "sl_appl_msg_type": "domo",
+            }
+        else:
+            request_payload = {
+                "sl_client_id": client_id,
+                "sl_cmd": command_type,
+            }
 
         if additional_payload:
             # Add any additional key-value pairs to the request payload
@@ -330,17 +340,15 @@ class Auth:
 
             LOGGER.debug("HTTP response status: %s", response.status)
 
-            # Check if the response HTTP status is 2xx
+            if not skip_ack_check:
+                await self.async_raise_for_status_and_ack(response)
+
+            # Refresh session state only after a successful response (2xx + ACK 0)
             if 200 <= response.status < 300:
-                # Increment the command sequence number
                 self.cseq += 1
-                # Refresh the session expiration timestamp, keeping a "safe zone"
                 self.session_expiration_timestamp = time.monotonic() + max(
                     0, self.keep_alive_timeout_sec - Auth._DEFAULT_SAFE_ZONE_SEC
                 )
-
-            if not skip_ack_check:
-                await self.async_raise_for_status_and_ack(response)
 
             # Parse JSON response
             try:
@@ -364,6 +372,11 @@ class Auth:
             LOGGER.error("Auth error sending command '%s': %s", cmd_name, e)
             raise e
         except CameDomoticServerError as e:
+            # Invalidate session on session-related ACK errors
+            # (7: no client ID, 8: wrong client ID)
+            if getattr(e, "ack_code", None) in {7, 8}:
+                self.client_id = ""
+                self.session_expiration_timestamp = time.monotonic() - 3600
             cmd_name = (command or {}).get("cmd_name")
             LOGGER.error("Error sending command '%s': %s", cmd_name, e)
             raise e
