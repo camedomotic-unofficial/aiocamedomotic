@@ -29,7 +29,7 @@ AIOCameDomotic is an unofficial Python library that provides an asynchronous API
   - Private methods: prefixed with underscore (e.g., `_attempt_login`)
   - Constants: UPPER_SNAKE_CASE (typically in const.py)
 - **Error Handling**: Custom exceptions from base `CameDomoticError`, specific try/except blocks
-- **Documentation**: Docstrings for all public classes/methods with parameters, return values, and exceptions
+- **Documentation**: Docstrings for all public classes/methods with parameters, return values, and exceptions. When adding a new model module, also add a corresponding `.. automodule::` entry in `docs/source/api_reference.rst`
 - **Testing**: Pytest with mocks, fixtures, parameterization, and freezegun for time-dependent tests
 - **Comments**: never mention in comments of code, commits, PRs, etc. that have been generated with the help of Claude or any other AI tool
 
