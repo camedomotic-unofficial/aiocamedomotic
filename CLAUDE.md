@@ -84,10 +84,10 @@ Tests can run against a real CAME Domotic server (skipped by default):
 
 1. Copy `tests/aiocamedomotic/test_config.ini.example` to `test_config.ini`
 2. Fill in server credentials (host, username, password)
-3. Set `SKIP_TESTS_ON_REAL_SERVER = False` in `test_real.py`
+3. Set `RUN_TESTS_ON_REAL_SERVER = True` in `test_real.py`
 4. Run: `pytest tests/aiocamedomotic/test_real.py -v`
 
-**Never commit** `test_config.ini` or leave `SKIP_TESTS_ON_REAL_SERVER = False`.
+**Never commit** `test_config.ini` or leave `RUN_TESTS_ON_REAL_SERVER = True`.
 
 ## API Reference
 

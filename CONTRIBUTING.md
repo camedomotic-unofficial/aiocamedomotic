@@ -59,7 +59,7 @@ To run tests against a real server:
     shutter_name = Your Test Shutter Name
     ```
 3.  **Ensure `test_config.ini` is in your `.gitignore` file** (it should be by default if you pull recent changes).
-4.  Set the `SKIP_TESTS_ON_REAL_SERVER` variable in `tests/aiocamedomotic/test_real.py` to `False`.
+4.  Set the `RUN_TESTS_ON_REAL_SERVER` variable in `tests/aiocamedomotic/test_real.py` to `True`.
 5.  Run the tests:
     ```bash
     pytest tests/aiocamedomotic/test_real.py -v
@@ -67,7 +67,7 @@ To run tests against a real server:
 
 **Important security notes:**
 - Never commit your `test_config.ini` file with real server credentials to the repository.
-- Always reset `SKIP_TESTS_ON_REAL_SERVER` to `True` before committing changes if you modified it locally for testing.
+- Always reset `RUN_TESTS_ON_REAL_SERVER` to `False` before committing changes if you modified it locally for testing.
 - Consider using a dedicated test user account on your CAME Domotic server for testing.
 
 ## Branch naming convention

@@ -16,8 +16,8 @@
 Test module for real server connections.
 
 These tests are designed to be run against a real CAME Domotic server.
-They are skipped by default, but can be enabled by setting the SKIP_TESTS_ON_REAL_SERVER
-variable to False.
+They are skipped by default, but can be enabled by setting the RUN_TESTS_ON_REAL_SERVER
+variable to True.
 """
 
 # pylint: disable=missing-function-docstring
