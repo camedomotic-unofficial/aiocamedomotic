@@ -223,11 +223,6 @@ class CameDomoticAPI:
         Retrieves top-level temperature, humidity, and pressure sensor
         readings from the thermoregulation list response.
 
-        Note:
-            Temperature sensor values follow the x10 convention
-            (e.g., 215 = 21.5 degrees C). Humidity and pressure values
-            are returned as-is from the API.
-
         Returns:
             List[AnalogSensor]: List of analog sensors found in the response.
 
