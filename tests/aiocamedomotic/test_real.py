@@ -19,6 +19,7 @@ These tests are designed to be run against a real CAME Domotic server.
 They are skipped by default, but can be enabled by setting the SKIP_TESTS_ON_REAL_SERVER
 variable to False.
 """
+
 # pylint: disable=missing-function-docstring
 # pylint: disable=redefined-outer-name
 
@@ -28,7 +29,6 @@ import pytest
 from aiocamedomotic import CameDomoticAPI
 from aiocamedomotic.models import LightStatus
 from aiocamedomotic.models.opening import OpeningStatus
-
 
 RUN_TESTS_ON_REAL_SERVER = False
 
@@ -223,6 +223,47 @@ async def test_scenario_activation_openings_down_and_up(
     print(f"Activating scenario '{scenario_up.name}' (ID: {scenario_up.id})...")
     await scenario_up.async_activate()
     print("Done.")
+
+
+async def test_async_get_thermo_zones(api_instance_real: CameDomoticAPI):
+    """Tests fetching all thermoregulation zones from the server."""
+    print("\nFetching all thermoregulation zones...")
+    zones = await api_instance_real.async_get_thermo_zones()
+    if not zones:
+        print("No thermoregulation zones found on the server.")
+        return
+
+    print(f"Found {len(zones)} zone(s):")
+    for zone in zones:
+        print(
+            f"  ID: {zone.act_id}"
+            f" - Name: {zone.name}"
+            f" - Temp: {zone.temperature}\u00b0C"
+            f" - Setpoint: {zone.set_point}\u00b0C"
+            f" - Mode: {zone.mode.name}"
+            f" - Season: {zone.season.name}"
+            f" - Status: {zone.status.name}"
+        )
+    assert zones is not None, "Failed to get thermo zones"
+
+
+async def test_async_get_analog_sensors(api_instance_real: CameDomoticAPI):
+    """Tests fetching analog sensors from the server."""
+    print("\nFetching analog sensors...")
+    sensors = await api_instance_real.async_get_analog_sensors()
+    if not sensors:
+        print("No analog sensors found on the server.")
+        return
+
+    print(f"Found {len(sensors)} sensor(s):")
+    for sensor in sensors:
+        print(
+            f"  ID: {sensor.act_id}"
+            f" - Name: {sensor.name}"
+            f" - Value: {sensor.value}"
+            f" - Unit: {sensor.unit}"
+        )
+    assert sensors is not None, "Failed to get analog sensors"
 
 
 async def test_async_usage_example(

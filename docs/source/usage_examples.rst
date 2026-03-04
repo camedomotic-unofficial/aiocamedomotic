@@ -50,6 +50,7 @@ To work with CAME devices, you may need one or more of the following imports:
 
     from aiocamedomotic.models import (
         DeviceType, LightStatus, OpeningStatus, ScenarioStatus,
+        ThermoZoneMode, ThermoZoneSeason, ThermoZoneStatus,
     )
 
 
@@ -361,6 +362,70 @@ The following example shows how to activate a scenario:
 
     if good_night:
         await good_night.async_activate()
+
+
+Thermoregulation zones
+----------------------
+
+List of available thermoregulation zones
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can get the list of all the available thermoregulation zones with the
+``async_get_thermo_zones()`` method:
+
+.. code-block:: python
+
+    zones = await api.async_get_thermo_zones()
+
+    for zone in zones:
+        print(
+            f"ID: {zone.act_id}, Name: {zone.name}, "
+            f"Temperature: {zone.temperature}°C, "
+            f"Setpoint: {zone.set_point}°C, "
+            f"Mode: {zone.mode}, Season: {zone.season}"
+        )
+
+Example output for thermoregulation zones:
+
+.. code-block:: text
+
+    ID: 1, Name: Living Room, Temperature: 20.0°C, Setpoint: 21.5°C, Mode: ThermoZoneMode.AUTO, Season: ThermoZoneSeason.WINTER
+    ID: 52, Name: Bedroom, Temperature: 19.5°C, Setpoint: 20.0°C, Mode: ThermoZoneMode.MANUAL, Season: ThermoZoneSeason.WINTER
+
+.. note::
+    Temperature values are returned as float values in degrees Celsius.
+    The API internally stores them as integers multiplied by 10
+    (e.g., 215 = 21.5°C), but this conversion is handled automatically.
+
+Analog sensors
+--------------
+
+List of available analog sensors
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Analog sensors provide top-level temperature, humidity, and pressure readings
+from the thermoregulation system. You can retrieve them with the
+``async_get_analog_sensors()`` method:
+
+.. code-block:: python
+
+    sensors = await api.async_get_analog_sensors()
+
+    for sensor in sensors:
+        print(f"Name: {sensor.name}, Value: {sensor.value}, Unit: {sensor.unit}")
+
+Example output for analog sensors:
+
+.. code-block:: text
+
+    Name: Outdoor Temperature, Value: 215, Unit: °C
+    Name: Indoor Humidity, Value: 55, Unit: %
+    Name: Barometric Pressure, Value: 1013, Unit: hPa
+
+.. note::
+    The ``value`` property returns the raw value from the API.
+    For temperature sensors, the value follows the x10 convention
+    (e.g., 215 = 21.5°C). Humidity and pressure values are returned as-is.
 
 
 Checking Authentication Status

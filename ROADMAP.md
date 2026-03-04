@@ -22,45 +22,71 @@ reflects our commitment to making home automation more accessible and manageable
 This roadmap is subject to change based on community feedback and ongoing development
 insights. We look forward to growing this library together with our users and contributors.
 
-## Current Features (Version 1.2)
+## Current Features (Version 1.3)
 
-- **Session management**: Automated handling of login and logout processes for the API.
-- **Lights management**: List and set the status of lights in the domotic environment.
-- **Openings management**: Control and monitor shutters, including listing and setting
-their status.
-- **Scenarios management**: List available scenarios and trigger them.
+- **Session management**: Automated handling of login, logout, and keep-alive processes
+  for the API, with automatic session recovery.
+- **Lights management**: List and control lights (on/off, dimmer brightness, RGB color).
+- **Openings management**: List and control shutters/blinds (open, close, stop).
+- **Scenarios management**: List available scenarios and trigger their activation.
+- **Thermoregulation (read-only)**: List thermoregulation zones with their current state,
+  retrieve temperature, setpoint, mode, and season for each zone. Expose top-level analog
+  sensor readings (temperature, humidity, pressure) from the thermo response.
+- **Status updates**: Manual long-polling support for receiving real-time device state
+  changes (lights, openings, scenarios, thermoregulation zones).
+- **Discovery**: Server info, feature detection, user listing, floor and room topology.
 
 ## Planned Features
 
-### Short-term goals (Version 1.3)
+All planned features below are backed by real traffic captures from a domestic CAME
+Domotic plant and can be tested against a real server. Features that are only known from
+reverse-engineered sources (without real traffic verification) are listed separately
+under [Future considerations](#future-considerations).
 
-- **Thermoregulation management**:
-  - List thermo zones within the domotic environment.
-  - Retrieve current temperature readings.
-  - Get and set thermoregulation configurations.
+### Version 1.4 — Thermoregulation (control)
 
-### Mid-term goals (Version 1.4)
+- **Setpoint control**: Set target temperature for individual thermo zones.
+- **Season switching**: Switch between heating and cooling seasons (`thermo_season_req`).
+- **Mode and fan speed**: Configure operating mode, fan speed, and dehumidification.
+- **Profile management**: Get and set thermoregulation profiles with extended info support.
 
-- **Energy reporting**:
-  - Retrieve instant and historical energy consumption reports, aiding in monitoring
-    and optimizing energy usage.
+### Version 1.5 — Energy meters
 
-### Long-term goals (Version 1.5 and beyond)
+- **Meter listing**: List all energy meters with their current readings.
+- **Instant power**: Expose real-time power consumption via `meter_instant_power_ind`.
+- **Energy statistics**: Query historical consumption data (`energy_stat_req`) for
+  monitoring and dashboard integration.
 
-- **Loads control**:
-  - Integrate features to monitor current energy consumption.
-  - Provide capabilities to get and set configuration for managing loads effectively.
-- **User management**:
-  - Implement functionality to list users defined on the remote server, enhancing
-    control over who has access to the domotic plant management.
-- **Digital-in**:
-  - Implement functionalities to list and act on the digital-ins (e.g. digital switches)
-- **Terminals**: Implement functionality to list the configured terminals (i.e. CAME Domotic servers)
+### Version 1.6 — Load control
+
+- **Load control meters**: List load control meters and configure thresholds
+  (`loadsctrl_meter_list_req`, `loadsctrl_meter_set_req`).
+- **Load control relays**: List and configure load control relay priorities
+  (`loadsctrl_relay_list_req`, `loadsctrl_relay_set_req`).
+- **Status indications**: Handle `loadsctrl_meter_ind` and `loadsctrl_relay_ind` for
+  real-time load state updates.
 
 ## Future considerations
 
-As our library evolves, we are open to exploring additional functionalities that can
-enhance domotic plant management.
+The following features are known from reverse-engineered sources (API_reference.md,
+API_MANUAL.md) but have not been verified with real traffic captures. They may be
+considered for future development once real-world testing is possible:
+
+- **Relays (generic switches)**: List and control generic relay actuators. The API is
+  documented but no real traffic has been observed.
+- **Digital inputs**: List binary sensors (door contacts, motion sensors, etc.). Traffic
+  captures exist for listing, but no domestic plant currently uses them.
+- **User management**: Add, delete, and change passwords for users on the CAME server.
+- **Scenario management**: Create and delete scenarios (beyond the current list/activate).
+- **Audio system**: Sound zone and source management (entirely unverified).
+- **Cameras (TVCC)**: Camera listing (entirely unverified).
+- **Security system**: Area/scenario management and alarm control (entirely unverified).
+- **Maps**: Floor plan/map retrieval (entirely unverified).
+- **Status updates management**: Automatic long-polling loop with event callbacks,
+  push-based state synchronization, and `plant_update_ind` handling for full cache
+  invalidation.
+- **Infrastructure improvements**: Automated keep-alive scheduling, per-actuator scope
+  queries, and connection resilience improvements.
 
 ## Contributing
 

@@ -22,6 +22,13 @@ from .light import Light, LightType, LightStatus  # noqa: F401
 from .update import UpdateList, get_update_device_type  # noqa: F401
 from .opening import Opening, OpeningStatus, OpeningType  # noqa: F401
 from .scenario import Scenario, ScenarioStatus  # noqa: F401
+from .thermo_zone import (  # noqa: F401
+    ThermoZone,
+    ThermoZoneStatus,
+    ThermoZoneMode,
+    ThermoZoneSeason,
+    AnalogSensor,
+)
 
 from ..const import DeviceType  # noqa: F401
 
