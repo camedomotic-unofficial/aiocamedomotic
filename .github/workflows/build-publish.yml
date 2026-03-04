@@ -109,18 +109,7 @@ jobs:
         if: steps.create_branch_tag.outcome == 'success'
         run: |
           gh pr create --title "Update version to ${{ steps.update_version.outputs.version }}" --body "This pull request updates the library version to ${{ steps.update_version.outputs.version }}." --base master --head update-version
-          gh pr merge --auto --squash --delete-branch
-
-      - name: Wait for PR to be merged
-        run: |
-          PR_NUMBER=$(gh pr list --base master --json number --jq '.[0].number')
-          MERGE_STATUS=""
-          while [[ $MERGE_STATUS != "merged" && $PR_STATE != "closed" ]]; do
-            echo "Waiting for PR to be merged..."
-            sleep 10
-            MERGE_STATUS=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER | jq -r .merged)
-            PR_STATE=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER | jq -r .state)
-          done
+          gh pr merge --admin --squash --delete-branch
 
       - name: Checkout and push to master
         run: |
@@ -206,10 +195,44 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
+      - name: Checkout repository for tag lookup
+        uses: actions/checkout@v6
+        with:
+          ref: master
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Generate release notes from previous tag
+        id: release_notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CURRENT_TAG="${{ needs.build.outputs.version }}"
+          # Find the previous version tag (excluding current)
+          PREVIOUS_TAG=$(git tag --sort=-v:refname | grep -v "^${CURRENT_TAG}$" | head -n 1)
+          echo "Current tag: $CURRENT_TAG"
+          echo "Previous tag: $PREVIOUS_TAG"
+
+          if [ -n "$PREVIOUS_TAG" ]; then
+            # Generate notes between previous and current tag
+            NOTES=$(gh api repos/${{ github.repository }}/releases/generate-notes \
+              -f tag_name="$CURRENT_TAG" \
+              -f previous_tag_name="$PREVIOUS_TAG" \
+              --jq '.body')
+          else
+            # No previous tag found, generate without constraint
+            NOTES=$(gh api repos/${{ github.repository }}/releases/generate-notes \
+              -f tag_name="$CURRENT_TAG" \
+              --jq '.body')
+          fi
+
+          # Write to file to preserve multiline content
+          echo "$NOTES" > release_notes.md
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.build.outputs.version }}
           draft: true
-          generate_release_notes: true # see https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes
+          body_path: release_notes.md
           make_latest: true
