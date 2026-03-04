@@ -418,14 +418,9 @@ Example output for analog sensors:
 
 .. code-block:: text
 
-    Name: Outdoor Temperature, Value: 215, Unit: °C
+    Name: Outdoor Temperature, Value: 21.5, Unit: °C
     Name: Indoor Humidity, Value: 55, Unit: %
     Name: Barometric Pressure, Value: 1013, Unit: hPa
-
-.. note::
-    The ``value`` property returns the raw value from the API.
-    For temperature sensors, the value follows the x10 convention
-    (e.g., 215 = 21.5°C). Humidity and pressure values are returned as-is.
 
 
 Checking Authentication Status
