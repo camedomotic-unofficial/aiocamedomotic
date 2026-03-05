@@ -67,34 +67,28 @@ async def test_async_get_lights(api_instance_real: CameDomoticAPI):
         print(f"ID: {light.act_id}, Name: {light.name}, Status: {light.status}")
 
 
-async def test_async_change_light_status(
-    api_instance_real: CameDomoticAPI, real_server_config
-):
+async def test_async_change_light_status(api_instance_real: CameDomoticAPI):
+    light_name = "Lampadario sala pranzo"
     lights = await api_instance_real.async_get_lights()
 
-    # Get device name from config, provide a default if not found or section is missing
-    light_name_to_test = "Lampada cabina armadio camera m"  # Default
-    if (
-        real_server_config
-        and "test_devices" in real_server_config
-        and "on_off_light_name" in real_server_config["test_devices"]
-    ):
-        light_name_to_test = real_server_config["test_devices"]["on_off_light_name"]
-    else:
-        print(
-            f"Warning: 'on_off_light_name' not found in test_config.ini, using default: {light_name_to_test}"
-        )
+    light = next((lig for lig in lights if lig.name == light_name), None)
+    if light is None:
+        pytest.skip(f"Light '{light_name}' not found on server")
+        return
 
-    light = next((lig for lig in lights if lig.name == light_name_to_test), None)
-    if light:
-        await light.async_set_status(
-            LightStatus.OFF if light.status == LightStatus.ON else LightStatus.ON
-        )
-        # wait 1 second
-        await asyncio.sleep(3)
-        await light.async_set_status(
-            LightStatus.OFF if light.status == LightStatus.ON else LightStatus.ON
-        )
+    initial_status = light.status
+    print(f"Light '{light_name}' initial status: {initial_status.name}")
+
+    toggled_status = (
+        LightStatus.OFF if initial_status == LightStatus.ON else LightStatus.ON
+    )
+    await light.async_set_status(toggled_status)
+    print(f"Light '{light_name}' changed to: {toggled_status.name}")
+
+    await asyncio.sleep(5)
+
+    await light.async_set_status(initial_status)
+    print(f"Light '{light_name}' reverted to: {initial_status.name}")
 
 
 async def test_async_get_openings(api_instance_real: CameDomoticAPI):
@@ -218,7 +212,7 @@ async def test_scenario_activation_openings_down_and_up(
     await scenario_down.async_activate()
 
     print("Waiting 60 seconds...")
-    await asyncio.sleep(60)
+    await asyncio.sleep(30)
 
     print(f"Activating scenario '{scenario_up.name}' (ID: {scenario_up.id})...")
     await scenario_up.async_activate()
@@ -266,73 +260,48 @@ async def test_async_get_analog_sensors(api_instance_real: CameDomoticAPI):
     assert sensors is not None, "Failed to get analog sensors"
 
 
-async def test_async_usage_example(
-    api_instance_real: CameDomoticAPI, real_server_config
-):
-    # Get the list of all the lights configured on the CAME server
+async def test_async_dimmable_light(api_instance_real: CameDomoticAPI):
+    light_name = "Led porta finestra sala"
     lights = await api_instance_real.async_get_lights()
 
-    dimmable_light_id_to_test = 13  # Default
-    if (
-        real_server_config
-        and "test_devices" in real_server_config
-        and "dimmable_light_id" in real_server_config["test_devices"]
-    ):
-        try:
-            dimmable_light_id_to_test = int(
-                real_server_config["test_devices"]["dimmable_light_id"]
-            )
-        except ValueError:
-            print(
-                f"Warning: 'dimmable_light_id' in config is not an int, using default: {dimmable_light_id_to_test}"
-            )
-    else:
+    light = next((lig for lig in lights if lig.name == light_name), None)
+    if light is None:
+        pytest.skip(f"Light '{light_name}' not found on server")
+        return
+
+    initial_status = light.status
+    initial_brightness = light.perc
+    print(
+        f"Light '{light_name}' initial state: "
+        f"status={initial_status.name}, brightness={initial_brightness}%"
+    )
+
+    try:
+        # If the light is off, switch it on first
+        if initial_status == LightStatus.OFF:
+            await light.async_set_status(LightStatus.ON)
+            print(f"Light '{light_name}' switched ON")
+            await asyncio.sleep(2)
+
+        # Dim to 100%
+        await light.async_set_status(LightStatus.ON, brightness=100)
+        print(f"Light '{light_name}' dimmed to 100%")
+        await asyncio.sleep(2)
+
+        # Dim to 40%
+        await light.async_set_status(LightStatus.ON, brightness=40)
+        print(f"Light '{light_name}' dimmed to 40%")
+        await asyncio.sleep(2)
+
+        # Switch off
+        await light.async_set_status(LightStatus.OFF)
+        print(f"Light '{light_name}' switched OFF")
+        await asyncio.sleep(2)
+
+    finally:
+        # Revert to original configuration
+        await light.async_set_status(initial_status, brightness=initial_brightness)
         print(
-            f"Warning: 'dimmable_light_id' not found in test_config.ini, using default: {dimmable_light_id_to_test}"
+            f"Light '{light_name}' reverted to: "
+            f"status={initial_status.name}, brightness={initial_brightness}%"
         )
-
-    on_off_light_name_to_test = (
-        "Lampada cabina armadio camera m"  # Default (example, adjust)
-    )
-    if (
-        real_server_config
-        and "test_devices" in real_server_config
-        and "on_off_light_name" in real_server_config["test_devices"]
-    ):
-        on_off_light_name_to_test = real_server_config["test_devices"][
-            "on_off_light_name"
-        ]
-    else:
-        print(
-            f"Warning: 'on_off_light_name' not found in test_config.ini, using default: {on_off_light_name_to_test}"
-        )
-
-    # Get a specific light by ID
-    bedroom_dimmable_lamp = next(
-        (light for light in lights if light.act_id == dimmable_light_id_to_test), None
-    )
-
-    # Get a specific light by name
-    bedroom_lamp = next(
-        (light for light in lights if light.name == on_off_light_name_to_test),
-        None,
-    )
-
-    # Ensure the light is found (dimmable)
-    if bedroom_dimmable_lamp:
-        # Turn the light on, setting the brightness to 50%
-        await bedroom_dimmable_lamp.async_set_status(LightStatus.ON, brightness=50)
-
-        # Turn the light off
-        await bedroom_dimmable_lamp.async_set_status(LightStatus.OFF)
-
-        # Turn the light on, leaving the brightness unchanged
-        await bedroom_dimmable_lamp.async_set_status(LightStatus.ON)
-
-    # Ensure the light is found
-    if bedroom_lamp:
-        # Turn the light on
-        await bedroom_lamp.async_set_status(LightStatus.ON)
-
-        # Turn the light off
-        await bedroom_lamp.async_set_status(LightStatus.OFF)
