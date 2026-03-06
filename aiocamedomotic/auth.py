@@ -424,6 +424,12 @@ class Auth:
             raise CameDomoticServerNotFoundError(
                 f"HTTP GET of '{endpoint_url}' resulted in a timeout error)"
             ) from e
+        except TimeoutError as e:
+            # Handle generic asyncio timeouts (raised by aiohttp's internal
+            # TimerContext when a host is unreachable)
+            raise CameDomoticServerNotFoundError(
+                f"HTTP GET of '{endpoint_url}' resulted in a timeout error)"
+            ) from e
         except aiohttp.ClientError as e:
             # Broader category for client-side issues
             raise CameDomoticServerNotFoundError(
