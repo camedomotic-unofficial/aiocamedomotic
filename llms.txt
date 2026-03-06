@@ -234,4 +234,4 @@ Thank you for choosing the CAME Domotic Unofficial library. Happy automating!
 
 ---
 
-For complete usage examples and full API reference, see [llms-full.md](llms-full.md).
+For complete usage examples and full API reference, see [llms-full.txt](llms-full.txt).
