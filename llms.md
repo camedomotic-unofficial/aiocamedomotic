@@ -1,0 +1,237 @@
+# aiocamedomotic
+
+> Async Python library for interacting with CAME Domotic home automation systems. Provides automatic session management and device control.
+
+## Welcome!
+
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-D22128.svg)](https://opensource.org/licenses/Apache-2.0)[![Python 3.12 | 3.13 | 3.14](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-417fb0.svg)](https://www.python.org)[![SonarCloud - Security Rating](https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_aiocamedomotic&metric=security_rating)](https://sonarcloud.io/project/overview?id=camedomotic-unofficial_aiocamedomotic)[![SonarCloud - Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_aiocamedomotic&metric=vulnerabilities)](https://sonarcloud.io/project/overview?id=camedomotic-unofficial_aiocamedomotic)[![SonarCloud - Bugs](https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_aiocamedomotic&metric=bugs)](https://sonarcloud.io/project/overview?id=camedomotic-unofficial_aiocamedomotic)[![Documentation status](https://readthedocs.org/projects/aiocamedomotic/badge/?version=latest)](https://aiocamedomotic.readthedocs.io/en/latest/?badge=latest)
+
+The **CAME Domotic Unofficial Library** ([aiocamedomotic](https://github.com/camedomotic-unofficial/aiocamedomotic))
+provides a streamlined Python interface for interacting with CAME Domotic plants, much
+like the official
+[CAME Domotic app](https://www.came.com/global/itex/installers/solutions/domotica-e-termoregolazione/prodotti-compatibili-domotica/app-domotic-30).
+This library is designed to simplify the management of domotic devices by abstracting
+the complexities of the CAME Domotic API.
+
+Although primarily developed for use with
+[Home Assistant](https://www.home-assistant.io/), the library is freely available
+under the [Apache license 2.0](http://www.apache.org/licenses/LICENSE-2.0) for anyone
+interested in experimenting with a CAME Domotic plant.
+
+##### IMPORTANT
+This library is independently developed and is not affiliated with, endorsed by,
+or supported by [CAME](https://www.came.com/). It may not be compatible with all
+CAME Domotic systems. While this library is stable and publicly released, it comes
+with no guarantees. Use at your own risk.
+
+### Key Features
+
+- **Simplicity**: Easy interaction with domotic entities.
+- **Automatic session management**: No need for manual login or session handling.
+- **First of its kind**: Unique in providing integration with CAME Domotic systems.
+- **Open source**: Freely available under the Apache 2.0 license, inviting
+  contributions and adaptations.
+
+### Quick Start
+
+Have a look at the following guides to learn how to install and use the library:
+
+- [Getting started](https://aiocamedomotic.readthedocs.io/latest/getting_started.html)
+- [Usage examples](https://aiocamedomotic.readthedocs.io/latest/usage_examples.html)
+
+Once you are a bit more familiar with the library, you may want to explore the following
+resources too:
+
+- [API reference](https://aiocamedomotic.readthedocs.io/latest/api_reference.html)
+- [What’s new (releases)](https://github.com/camedomotic-unofficial/aiocamedomotic/releases)
+- [Development roadmap](https://github.com/camedomotic-unofficial/aiocamedomotic/blob/master/ROADMAP.md#development-roadmap)
+- [Security Policy](https://github.com/camedomotic-unofficial/aiocamedomotic/blob/master/SECURITY.md#security-policy)
+- [Contributing to Our Project](https://github.com/camedomotic-unofficial/aiocamedomotic/blob/master/CONTRIBUTING.md#contributing-to-our-project)
+
+### Acknowledgments
+
+Special thanks to Andrea Michielan for his foundational work with the
+[eti_domo](https://github.com/andrea-michielan/eti_domo) library, which greatly
+facilitated the initial development of this library. We also found great inspiration in
+the Home Assistant document
+[Building a Python library for an API](https://developers.home-assistant.io/docs/api_lib_index).
+
+## License
+
+This project is licensed under the Apache License 2.0. For more details, see the
+[LICENSE file](https://github.com/camedomotic-unofficial/aiocamedomotic/blob/master/LICENSE)
+on GitHub.
+
+## Getting started
+
+This guide will walk you through the steps to quickly start using the CAME Domotic
+Unofficial library in your projects. Before you begin, ensure you have:
+
+- Python 3.12, 3.13 or 3.14 installed on your system.
+- Access to a CAME Domotic server.
+
+### Installation
+
+Use [pip](https://pip.pypa.io/en/stable/) to install the latest version of the CAME
+Domotic Unofficial library and its dependencies:
+
+```bash
+pip install aiocamedomotic
+```
+
+### Basic usage examples
+
+Here’s a simple example to demonstrate how to use the library to turn on or off a light:
+
+```python
+import asyncio
+
+from aiocamedomotic import CameDomoticAPI
+from aiocamedomotic.models import LightStatus
+
+async def main():
+    async with await CameDomoticAPI.async_create(
+        "192.168.x.x", "username", "password"
+    ) as api:
+
+        # Get the server info
+        server_info = await api.async_get_server_info()
+        print(f"Keycode (i.e. MAC address): {server_info.keycode}")
+
+        # Get the list of all the lights configured on the CAME Domotic server
+        lights = await api.async_get_lights()
+
+        # Get a specific light by ID
+        bedroom_dimmable_lamp = next((l for l in lights if l.act_id == 33), None)
+
+        # Get a specific light by name
+        kitchen_lamp = next(
+            (l for l in lights if l.name == "My beautiful lamp"), None
+        )
+
+        # Ensure the light is found (dimmable)
+        if bedroom_dimmable_lamp:
+            # Turn the light on, setting the brightness to 50%
+            await bedroom_dimmable_lamp.async_set_status(LightStatus.ON, brightness=50)
+
+            # Turn the light off
+            await bedroom_dimmable_lamp.async_set_status(LightStatus.OFF)
+
+            # Turn the light on, leaving the brightness unchanged
+            await bedroom_dimmable_lamp.async_set_status(LightStatus.ON)
+
+        # Ensure the light is found
+        if kitchen_lamp:
+            # Turn the light on
+            await kitchen_lamp.async_set_status(LightStatus.ON)
+
+            # Turn the light off
+            await kitchen_lamp.async_set_status(LightStatus.OFF)
+
+# Run the main function
+asyncio.run(main())
+```
+
+Let’s go step by step:
+
+1. **Creating a Server Instance**:
+
+   First, import the `CameDomoticAPI` classes from the library and create a
+   `CameDomoticAPI` instance using the async factory method
+   `CameDomoticAPI.async_create`.
+   ```python
+   import asyncio
+
+   from aiocamedomotic import CameDomoticAPI
+   from aiocamedomotic.models import LightStatus
+
+   async def main():
+       async with await CameDomoticAPI.async_create(
+       "192.168.x.x", "username", "password"
+   ) as api:
+   ```
+
+   This command will raise a `CameDomoticServerNotFoundError` exception if the server
+   is not found (typically, bad IP/hostname or other network issue). Notice that the
+   `CameDomoticAPI` class is an asynchronous context manager, so it must be used with
+   the `async with` statement.
+
+   #### NOTE
+   The session is *NOT* authenticated at this point: the library will
+   authenticate only when the first actual call to the server is made. In case the
+   provided credentials are not valid, a `CameDomoticAuthError` exception will be
+   raised at that time.
+2. **Getting the server info**:
+
+   You can retrieve the server info (keycode, serial number, etc.) by using the
+   awaitable method `api.async_get_server_info()`.
+   ```python
+   # Get the server info
+   server_info = await api.async_get_server_info()
+   print(f"Keycode (i.e. MAC address): {server_info.keycode}")
+   ```
+3. **Fetching the list of available lights**:
+
+   You can retrieve a list of all the lights configured on the CAME Domotic server
+   by using the awaitable method `api.async_get_lights()`.
+   ```python
+   # Get the list of all the lights configured on the CAME Domotic server
+   lights = await api.async_get_lights()
+   ```
+
+   Since this is the first actual call to the server, the library will now authenticate:
+   if the provided credentials are not valid, a `CameDomoticAuthError` exception will
+   be raised.
+4. **Selecting a specific light**:
+
+   You can select a specific light, for example, by ID (`act_id` attribute) or display
+   name (`name` attribute):
+   ```python
+   # Get a specific light by ID
+   bedroom_dimmable_lamp = next((l for l in lights if l.act_id == 33), None)
+
+   # Get a specific light by name
+   kitchen_lamp = next(
+       (l for l in lights if l.name == "My beautiful lamp"), None
+   )
+   ```
+5. **Changing the status of a light**
+
+   Lights are controlled by the method `async_set_status`. You can turn a light on or
+   off by passing respectively the status `LightStatus.ON` or  `LightStatus.OFF` as
+   an argument. You can also set the brightness level of a dimmable light by passing the
+   optional `brightness` argument (range: 0-100).
+   ```python
+   # Ensure the light is found (dimmable)
+   if bedroom_dimmable_lamp:
+       # Turn the light on, setting the brightness to 50%
+       await bedroom_dimmable_lamp.async_set_status(LightStatus.ON, brightness=50)
+
+       # Turn the light off
+       await bedroom_dimmable_lamp.async_set_status(LightStatus.OFF)
+
+       # Turn the light on, leaving the brightness unchanged
+       await bedroom_dimmable_lamp.async_set_status(LightStatus.ON)
+
+   # Ensure the light is found
+   if kitchen_lamp:
+       # Turn the light on
+       await kitchen_lamp.async_set_status(LightStatus.ON)
+
+       # Turn the light off
+       await kitchen_lamp.async_set_status(LightStatus.OFF)
+   ```
+
+Congratulations! You’ve successfully used the CAME Domotic Unofficial library to
+interact with your CAME Domotic server.
+
+### Exploring further
+
+- For more detailed examples see [Usage examples](#usage-examples).
+- To check the technical specifications see the [API Reference](#api-reference).
+
+Thank you for choosing the CAME Domotic Unofficial library. Happy automating!
+
+---
+
+For complete usage examples and full API reference, see [llms-full.md](llms-full.md).

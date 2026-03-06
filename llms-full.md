@@ -1,0 +1,1552 @@
+# aiocamedomotic
+
+> Async Python library for interacting with CAME Domotic home automation systems. Provides automatic session management and device control.
+
+## Welcome!
+
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-D22128.svg)](https://opensource.org/licenses/Apache-2.0)[![Python 3.12 | 3.13 | 3.14](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-417fb0.svg)](https://www.python.org)[![SonarCloud - Security Rating](https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_aiocamedomotic&metric=security_rating)](https://sonarcloud.io/project/overview?id=camedomotic-unofficial_aiocamedomotic)[![SonarCloud - Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_aiocamedomotic&metric=vulnerabilities)](https://sonarcloud.io/project/overview?id=camedomotic-unofficial_aiocamedomotic)[![SonarCloud - Bugs](https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_aiocamedomotic&metric=bugs)](https://sonarcloud.io/project/overview?id=camedomotic-unofficial_aiocamedomotic)[![Documentation status](https://readthedocs.org/projects/aiocamedomotic/badge/?version=latest)](https://aiocamedomotic.readthedocs.io/en/latest/?badge=latest)
+
+The **CAME Domotic Unofficial Library** ([aiocamedomotic](https://github.com/camedomotic-unofficial/aiocamedomotic))
+provides a streamlined Python interface for interacting with CAME Domotic plants, much
+like the official
+[CAME Domotic app](https://www.came.com/global/itex/installers/solutions/domotica-e-termoregolazione/prodotti-compatibili-domotica/app-domotic-30).
+This library is designed to simplify the management of domotic devices by abstracting
+the complexities of the CAME Domotic API.
+
+Although primarily developed for use with
+[Home Assistant](https://www.home-assistant.io/), the library is freely available
+under the [Apache license 2.0](http://www.apache.org/licenses/LICENSE-2.0) for anyone
+interested in experimenting with a CAME Domotic plant.
+
+##### IMPORTANT
+This library is independently developed and is not affiliated with, endorsed by,
+or supported by [CAME](https://www.came.com/). It may not be compatible with all
+CAME Domotic systems. While this library is stable and publicly released, it comes
+with no guarantees. Use at your own risk.
+
+### Key Features
+
+- **Simplicity**: Easy interaction with domotic entities.
+- **Automatic session management**: No need for manual login or session handling.
+- **First of its kind**: Unique in providing integration with CAME Domotic systems.
+- **Open source**: Freely available under the Apache 2.0 license, inviting
+  contributions and adaptations.
+
+### Quick Start
+
+Have a look at the following guides to learn how to install and use the library:
+
+- [Getting started](https://aiocamedomotic.readthedocs.io/latest/getting_started.html)
+- [Usage examples](https://aiocamedomotic.readthedocs.io/latest/usage_examples.html)
+
+Once you are a bit more familiar with the library, you may want to explore the following
+resources too:
+
+- [API reference](https://aiocamedomotic.readthedocs.io/latest/api_reference.html)
+- [What’s new (releases)](https://github.com/camedomotic-unofficial/aiocamedomotic/releases)
+- [Development roadmap](https://github.com/camedomotic-unofficial/aiocamedomotic/blob/master/ROADMAP.md#development-roadmap)
+- [Security Policy](https://github.com/camedomotic-unofficial/aiocamedomotic/blob/master/SECURITY.md#security-policy)
+- [Contributing to Our Project](https://github.com/camedomotic-unofficial/aiocamedomotic/blob/master/CONTRIBUTING.md#contributing-to-our-project)
+
+### Acknowledgments
+
+Special thanks to Andrea Michielan for his foundational work with the
+[eti_domo](https://github.com/andrea-michielan/eti_domo) library, which greatly
+facilitated the initial development of this library. We also found great inspiration in
+the Home Assistant document
+[Building a Python library for an API](https://developers.home-assistant.io/docs/api_lib_index).
+
+## License
+
+This project is licensed under the Apache License 2.0. For more details, see the
+[LICENSE file](https://github.com/camedomotic-unofficial/aiocamedomotic/blob/master/LICENSE)
+on GitHub.
+
+## Getting started
+
+This guide will walk you through the steps to quickly start using the CAME Domotic
+Unofficial library in your projects. Before you begin, ensure you have:
+
+- Python 3.12, 3.13 or 3.14 installed on your system.
+- Access to a CAME Domotic server.
+
+### Installation
+
+Use [pip](https://pip.pypa.io/en/stable/) to install the latest version of the CAME
+Domotic Unofficial library and its dependencies:
+
+```bash
+pip install aiocamedomotic
+```
+
+### Basic usage examples
+
+Here’s a simple example to demonstrate how to use the library to turn on or off a light:
+
+```python
+import asyncio
+
+from aiocamedomotic import CameDomoticAPI
+from aiocamedomotic.models import LightStatus
+
+async def main():
+    async with await CameDomoticAPI.async_create(
+        "192.168.x.x", "username", "password"
+    ) as api:
+
+        # Get the server info
+        server_info = await api.async_get_server_info()
+        print(f"Keycode (i.e. MAC address): {server_info.keycode}")
+
+        # Get the list of all the lights configured on the CAME Domotic server
+        lights = await api.async_get_lights()
+
+        # Get a specific light by ID
+        bedroom_dimmable_lamp = next((l for l in lights if l.act_id == 33), None)
+
+        # Get a specific light by name
+        kitchen_lamp = next(
+            (l for l in lights if l.name == "My beautiful lamp"), None
+        )
+
+        # Ensure the light is found (dimmable)
+        if bedroom_dimmable_lamp:
+            # Turn the light on, setting the brightness to 50%
+            await bedroom_dimmable_lamp.async_set_status(LightStatus.ON, brightness=50)
+
+            # Turn the light off
+            await bedroom_dimmable_lamp.async_set_status(LightStatus.OFF)
+
+            # Turn the light on, leaving the brightness unchanged
+            await bedroom_dimmable_lamp.async_set_status(LightStatus.ON)
+
+        # Ensure the light is found
+        if kitchen_lamp:
+            # Turn the light on
+            await kitchen_lamp.async_set_status(LightStatus.ON)
+
+            # Turn the light off
+            await kitchen_lamp.async_set_status(LightStatus.OFF)
+
+# Run the main function
+asyncio.run(main())
+```
+
+Let’s go step by step:
+
+1. **Creating a Server Instance**:
+
+   First, import the `CameDomoticAPI` classes from the library and create a
+   `CameDomoticAPI` instance using the async factory method
+   `CameDomoticAPI.async_create`.
+   ```python
+   import asyncio
+
+   from aiocamedomotic import CameDomoticAPI
+   from aiocamedomotic.models import LightStatus
+
+   async def main():
+       async with await CameDomoticAPI.async_create(
+       "192.168.x.x", "username", "password"
+   ) as api:
+   ```
+
+   This command will raise a `CameDomoticServerNotFoundError` exception if the server
+   is not found (typically, bad IP/hostname or other network issue). Notice that the
+   `CameDomoticAPI` class is an asynchronous context manager, so it must be used with
+   the `async with` statement.
+
+   #### NOTE
+   The session is *NOT* authenticated at this point: the library will
+   authenticate only when the first actual call to the server is made. In case the
+   provided credentials are not valid, a `CameDomoticAuthError` exception will be
+   raised at that time.
+2. **Getting the server info**:
+
+   You can retrieve the server info (keycode, serial number, etc.) by using the
+   awaitable method `api.async_get_server_info()`.
+   ```python
+   # Get the server info
+   server_info = await api.async_get_server_info()
+   print(f"Keycode (i.e. MAC address): {server_info.keycode}")
+   ```
+3. **Fetching the list of available lights**:
+
+   You can retrieve a list of all the lights configured on the CAME Domotic server
+   by using the awaitable method `api.async_get_lights()`.
+   ```python
+   # Get the list of all the lights configured on the CAME Domotic server
+   lights = await api.async_get_lights()
+   ```
+
+   Since this is the first actual call to the server, the library will now authenticate:
+   if the provided credentials are not valid, a `CameDomoticAuthError` exception will
+   be raised.
+4. **Selecting a specific light**:
+
+   You can select a specific light, for example, by ID (`act_id` attribute) or display
+   name (`name` attribute):
+   ```python
+   # Get a specific light by ID
+   bedroom_dimmable_lamp = next((l for l in lights if l.act_id == 33), None)
+
+   # Get a specific light by name
+   kitchen_lamp = next(
+       (l for l in lights if l.name == "My beautiful lamp"), None
+   )
+   ```
+5. **Changing the status of a light**
+
+   Lights are controlled by the method `async_set_status`. You can turn a light on or
+   off by passing respectively the status `LightStatus.ON` or  `LightStatus.OFF` as
+   an argument. You can also set the brightness level of a dimmable light by passing the
+   optional `brightness` argument (range: 0-100).
+   ```python
+   # Ensure the light is found (dimmable)
+   if bedroom_dimmable_lamp:
+       # Turn the light on, setting the brightness to 50%
+       await bedroom_dimmable_lamp.async_set_status(LightStatus.ON, brightness=50)
+
+       # Turn the light off
+       await bedroom_dimmable_lamp.async_set_status(LightStatus.OFF)
+
+       # Turn the light on, leaving the brightness unchanged
+       await bedroom_dimmable_lamp.async_set_status(LightStatus.ON)
+
+   # Ensure the light is found
+   if kitchen_lamp:
+       # Turn the light on
+       await kitchen_lamp.async_set_status(LightStatus.ON)
+
+       # Turn the light off
+       await kitchen_lamp.async_set_status(LightStatus.OFF)
+   ```
+
+Congratulations! You’ve successfully used the CAME Domotic Unofficial library to
+interact with your CAME Domotic server.
+
+### Exploring further
+
+- For more detailed examples see [Usage examples](#usage-examples).
+- To check the technical specifications see the [API Reference](#api-reference).
+
+Thank you for choosing the CAME Domotic Unofficial library. Happy automating!
+
+## Usage examples
+
+This section provides **practical examples** to help you get started with the
+CAME Domotic Unofficial library.
+
+##### NOTE
+The examples assume you have already installed the library (`pip
+install aiocamedomotic`) and are familiar with the basics of Python
+programming.
+
+### Essential imports for working with this library
+
+To interact with and control your CAME Domotic environment using this
+library, you need the following imports at the beginning of your file.
+
+#### Basic imports
+
+To communicate with the CAME Domotic server using this asynchronous library,
+you need to import the following:
+
+```python
+import asyncio
+
+from aiocamedomotic import CameDomoticAPI
+```
+
+#### Working with entities
+
+To work with CAME devices, you may need one or more of the following imports:
+
+```python
+from aiocamedomotic.models import (
+    DeviceType, LightStatus, OpeningStatus, ScenarioStatus,
+    ThermoZoneMode, ThermoZoneSeason, ThermoZoneStatus,
+)
+```
+
+#### Handling Exceptions
+
+To properly handle potential errors, you can add these imports:
+
+```python
+from aiocamedomotic.errors import (
+    CameDomoticError, # Base error raised by the library
+    CameDomoticServerNotFoundError, # Server not reachable (wrong IP/hostname?)
+    CameDomoticAuthError, # Authentication failure (wrong credentials?)
+    CameDomoticServerError, # Server-side error
+)
+```
+
+### Initializing the API client
+
+Initialize a `CameDomoticAPI` instance to connect to your CAME Domotic server. This
+step verifies that the server is **reachable** but **does not** immediately **validate
+credentials** or **establish a session**, since sessions are **created on demand**,
+which optimizes resource usage and security.
+
+```python
+import asyncio
+from aiohttp import ClientSession
+
+from aiocamedomotic import Auth, CameDomoticAPI
+
+async def async_my_usage_example():
+    async with await CameDomoticAPI.async_create(
+        "192.168.x.x", "username", "password"
+    ) as api:
+```
+
+##### NOTE
+If you want to reuse an existing `aiohttp.ClientSession` instead of letting the
+library create and manage one for you, you can pass it as the value of the
+`websession` parameter of the `CameDomoticAPI.async_create` method. The
+HTTP requests will then be made using that session.
+
+```python
+async def async_my_usage_example():
+    async with await CameDomoticAPI.async_create(
+        "192.168.x.x",
+        "username",
+        "password",
+        websession=my_existing_session,
+    ) as api:
+```
+
+### Server information
+
+You can access the CAME Domotic server properties using the `async_get_server_info()`
+method. Should you need a **unique ID** for the server, you can use the `keycode`
+property (i.e. the MAC address of the server).
+
+```python
+server_info = await api.async_get_server_info()
+
+print(f"Keycode: {server_info.keycode}")
+print(f"Software version: {server_info.software_version}")
+print(f"Server type: {server_info.server_type}")
+print(f"Board type: {server_info.board}")
+print(f"Serial number: {server_info.serial_number}")
+```
+
+On success, the output looks like this:
+
+```text
+Keycode: 0000FFFF9999AAAA
+Software version: 1.2.3
+Server type: 0
+Board type: 3
+Serial number: 0011ffee
+```
+
+### Server features
+
+To find out which capabilities your CAME Domotic system offers, you can fetch
+a list of all the features configured on the server using the
+`async_get_features()` method. These features represent the functional blocks you
+would see in the official CAME Domotic mobile app’s homepage, such as lights, openings,
+or scenarios.
+
+```python
+features = await api.async_get_features()
+
+for feature in features:
+    print(f"Feature: {feature.name}")
+```
+
+Below is example output showing the server’s available features. Note that each
+server installation is unique and may support a different set of features.
+
+```text
+Feature: lights
+Feature: openings
+Feature: thermoregulation
+Feature: scenarios
+Feature: digitalin
+Feature: energy
+Feature: loadsctrl
+```
+
+### Server users
+
+To list the users configured on the CAME Domotic server, just run the
+`async_get_users()` method:
+
+```python
+users = await api.async_get_users()
+
+for user in users:
+    print(f"Username: {user.name}")
+```
+
+The output will look similar to this:
+
+```text
+Username: alex
+Username: sam
+Username: jordan
+```
+
+### Lights
+
+#### List of available lights
+
+You can get the list of all the available lights with the `async_get_lights()`
+method:
+
+```python
+lights = await api.async_get_lights()
+
+for light in lights:
+    print(f"ID: {light.act_id}, Name: {light.name}, Status: {light.status}")
+```
+
+Example output for lights:
+
+```text
+ID: 1, Name: Living Room Chandelier, Status: LightStatus.ON
+ID: 2, Name: Hallway Night Light, Status: LightStatus.OFF
+```
+
+#### Change light status
+
+You can turn a light on or off with the `async_set_status` method. For dimmable
+lights, the method also supports setting the brightness level (this setting is ignored
+for non-dimmable lights).
+
+The following example shows different ways to interact with a light device:
+
+```python
+# Get the list of all the lights configured on the CAME server
+lights = await api.async_get_lights()
+
+# Get a specific light by ID
+living_room_chandelier = next((l for l in lights if l.act_id == 1), None)
+
+# Get a specific light by name
+hallway_night_light = next(
+    (l for l in lights if l.name == "Hallway Night Light"), None
+)
+
+# Control a dimmable light if found
+if living_room_chandelier:
+    # Turn the light on, setting the brightness to 50%
+    await living_room_chandelier.async_set_status(LightStatus.ON, brightness=50)
+
+    # Turn the light off
+    await living_room_chandelier.async_set_status(LightStatus.OFF)
+
+    # Turn the light on, leaving the brightness unchanged
+    await living_room_chandelier.async_set_status(LightStatus.ON)
+
+# Control a non-dimmable light if found
+if hallway_night_light:
+    # Turn the light on
+    await hallway_night_light.async_set_status(LightStatus.ON)
+
+    # Turn the light off
+    await hallway_night_light.async_set_status(LightStatus.OFF)
+```
+
+### Openings
+
+#### List of available openings
+
+You can get the list of all the available openings with the `async_get_openings()`
+method:
+
+```python
+openings = await api.async_get_openings()
+
+for opening in openings:
+    print(f"ID: {opening.id}, Name: {opening.name}, Status: {opening.status}, Type: {opening.type}")
+```
+
+Example output for openings:
+
+```text
+ID: 10, Name: Living Room Shutter, Status: OpeningStatus.STOPPED, Type: OpeningType.SHUTTER
+ID: 20, Name: Patio Awning, Status: OpeningStatus.OPENING, Type: OpeningType.SHUTTER
+```
+
+#### Change opening status
+
+You can control an opening with the `async_set_status` method, allowing you to open, close,
+or stop an opening.
+
+The following example shows different ways to interact with opening devices:
+
+```python
+# Get the list of all the openings configured on the CAME server
+openings = await api.async_get_openings()
+
+# Get a specific opening by ID
+living_room_shutter = next((o for o in openings if o.open_act_id == 10), None)
+
+# Get a specific opening by name
+patio_awning = next(
+    (o for o in openings if o.name == "Patio Awning"), None
+)
+
+# Control the shutter if found
+if living_room_shutter:
+    # Open the shutter
+    await living_room_shutter.async_set_status(OpeningStatus.OPENING)
+
+    # Stop the shutter movement
+    await living_room_shutter.async_set_status(OpeningStatus.STOPPED)
+
+    # Close the shutter
+    await living_room_shutter.async_set_status(OpeningStatus.CLOSING)
+
+# Control the awning if found
+if patio_awning:
+    # Open the awning
+    await patio_awning.async_set_status(OpeningStatus.OPENING)
+
+    # Close the awning
+    await patio_awning.async_set_status(OpeningStatus.CLOSING)
+```
+
+### Scenarios
+
+#### List of available scenarios
+
+You can get the list of all the available scenarios with the `async_get_scenarios()`
+method:
+
+```python
+scenarios = await api.async_get_scenarios()
+
+for scenario in scenarios:
+    print(f"ID: {scenario.id}, Name: {scenario.name}, Status: {scenario.scenario_status}")
+```
+
+Example output for scenarios:
+
+```text
+ID: 1, Name: Good Morning, Status: ScenarioStatus.OFF
+ID: 2, Name: Good Night, Status: ScenarioStatus.OFF
+```
+
+#### Activate a scenario
+
+You can activate a scenario with the `async_activate` method. Scenarios represent
+pre-configured automation sequences that control multiple devices at once.
+
+The following example shows how to activate a scenario:
+
+```python
+# Get the list of all the scenarios configured on the CAME server
+scenarios = await api.async_get_scenarios()
+
+# Get a specific scenario by ID
+good_morning = next((s for s in scenarios if s.id == 1), None)
+
+# Get a specific scenario by name
+good_night = next(
+    (s for s in scenarios if s.name == "Good Night"), None
+)
+
+# Activate the scenario if found
+if good_morning:
+    await good_morning.async_activate()
+
+if good_night:
+    await good_night.async_activate()
+```
+
+### Thermoregulation zones
+
+#### List of available thermoregulation zones
+
+You can get the list of all the available thermoregulation zones with the
+`async_get_thermo_zones()` method:
+
+```python
+zones = await api.async_get_thermo_zones()
+
+for zone in zones:
+    print(
+        f"ID: {zone.act_id}, Name: {zone.name}, "
+        f"Temperature: {zone.temperature}°C, "
+        f"Setpoint: {zone.set_point}°C, "
+        f"Mode: {zone.mode}, Season: {zone.season}"
+    )
+```
+
+Example output for thermoregulation zones:
+
+```text
+ID: 1, Name: Living Room, Temperature: 20.0°C, Setpoint: 21.5°C, Mode: ThermoZoneMode.AUTO, Season: ThermoZoneSeason.WINTER
+ID: 52, Name: Bedroom, Temperature: 19.5°C, Setpoint: 20.0°C, Mode: ThermoZoneMode.MANUAL, Season: ThermoZoneSeason.WINTER
+```
+
+##### NOTE
+Temperature values are returned as float values in degrees Celsius.
+The API internally stores them as integers multiplied by 10
+(e.g., 215 = 21.5°C), but this conversion is handled automatically.
+
+### Analog sensors
+
+#### List of available analog sensors
+
+Analog sensors provide top-level temperature, humidity, and pressure readings
+from the thermoregulation system. You can retrieve them with the
+`async_get_analog_sensors()` method:
+
+```python
+sensors = await api.async_get_analog_sensors()
+
+for sensor in sensors:
+    print(f"Name: {sensor.name}, Value: {sensor.value}, Unit: {sensor.unit}")
+```
+
+Example output for analog sensors:
+
+```text
+Name: Outdoor Temperature, Value: 21.5, Unit: °C
+Name: Indoor Humidity, Value: 55, Unit: %
+Name: Barometric Pressure, Value: 1013, Unit: hPa
+```
+
+### Checking Authentication Status
+
+**Session management** is automatic and **transparent to the user**. However, if you
+need to check the server session status for any reason, you can use the
+`is_session_valid()` method on the `auth` attribute of the `CameDomoticAPI`
+instance.
+
+```python
+async def async_my_usage_example():
+    async with await CameDomoticAPI.async_create(
+        "192.168.x.x", "username", "password"
+    ) as api:
+
+        # ...other code above
+
+        if api.auth.is_session_valid():
+            print("Server session is authenticated and valid.")
+        else:
+            print("No valid session, but don't worry: it'll be renewed automatically.")
+```
+
+##### NOTE
+In general, you don’t need to check whether the session is authenticated,
+as the library handles this for you and reauthenticates as needed.
+
+### Exploring further
+
+For technical details, see the [API Reference](#api-reference).
+
+## API Reference
+
+### CAME Domotic API
+
+This module exposes the CAME Domotic API to the end-users.
+
+#### *class* aiocamedomotic.came_domotic_api.CameDomoticAPI(auth: [Auth](#aiocamedomotic.auth.Auth))
+
+Main class, exposes all the public methods of the CAME Domotic API.
+
+##### *async classmethod* async_create(host: str, username: str, password: str, \*, websession: ClientSession | None = None, close_websession_on_disposal: bool = False)
+
+Create a CameDomoticAPI object.
+
+* **Parameters:**
+  * **host** (*str*) – The host of the CAME Domotic server.
+  * **username** (*str*) – The username to use for the API.
+  * **password** (*str*) – The password to use for the API.
+  * **websession** (*aiohttp.ClientSession* *,* *optional*) – The aiohttp session to use for
+    the API. If not provided, a new aiohttp.ClientSession will be created.
+  * **close_websession_on_disposal** (*bool* *,* *default False*) – If True, the aiohttp
+    session will be closed when the CameDomoticAPI object is disposed. If
+    the websession is not provided, this argument is ignored and the session
+    will always be closed.
+* **Returns:**
+  The CameDomoticAPI object.
+* **Return type:**
+  [CameDomoticAPI](#aiocamedomotic.came_domotic_api.CameDomoticAPI)
+* **Raises:**
+  [**CameDomoticServerNotFoundError**](#aiocamedomotic.errors.CameDomoticServerNotFoundError) – if the host doesn’t respond to an HTTP
+      request or doesn’t expose the CAME Domotic API endpoint.
+
+##### NOTE
+The session is not logged in until the first request is made.
+
+##### *async* async_dispose()
+
+Dispose the CameDomoticAPI object.
+
+##### *async* async_get_analog_sensors() → List[[AnalogSensor](#aiocamedomotic.models.thermo_zone.AnalogSensor)]
+
+Get analog sensor readings from the thermoregulation system.
+
+Retrieves top-level temperature, humidity, and pressure sensor
+readings from the thermoregulation list response.
+
+* **Returns:**
+  List of analog sensors found in the response.
+* **Return type:**
+  List[[AnalogSensor](#aiocamedomotic.models.thermo_zone.AnalogSensor)]
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_get_floors() → List[[Floor](#aiocamedomotic.models.base.Floor)]
+
+Get the list of all the floors defined on the server.
+
+* **Returns:**
+  List of floors.
+* **Return type:**
+  List[[Floor](#aiocamedomotic.models.base.Floor)]
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_get_lights() → List[[Light](#aiocamedomotic.models.light.Light)]
+
+Get the list of all the light devices defined on the server.
+
+* **Returns:**
+  List of lights.
+* **Return type:**
+  List[[Light](#aiocamedomotic.models.light.Light)]
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_get_openings() → List[[Opening](#aiocamedomotic.models.opening.Opening)]
+
+Get the list of all opening devices defined on the server.
+
+* **Returns:**
+  List of openings.
+* **Return type:**
+  List[[Opening](#aiocamedomotic.models.opening.Opening)]
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_get_rooms() → List[[Room](#aiocamedomotic.models.base.Room)]
+
+Get the list of all the rooms defined on the server.
+
+* **Returns:**
+  List of rooms.
+* **Return type:**
+  List[[Room](#aiocamedomotic.models.base.Room)]
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_get_scenarios() → List[[Scenario](#aiocamedomotic.models.scenario.Scenario)]
+
+Get the list of all scenarios defined on the server.
+
+* **Returns:**
+  List of scenarios.
+* **Return type:**
+  List[[Scenario](#aiocamedomotic.models.scenario.Scenario)]
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_get_server_info() → [ServerInfo](#aiocamedomotic.models.base.ServerInfo)
+
+Get the server information.
+
+Provides info about the server (keycode, software version, etc.) and the list of
+features supported by the CAME Domotic server.
+
+* **Returns:**
+  Server information.
+* **Return type:**
+  [ServerInfo](#aiocamedomotic.models.base.ServerInfo)
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_get_thermo_zones() → List[[ThermoZone](#aiocamedomotic.models.thermo_zone.ThermoZone)]
+
+Get the list of all thermoregulation zones defined on the server.
+
+* **Returns:**
+  List of thermoregulation zones.
+* **Return type:**
+  List[[ThermoZone](#aiocamedomotic.models.thermo_zone.ThermoZone)]
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_get_updates() → [UpdateList](#aiocamedomotic.models.update.UpdateList)
+
+Get the list of status updates from the server.
+
+* **Returns:**
+  List of status updates.
+* **Return type:**
+  [UpdateList](#aiocamedomotic.models.update.UpdateList)
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_get_users() → List[[User](#aiocamedomotic.models.base.User)]
+
+Get the list of users defined on the server.
+
+* **Returns:**
+  List of users. Returns an empty list if no users are defined
+  or if the server response doesn’t contain the users list.
+* **Return type:**
+  List[[User](#aiocamedomotic.models.base.User)]
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+### Entity models
+
+This module defines the Python representation of each of the entity types used by the
+CAME Domotic API.
+
+Base classes for the CAME Domotic API entity model system.
+
+This module defines the foundational base classes used across the CAME Domotic
+API implementation, including the core CameEntity class and derived entity types
+such as User and ServerInfo that are common across the API functionality.
+
+#### *class* aiocamedomotic.models.base.CameEntity
+
+Base class for all the CAME entities.
+
+#### *class* aiocamedomotic.models.base.Floor(raw_data: dict)
+
+Floor entity in the CAME Domotic API.
+
+Represents a floor in the building structure with its identifier and name.
+
+##### *property* id *: int*
+
+ID of the floor.
+
+##### *property* name *: str*
+
+Name of the floor.
+
+#### *class* aiocamedomotic.models.base.Room(raw_data: dict)
+
+Room entity in the CAME Domotic API.
+
+Represents a room in the building structure with its identifier, name,
+and the floor it belongs to.
+
+##### *property* floor_id *: int*
+
+ID of the floor this room belongs to.
+
+##### *property* id *: int*
+
+ID of the room.
+
+##### *property* name *: str*
+
+Name of the room.
+
+#### *class* aiocamedomotic.models.base.ServerInfo(keycode: str, serial: str, features: list[str], swver: str | None = None, type: str | None = None, board: str | None = None)
+
+Server information of a CAME Domotic server.
+
+##### board *: str | None* *= None*
+
+Board type of the server.
+
+##### features *: list[str]*
+
+List of features supported by the server.
+
+Known values (as of now) are:
+: - “lights”
+  - “openings”
+  - “thermoregulation”
+  - “scenarios”
+  - “digitalin”
+  - “energy”
+  - “loadsctrl”
+
+##### keycode *: str*
+
+Keycode of the server (i.e. MAC address in the form 001122AABBCC).
+
+##### serial *: str*
+
+Serial number of the server.
+
+##### swver *: str | None* *= None*
+
+Software version of the server.
+
+##### type *: str | None* *= None*
+
+Type of the server.
+
+#### *class* aiocamedomotic.models.base.User(raw_data: dict, auth: [Auth](#aiocamedomotic.auth.Auth))
+
+User in the CAME Domotic API.
+
+* **Raises:**
+  **ValueError** – If name key is missing from the input data the auth argument is
+      not an instance of the expected Auth class.
+
+##### *async* async_set_as_current_user(password: str) → None
+
+Set the user as the current user in the CAME Domotic API session.
+
+* **Parameters:**
+  **password** (*str*) – Password of the user.
+* **Raises:**
+  [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+
+##### NOTE
+This method logs out the current user and logs in with the new user.
+In case of failure, the previous user is restored.
+
+##### *property* name *: str*
+
+Name of the user.
+
+CAME Domotic light entity models and control functionality.
+
+This module implements the classes for working with lights in a CAME Domotic
+system, supporting standard on/off lights (STEP_STEP type), dimmable lights
+(DIMMER type), and RGB color lights (RGB type). It provides properties to
+access light attributes and methods to control light state, including on/off
+functionality, brightness control, and RGB color control.
+
+#### *class* aiocamedomotic.models.light.Light(raw_data: dict, auth: [Auth](#aiocamedomotic.auth.Auth))
+
+Light entity in the CameDomotic API.
+
+* **Raises:**
+  **ValueError** – If name or act_id keys are missing from the input data or the auth
+      argument is not an instance of the expected Auth class.
+
+##### *property* act_id *: int*
+
+ID of the light.
+
+##### *async* async_set_status(status: [LightStatus](#aiocamedomotic.models.light.LightStatus), brightness: int | None = None, rgb: List[int] | None = None) → None
+
+Control the light.
+
+* **Parameters:**
+  * **status** ([*LightStatus*](#aiocamedomotic.models.light.LightStatus)) – Status of the light.
+  * **brightness** (*Optional* *[**int* *]*) – Brightness percentage of the light (range
+    0-100). If the brightness is not provided, it will stay unchanged.
+    This argument is ignored for STEP_STEP lights.
+  * **rgb** (*Optional* *[**List* *[**int* *]* *]*) – RGB color values as [R, G, B], each in
+    range 0-255. If not provided, the color stays unchanged.
+    This argument is ignored for non-RGB lights.
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *property* floor_ind *: int*
+
+Floor index of the light.
+
+##### *property* name *: str*
+
+Name of the light.
+
+##### *property* perc *: int*
+
+Brightness percentage of the light (range 0-100).
+Non dimmable lights will always return 100.
+
+##### *property* rgb *: List[int] | None*
+
+RGB color values of the light as [R, G, B], each in range 0-255.
+Returns None for non-RGB lights.
+
+##### *property* room_ind *: int*
+
+Room index of the light.
+
+##### *property* status *: [LightStatus](#aiocamedomotic.models.light.LightStatus)*
+
+Status of the light. Allowed values are OFF (0), ON (1) and AUTO (4).
+
+##### *property* type *: [LightType](#aiocamedomotic.models.light.LightType)*
+
+Light type. Allowed values are “STEP_STEP” (normal lights),
+“DIMMER” (dimmable lights), and “RGB” (color lights).
+
+* **Raises:**
+  **ValueError** – If the light type is not recognized.
+
+#### *class* aiocamedomotic.models.light.LightStatus(\*values)
+
+Status of a light.
+
+Allowed values are:
+: - OFF (0)
+  - ON (1)
+  - AUTO (4)
+
+#### *class* aiocamedomotic.models.light.LightType(\*values)
+
+Type of a light.
+
+Allowed values are:
+: - STEP_STEP (normal lights)
+  - DIMMER (dimmable lights)
+  - RGB (color lights with brightness via HSV V channel)
+
+CAME Domotic opening entity models and control functionality.
+
+This module implements the classes for working with openings in a CAME Domotic
+system, supporting various types of openings like shutters, awnings, and gates.
+It provides properties to access opening attributes and methods to control
+opening state, including open, close, and stop functionality.
+
+#### *class* aiocamedomotic.models.opening.Opening(raw_data: dict, auth: [Auth](#aiocamedomotic.auth.Auth))
+
+Opening entity in the CameDomotic API.
+
+* **Raises:**
+  **ValueError** – If name or open_act_id keys are missing from the input data
+      or the auth argument is not an instance of the expected Auth class.
+
+##### *async* async_set_status(status: [OpeningStatus](#aiocamedomotic.models.opening.OpeningStatus)) → None
+
+Control the opening (open, close, stop, slat open, slat close).
+
+* **Parameters:**
+  **status** ([*OpeningStatus*](#aiocamedomotic.models.opening.OpeningStatus)) – Status to set for the opening.
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *property* close_act_id *: int*
+
+Actuator ID for closing action.
+
+##### *property* floor_ind *: int | None*
+
+Floor index where the opening is located.
+
+##### *property* name *: str*
+
+Name of the opening.
+
+##### *property* open_act_id *: int*
+
+Actuator ID for opening action.
+
+##### *property* partial_positions *: List[str]*
+
+List of configured partial opening positions, if any.
+
+##### *property* room_ind *: int | None*
+
+Room index where the opening is located.
+
+##### *property* status *: [OpeningStatus](#aiocamedomotic.models.opening.OpeningStatus)*
+
+STOPPED (0), OPENING (1),
+CLOSING (2), SLAT_OPEN (3) and SLAT_CLOSE (4).
+
+* **Type:**
+  Current status of the opening. Allowed values
+
+##### *property* type *: [OpeningType](#aiocamedomotic.models.opening.OpeningType)*
+
+Opening type.
+
+* **Raises:**
+  **ValueError** – If the opening type is not recognized.
+
+#### *class* aiocamedomotic.models.opening.OpeningStatus(\*values)
+
+Status of an opening.
+
+Allowed values are:
+: - STOPPED (0)
+  - OPENING (1)
+  - CLOSING (2)
+  - SLAT_OPEN (3)
+  - SLAT_CLOSE (4)
+
+#### *class* aiocamedomotic.models.opening.OpeningType(\*values)
+
+Type of an opening.
+
+Allowed values are:
+: - SHUTTER (0)
+
+CAME Domotic scenario entity models and control functionality.
+
+This module implements the classes for working with scenarios in a CAME Domotic
+system. Scenarios represent pre-configured automation sequences that can be
+activated to control multiple devices at once. It provides properties to access
+scenario attributes and a method to activate a scenario.
+
+#### *class* aiocamedomotic.models.scenario.Scenario(raw_data: dict, auth: [Auth](#aiocamedomotic.auth.Auth))
+
+Scenario entity in the CameDomotic API.
+
+Represents a pre-configured automation scenario that can be activated
+to control multiple devices at once.
+
+* **Raises:**
+  **ValueError** – If name or id keys are missing from the input data or the auth
+      argument is not an instance of the expected Auth class.
+
+##### *async* async_activate() → None
+
+Activate the scenario.
+
+Sends the scenario activation command to the CAME Domotic server.
+
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *property* icon_id *: int*
+
+Icon ID associated with the scenario.
+
+##### *property* id *: int*
+
+ID of the scenario.
+
+##### *property* name *: str*
+
+Name of the scenario.
+
+##### *property* scenario_status *: [ScenarioStatus](#aiocamedomotic.models.scenario.ScenarioStatus)*
+
+OFF (0), TRIGGERED (1), or ACTIVE (2).
+
+* **Type:**
+  Scenario-specific status
+
+##### *property* status *: int*
+
+General status of the scenario.
+
+##### *property* user_defined *: int*
+
+Whether the scenario is user-defined (1) or system-defined (0).
+
+#### *class* aiocamedomotic.models.scenario.ScenarioStatus(\*values)
+
+Status of a scenario.
+
+Allowed values are:
+: - OFF (0): scenario is not active
+  - TRIGGERED (1): scenario has just been activated and is executing
+  - ACTIVE (2): scenario is currently in effect
+
+CAME Domotic thermoregulation entity models.
+
+This module implements the classes for working with thermoregulation zones
+and analog sensors in a CAME Domotic system. It provides read-only access
+to zone state (temperature, setpoint, mode, season) and analog sensor
+readings (temperature, humidity, pressure).
+
+#### *class* aiocamedomotic.models.thermo_zone.AnalogSensor(raw_data: dict)
+
+Analog sensor from the CAME Domotic thermoregulation system.
+
+Represents a top-level temperature, humidity, or pressure sensor
+reading from the thermoregulation list response. These sensors are
+separate from the thermoregulation zones.
+
+##### NOTE
+The `value` property returns the real sensor reading in the
+unit reported by `unit` (e.g., degrees C, %, hPa).
+
+* **Raises:**
+  **ValueError** – If `name` or `act_id` keys are missing from
+      the input data.
+
+##### *property* act_id *: int*
+
+ID of the analog sensor.
+
+##### *property* name *: str*
+
+Name of the analog sensor.
+
+##### *property* unit *: str*
+
+Unit of measurement (e.g., ‘°C’, ‘%’, ‘hPa’).
+
+##### *property* value *: float*
+
+Sensor reading in the unit reported by `unit`.
+
+#### *class* aiocamedomotic.models.thermo_zone.ThermoZone(raw_data: dict, auth: [Auth](#aiocamedomotic.auth.Auth))
+
+Thermoregulation zone entity in the CameDomotic API.
+
+Represents a single thermoregulation zone with its current state,
+including temperature readings, setpoint, operating mode, and season.
+
+Temperature values from the API are integers multiplied by 10
+(e.g., 215 = 21.5 degrees C). Properties in this class return
+converted float values in degrees.
+
+* **Raises:**
+  **ValueError** – If `name` or `act_id` keys are missing from the
+      input data, or the auth argument is not an instance of the
+      expected `Auth` class.
+
+##### *property* act_id *: int*
+
+ID of the thermoregulation zone.
+
+##### *property* antifreeze *: float | None*
+
+Antifreeze temperature in degrees Celsius, or None if not set.
+
+##### *property* floor_ind *: int*
+
+Floor index of the thermoregulation zone.
+
+##### *property* leaf *: bool*
+
+Whether this is an actual zone (leaf node) in the hierarchy.
+
+##### *property* mode *: [ThermoZoneMode](#aiocamedomotic.models.thermo_zone.ThermoZoneMode)*
+
+Operating mode of the thermoregulation zone.
+
+Returns `ThermoZoneMode.UNKNOWN` for unrecognized mode values.
+
+##### *property* name *: str*
+
+Name of the thermoregulation zone.
+
+##### *property* room_ind *: int*
+
+Room index of the thermoregulation zone.
+
+##### *property* season *: [ThermoZoneSeason](#aiocamedomotic.models.thermo_zone.ThermoZoneSeason)*
+
+Season setting for the thermoregulation zone.
+
+Returns `ThermoZoneSeason.UNKNOWN` for unrecognized season values.
+
+##### *property* set_point *: float*
+
+Target temperature in degrees Celsius.
+
+##### *property* status *: [ThermoZoneStatus](#aiocamedomotic.models.thermo_zone.ThermoZoneStatus)*
+
+Status of the thermoregulation zone (OFF or ON).
+
+##### *property* temperature *: float*
+
+Current temperature in degrees Celsius.
+
+Handles both `temp` (from list responses) and `temp_dec`
+(from status indications) field names.
+
+#### *class* aiocamedomotic.models.thermo_zone.ThermoZoneMode(\*values)
+
+Operating mode of a thermoregulation zone.
+
+Allowed values are:
+: - OFF (0)
+  - MANUAL (1)
+  - AUTO (2)
+  - JOLLY (3)
+
+#### *class* aiocamedomotic.models.thermo_zone.ThermoZoneSeason(\*values)
+
+Season setting for a thermoregulation zone.
+
+Allowed values are:
+: - PLANT_OFF (“plant_off”)
+  - WINTER (“winter”)
+  - SUMMER (“summer”)
+
+#### *class* aiocamedomotic.models.thermo_zone.ThermoZoneStatus(\*values)
+
+Status of a thermoregulation zone.
+
+Allowed values are:
+: - OFF (0)
+  - ON (1)
+
+CAME Domotic status update handling.
+
+This module provides classes for processing and representing status updates
+from the CAME Domotic system. It implements a specialized list-based data
+structure to track chronological updates and state changes received from
+the CAME Domotic API, facilitating the consumption of system state changes.
+
+#### *class* aiocamedomotic.models.update.UpdateList(updates: UserList[dict[str, Any]] | None = None)
+
+Chronological list of status updates from the CameDomotic API.
+
+#### aiocamedomotic.models.update.get_update_device_type(update: dict[str, Any]) → [DeviceType](#aiocamedomotic.const.DeviceType) | None
+
+Return the device type for a status update dict, or None if unknown.
+
+* **Parameters:**
+  **update** – A single update dict from the `status_update_resp` result
+  array. Must contain a `cmd_name` key.
+* **Returns:**
+  The corresponding [`DeviceType`](#aiocamedomotic.const.DeviceType), or
+  `None` if the `cmd_name` is not recognized.
+
+### Constants
+
+Constants for the CAME Domotic API.
+
+#### *class* aiocamedomotic.const.DeviceType(\*values)
+
+Device type IDs used by the CAME ETI/Domo system.
+
+Each device in the CAME Domotic system is associated with one of these type
+identifiers. Not all device types are currently supported by this library.
+
+Supported types:
+: - ENERGY_SENSOR (-2)
+  - ANALOG_SENSOR (-1)
+  - LIGHT (0)
+  - OPENING (1)
+  - THERMOSTAT (2)
+  - SCENARIO (4)
+  - GENERIC_RELAY (11)
+  - DIGITAL_INPUT (14)
+
+### Errors
+
+This module contains the exceptions that can be raised by the CAME Domotic API.
+
+#### *exception* aiocamedomotic.errors.CameDomoticAuthError
+
+Raised when there is an authentication error with the remote server.
+
+#### *exception* aiocamedomotic.errors.CameDomoticError
+
+Base exception class for the CAME Domotic package.
+
+#### *exception* aiocamedomotic.errors.CameDomoticServerError
+
+Raised if an error occurs while interacting with the remote CAME Domotic server.
+
+##### *static* create_ack_error(ack_code: int)
+
+Create appropriate exception based on ACK error code.
+
+* **Parameters:**
+  **ack_code** (*int*) – The ACK error code from the server.
+* **Returns:**
+  Appropriate exception instance based on error code.
+* **Return type:**
+  [CameDomoticError](#aiocamedomotic.errors.CameDomoticError)
+
+##### *static* format_ack_error(ack_code: int) → str
+
+Formats the ack code in a human-readable format.
+
+* **Parameters:**
+  **ack_code** (*int*) – The ACK error code from the server.
+* **Returns:**
+  The formatted error message.
+* **Return type:**
+  str
+
+#### *exception* aiocamedomotic.errors.CameDomoticServerNotFoundError
+
+Raised when the specified host is not available.
+
+### Auth module
+
+This module manages the HTTP interaction with the CAME Domotic API.
+
+##### NOTE
+As a consumer of the CAME Domotic Unofficial library, **it’s quite unlikely that you
+will need to use this class directly**: you should use the `CameDomoticAPI` and the
+CameEntity classes instead.
+
+In case of special needs, consider requesting the implementation of the desired
+feature in the CAME Domotic Unofficial library, or forking the library and implement
+the feature yourself.
+
+#### *class* aiocamedomotic.auth.Auth(websession: ClientSession, host: str, username: str, password: str, \*, close_websession_on_disposal: bool = True)
+
+Class to make authenticated requests to the CAME Domotic API server.
+
+##### NOTE
+This class is not meant to be used directly, but through the `CameDomoticAPI`
+class. To create an instance of this class, use the factory method
+`async_create`.
+
+##### *async classmethod* async_create(websession: ClientSession, host: str, username: str, password: str, \*, close_websession_on_disposal: bool = True)
+
+Create an Auth instance.
+
+* **Parameters:**
+  * **websession** (*ClientSession*) – the aiohttp client session.
+  * **host** (*str*) – the host of the CAME Domotic server.
+  * **username** (*str*) – the username to use for the authentication.
+  * **password** (*str*) – the password to use for the authentication.
+  * **close_websession_on_disposal** (*bool* *,* *optional*) – whether to close the
+    websession when disposing the Auth instance (default: True).
+* **Raises:**
+  [**CameDomoticServerNotFoundError**](#aiocamedomotic.errors.CameDomoticServerNotFoundError) – if the host doesn’t respond to an HTTP
+      request or doesn’t expose the CAME Domotic API endopoint.
+* **Returns:**
+  the Auth instance.
+* **Return type:**
+  [Auth](#aiocamedomotic.auth.Auth)
+
+##### NOTE
+The session is not logged in until the first request is made.
+
+##### *async* async_dispose()
+
+Dispose the Auth instance, eventually logging out if needed.
+
+This method also explicitly clears sensitive attributes (username, password,
+and cipher_suite) to enhance security when the Auth instance is disposed.
+
+##### *async* async_get_valid_client_id() → str
+
+Get a valid client ID, eventually logging in if needed.
+
+* **Returns:**
+  the client ID.
+* **Return type:**
+  str
+* **Raises:**
+  [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – if an error occurs during the login.
+
+##### *async* async_keep_alive() → None
+
+Keep the session alive, eventually logging in again if needed.
+
+* **Raises:**
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – if an error occurs during the keep-alive request.
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – if an error occurs during the login.
+
+##### *async* async_login() → None
+
+Login to the CAME Domotic server.
+
+* **Raises:**
+  [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – if an error occurs during the login.
+
+##### *async* async_logout() → None
+
+Logout from the CAME Domotic server.
+
+* **Raises:**
+  [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – if an error occurs during the logout.
+
+##### *async static* async_raise_for_status_and_ack(response: ClientResponse)
+
+Check the response status and raise an error if necessary.
+
+* **Parameters:**
+  **response** (*ClientResponse*) – the response.
+* **Raises:**
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – if there is an error interacting with
+        the remote CAME Domotic server.
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – if there is an authentication error with
+        the remote CAME Domotic server.
+
+##### *async* async_send_command(command: dict, \*, response_command: str | None = None, timeout: int | None = 10, skip_ack_check: bool = False, command_type: str = 'sl_data_req', additional_payload: dict | None = None) → dict
+
+Send a command to the CAME Domotic server.
+
+* **Parameters:**
+  * **command** (*dict*) – the command to send.
+  * **response_command** (*str* *,* *optional*) – expected response command name to validate
+    against the server response (default: None).
+  * **timeout** (*int* *,* *optional*) – the timeout in seconds (default: 10s).
+  * **skip_ack_check** (*bool* *,* *optional*) – whether to skip the ACK check (default:
+    False).
+  * **command_type** (*str* *,* *optional*) – the command type to send (default: “sl_data_req”).
+  * **additional_payload** (*dict* *,* *optional*) – additional key-value pairs to include
+    in the request payload (default: None).
+* **Returns:**
+  the JSON response from the server.
+* **Return type:**
+  dict
+* **Raises:**
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – if an error occurs during the command.
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – if there is an authentication error with
+        the remote CAME Domotic server.
+
+##### *async* async_validate_host(timeout: int | None = 10) → None
+
+Validate the host asynchronously using aiohttp.
+
+* **Parameters:**
+  **timeout** (*int* *,* *optional*) – the timeout in seconds (default: 10s).
+* **Raises:**
+  [**CameDomoticServerNotFoundError**](#aiocamedomotic.errors.CameDomoticServerNotFoundError) – if the host doesn’t respond to an HTTP
+      request or doesn’t expose the CAME Domotic API endopoint.
+
+##### backup_auth_credentials()
+
+Backup the current authentication credentials.
+
+##### *static* create_cypher_suite() → Fernet
+
+Create a cypher suite.
+
+##### get_endpoint_url() → str
+
+Get the CAME Domotic endpoint URL.
+
+* **Returns:**
+  the endpoint URL.
+* **Return type:**
+  str
+
+##### is_session_valid() → bool
+
+Check whether the session is still valid or not.
+
+##### restore_auth_credentials(backup_state)
+
+Restore authentication credentials from a backup.
+
+* **Parameters:**
+  **backup_state** (*tuple*) – Username and password.
+
+##### update_auth_credentials(username, password)
+
+Update the authentication credentials.
+
+* **Parameters:**
+  * **username** (*str*) – New username.
+  * **password** (*str*) – New password.
+
+#### aiocamedomotic.auth.handle_came_domotic_errors(func)
+
+Decorator to handle CAME Domotic API errors.
+
+The decorator catches the following exceptions:
+- aiohttp.ClientResponseError: for HTTP errors (4xx, 5xx)
+- aiohttp.ServerTimeoutError: for timeouts
+- aiohttp.ClientError: for other network-related errors
+- CameDomoticAuthError: for authentication errors
+- any other exception: for unforeseen errors
+
+* **Raises:**
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – in case of any of the above errors.
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – in case of authentication error.

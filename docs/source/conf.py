@@ -28,6 +28,7 @@ extensions = [
     "sphinx_rtd_theme",
     "sphinx.ext.todo",
     "sphinx.ext.coverage",
+    "sphinx_markdown_builder",
 ]
 
 templates_path = ["_templates"]
@@ -39,3 +40,7 @@ exclude_patterns = exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
+
+# -- Options for Markdown output -----------------------------------------------
+markdown_anchor_sections = True
+markdown_anchor_signatures = True
