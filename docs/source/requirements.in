@@ -1,3 +1,4 @@
 sphinx==7.3.7
 sphinx_rtd_theme==2.0.0
 readthedocs-sphinx-search==0.3.2
+sphinx-markdown-builder==0.6.9
