@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Build llms.md and llms-full.md from Sphinx-generated Markdown files.
+"""Build llms.txt and llms-full.txt from Sphinx-generated Markdown files.
 
 This script uses sphinx-markdown-builder to render the project's Sphinx
 documentation (including autodoc-resolved API reference) into Markdown,
 then assembles two LLM-optimized documentation files:
 
-  - llms.md      : Summary (overview + getting started)
-  - llms-full.md : Full reference (overview + getting started + usage
+  - llms.txt      : Summary (overview + getting started)
+  - llms-full.txt : Full reference (overview + getting started + usage
                    examples + complete API reference)
 
 Prerequisites:
@@ -163,7 +163,7 @@ def build_header() -> str:
 
 
 def assemble_llms_md(overview: str, getting_started: str) -> str:
-    """Assemble the summary llms.md file."""
+    """Assemble the summary llms.txt file."""
     parts = [
         build_header(),
         "",
@@ -174,7 +174,7 @@ def assemble_llms_md(overview: str, getting_started: str) -> str:
         "---",
         "",
         "For complete usage examples and full API reference, see "
-        "[llms-full.md](llms-full.md).",
+        "[llms-full.txt](llms-full.txt).",
         "",
     ]
     content = "\n".join(parts)
@@ -189,7 +189,7 @@ def assemble_llms_full_md(
     usage_examples: str,
     api_reference: str,
 ) -> str:
-    """Assemble the full llms-full.md file."""
+    """Assemble the full llms-full.txt file."""
     parts = [
         build_header(),
         "",
@@ -210,7 +210,7 @@ def assemble_llms_full_md(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Build llms.md and llms-full.md from Sphinx markdown output."
+        description="Build llms.txt and llms-full.txt from Sphinx markdown output."
     )
     parser.add_argument(
         "--skip-sphinx-build",
@@ -221,7 +221,7 @@ def main():
         "--output-dir",
         type=Path,
         default=PROJECT_ROOT,
-        help="Output directory for llms.md and llms-full.md (default: project root).",
+        help="Output directory for llms.txt and llms-full.txt (default: project root).",
     )
     args = parser.parse_args()
 
@@ -259,12 +259,12 @@ def main():
     # Assemble output files
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    llms_path = args.output_dir / "llms.md"
+    llms_path = args.output_dir / "llms.txt"
     llms_content = assemble_llms_md(overview, getting_started)
     llms_path.write_text(llms_content, encoding="utf-8")
     print(f"Written: {llms_path} ({len(llms_content)} bytes)")
 
-    llms_full_path = args.output_dir / "llms-full.md"
+    llms_full_path = args.output_dir / "llms-full.txt"
     llms_full_content = assemble_llms_full_md(
         overview, getting_started, usage_examples, api_reference
     )
