@@ -621,6 +621,30 @@ class TestAuthValidateHost:
                     timeout=aiohttp.ClientTimeout(total=10),
                 )
 
+    async def test_failure_timeout_error(self):
+        async with aiohttp.ClientSession() as session:
+            with patch("aiohttp.ClientSession.get") as mock_get:
+                mock_response = Mock()
+                mock_response.status = 200
+                mock_get.return_value.__aenter__.return_value = mock_response
+
+                async with await Auth.async_create(
+                    session, "192.168.x.x", "username", "password"
+                ) as auth:
+                    auth.client_id = "test_client_id"
+                    auth.keep_alive_timeout_sec = 900
+                    auth.session_expiration_timestamp = time.monotonic() + 3600
+
+                mock_get.side_effect = TimeoutError()
+
+                with pytest.raises(CameDomoticServerNotFoundError):
+                    await auth.async_validate_host()
+
+                mock_get.assert_called_with(
+                    auth.get_endpoint_url(),
+                    timeout=aiohttp.ClientTimeout(total=10),
+                )
+
 
 class TestAuthLogin:
     """Tests for async_login method."""
