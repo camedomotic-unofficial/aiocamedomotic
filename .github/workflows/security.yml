@@ -16,7 +16,7 @@ name: Security checks
 
 on:
   push:
-    branches: [master, update-version]
+    branches: [main, update-version]
     paths-ignore:
       - "**.rst"
       - "**.md"
@@ -24,7 +24,7 @@ on:
       - ".github/**"
   pull_request:
     # Always run for PRs to satisfy required status checks
-    branches: [master, update-version]
+    branches: [main, update-version]
   schedule:
     # Twice per month (7th and 22nd) at 5:45 AM UTC
     - cron: "45 5 7 * *"

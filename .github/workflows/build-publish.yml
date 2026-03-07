@@ -67,7 +67,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
-          ref: master
+          ref: main
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -108,7 +108,7 @@ jobs:
         id: create_pr
         if: steps.create_branch_tag.outcome == 'success'
         run: |
-          gh pr create --title "Update version to ${{ steps.update_version.outputs.version }}" --body "This pull request updates the library version to ${{ steps.update_version.outputs.version }}." --base master --head update-version
+          gh pr create --title "Update version to ${{ steps.update_version.outputs.version }}" --body "This pull request updates the library version to ${{ steps.update_version.outputs.version }}." --base main --head update-version
           gh pr merge --auto --squash --delete-branch
 
       - name: Wait for PR to be merged
@@ -138,23 +138,23 @@ jobs:
           echo "::error::Timed out waiting for PR to be merged"
           exit 1
 
-      - name: Checkout and push to master
+      - name: Checkout and push to main
         run: |
-          git checkout master
-          git pull origin master
-          git push origin master
+          git checkout main
+          git pull origin main
+          git push origin main
 
       - name: Remove new version tag on PR merging failure
         if: always() && steps.create_pr.outcome == 'failure'
         run: |
-          git checkout master
+          git checkout main
           git tag -d "${{ steps.update_version.outputs.version }}"
           git push origin --delete "${{ steps.update_version.outputs.version }}"
 
       - name: Delete temporary branch
         if: always() && steps.create_pr.outcome == 'failure'
         run: |
-          git checkout master
+          git checkout main
           git branch -D update-version
           git push origin --delete update-version
 
@@ -224,7 +224,7 @@ jobs:
       - name: Checkout repository for tag lookup
         uses: actions/checkout@v6
         with:
-          ref: master
+          ref: main
           fetch-depth: 0
           fetch-tags: true
 

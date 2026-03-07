@@ -16,7 +16,7 @@ name: Unit tests and coverage report
 
 on:
   push:
-    branches: [master, update-version]
+    branches: [main, update-version]
     paths:
       - "aiocamedomotic/**/*.py"
       - "tests/**/*.py"
@@ -24,7 +24,7 @@ on:
       - ".github/workflows/code-tests.yml"
   pull_request:
     # Always run for PRs to satisfy required status checks
-    branches: [master, update-version]
+    branches: [main, update-version]
   workflow_dispatch:
 
 # Define minimal required permissions at workflow level
