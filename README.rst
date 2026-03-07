@@ -69,6 +69,8 @@ Key Features
 ------------
 - **Simplicity**: Easy interaction with domotic entities.
 - **Automatic session management**: No need for manual login or session handling.
+- **Real-time updates**: Built-in long-polling support with typed update classes
+  for monitoring device state changes as they happen.
 - **First of its kind**: Unique in providing integration with CAME Domotic systems.
 - **Open source**: Freely available under the Apache 2.0 license, inviting
   contributions and adaptations.

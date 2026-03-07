@@ -53,6 +53,25 @@ To work with CAME devices, you may need one or more of the following imports:
         ThermoZoneMode, ThermoZoneSeason, ThermoZoneStatus,
     )
 
+Working with real-time updates
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To receive and process real-time status updates from the CAME Domotic server,
+you will also need the following typed update classes:
+
+.. code-block:: python
+
+    from aiocamedomotic.models import (
+        DeviceType,
+        DeviceUpdate,
+        LightUpdate,
+        OpeningUpdate,
+        ThermoZoneUpdate,
+        ScenarioUpdate,
+        DigitalInputUpdate,
+        PlantUpdate,
+    )
+
 
 Handling Exceptions
 ^^^^^^^^^^^^^^^^^^^
@@ -421,6 +440,154 @@ Example output for analog sensors:
     Name: Outdoor Temperature, Value: 21.5, Unit: °C
     Name: Indoor Humidity, Value: 55, Unit: %
     Name: Barometric Pressure, Value: 1013, Unit: hPa
+
+
+Real-time updates
+-----------------
+
+The CAME Domotic server supports **long polling** for real-time status updates.
+When you call ``async_get_updates()``, the request **blocks on the server**
+until one or more device state changes are detected, then returns an
+:class:`~aiocamedomotic.models.update.UpdateList` containing all pending
+updates. This is the recommended mechanism for monitoring devices in real time
+without repeatedly fetching full device lists.
+
+Basic polling loop
+^^^^^^^^^^^^^^^^^^
+
+A typical polling loop continuously calls ``async_get_updates()`` and processes
+each batch of updates as it arrives:
+
+.. code-block:: python
+
+    async with await CameDomoticAPI.async_create(
+        "192.168.x.x", "username", "password"
+    ) as api:
+        while True:
+            updates = await api.async_get_updates()
+
+            for update in updates.get_typed_updates():
+                print(f"[{update.device_type}] {update.name} (ID: {update.device_id})")
+
+.. note::
+    Because ``async_get_updates()`` blocks until the server has new updates,
+    you do **not** need to add ``asyncio.sleep()`` between calls. If you need
+    to run the polling loop alongside other logic, wrap it in
+    ``asyncio.create_task()``.
+
+Getting typed updates
+^^^^^^^^^^^^^^^^^^^^^
+
+The ``UpdateList`` returned by ``async_get_updates()`` supports iteration over
+raw dicts for backward compatibility. To get **typed** update objects with
+convenient properties, use the ``get_typed_updates()`` method:
+
+.. code-block:: python
+
+    updates = await api.async_get_updates()
+
+    for update in updates.get_typed_updates():
+        print(
+            f"Type: {update.device_type}, "
+            f"ID: {update.device_id}, "
+            f"Name: {update.name}"
+        )
+
+Example output:
+
+.. code-block:: text
+
+    Type: DeviceType.LIGHT, ID: 15, Name: Living Room Spotlights
+    Type: DeviceType.THERMOSTAT, ID: 76, Name: Bathroom
+
+Each typed update is an instance of a :class:`~aiocamedomotic.models.update.DeviceUpdate`
+subclass (e.g. :class:`~aiocamedomotic.models.update.LightUpdate`,
+:class:`~aiocamedomotic.models.update.ThermoZoneUpdate`) and exposes
+device-specific properties.
+
+Filtering updates by device type
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To process only updates for a specific device type, use
+``get_typed_by_device_type()``:
+
+.. code-block:: python
+
+    updates = await api.async_get_updates()
+
+    # Get only light updates, already typed as LightUpdate
+    light_updates = updates.get_typed_by_device_type(DeviceType.LIGHT)
+
+    for light in light_updates:
+        print(
+            f"Light '{light.name}': status={light.status}, "
+            f"type={light.light_type}, brightness={light.perc}%"
+        )
+
+Example output:
+
+.. code-block:: text
+
+    Light 'Living Room Spotlights': status=LightStatus.ON, type=LightType.STEP_STEP, brightness=100%
+    Light 'Bedroom Dimmer': status=LightStatus.ON, type=LightType.DIMMER, brightness=50%
+
+Dispatching by update type
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For more granular control, use ``isinstance`` to dispatch each update to
+device-specific handling logic:
+
+.. code-block:: python
+
+    updates = await api.async_get_updates()
+
+    for update in updates.get_typed_updates():
+        if isinstance(update, LightUpdate):
+            print(f"Light '{update.name}': {update.status.name}, brightness={update.perc}%")
+
+        elif isinstance(update, OpeningUpdate):
+            print(f"Opening '{update.name}': {update.status.name}")
+
+        elif isinstance(update, ThermoZoneUpdate):
+            print(
+                f"Thermo '{update.name}': {update.temperature}°C, "
+                f"setpoint={update.set_point}°C, mode={update.mode.name}"
+            )
+
+        elif isinstance(update, ScenarioUpdate):
+            print(f"Scenario '{update.name}': {update.scenario_status.name}")
+
+        elif isinstance(update, DigitalInputUpdate):
+            print(f"Input '{update.name}': status={update.status}, addr={update.addr}")
+
+        elif isinstance(update, PlantUpdate):
+            print("Plant configuration changed, re-fetching devices...")
+
+Handling plant updates
+^^^^^^^^^^^^^^^^^^^^^^
+
+A special ``plant_update_ind`` indication signals that the **device
+configuration on the server has changed** (e.g. devices were added, removed, or
+reconfigured). When this happens, all locally cached device lists must be
+discarded and re-fetched.
+
+You can check for this using the ``has_plant_update`` property:
+
+.. code-block:: python
+
+    updates = await api.async_get_updates()
+
+    if updates.has_plant_update:
+        # Device configuration changed: refresh all cached device lists
+        lights = await api.async_get_lights()
+        openings = await api.async_get_openings()
+        scenarios = await api.async_get_scenarios()
+        thermo_zones = await api.async_get_thermo_zones()
+
+.. note::
+    Plant updates are relatively rare. They typically occur when an installer
+    modifies the system configuration. Failing to handle them may result in
+    stale device data or missing newly added devices.
 
 
 Checking Authentication Status

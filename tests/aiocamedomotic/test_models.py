@@ -27,29 +27,38 @@ from aiocamedomotic.const import (
     _DEVICE_TYPE_TO_FEATURE,
     _UPDATE_CMD_TO_DEVICE_TYPE,
     DeviceType,
+    UpdateIndicator,
     _ServerFeature,
 )
 from aiocamedomotic.errors import CameDomoticAuthError
 from aiocamedomotic.models import (
     AnalogSensor,
+    DeviceUpdate,
+    DigitalInputUpdate,
     Floor,
     Light,
     LightStatus,
     LightType,
+    LightUpdate,
     Opening,
     OpeningStatus,
     OpeningType,
+    OpeningUpdate,
+    PlantUpdate,
     Room,
     Scenario,
     ScenarioStatus,
+    ScenarioUpdate,
     ServerInfo,
     ThermoZone,
     ThermoZoneMode,
     ThermoZoneSeason,
     ThermoZoneStatus,
+    ThermoZoneUpdate,
     UpdateList,
     User,
     get_update_device_type,
+    parse_update,
 )
 from tests.aiocamedomotic.mocked_responses import STATUS_UPDATE_RESP
 
@@ -84,6 +93,25 @@ class TestDeviceType:
             DeviceType(99)
 
     def test_update_cmd_to_device_type_mapping(self):
+        # Traffic-observed indicator names
+        assert _UPDATE_CMD_TO_DEVICE_TYPE["light_switch_ind"] == DeviceType.LIGHT
+        assert _UPDATE_CMD_TO_DEVICE_TYPE["opening_move_ind"] == DeviceType.OPENING
+        assert (
+            _UPDATE_CMD_TO_DEVICE_TYPE["thermo_zone_info_ind"] == DeviceType.THERMOSTAT
+        )
+        assert (
+            _UPDATE_CMD_TO_DEVICE_TYPE["digitalin_status_ind"]
+            == DeviceType.DIGITAL_INPUT
+        )
+        assert _UPDATE_CMD_TO_DEVICE_TYPE["scenario_status_ind"] == DeviceType.SCENARIO
+        assert (
+            _UPDATE_CMD_TO_DEVICE_TYPE["scenario_activation_ind"] == DeviceType.SCENARIO
+        )
+        assert (
+            _UPDATE_CMD_TO_DEVICE_TYPE["meter_instant_power_ind"]
+            == DeviceType.ENERGY_SENSOR
+        )
+        # API_reference.md variant names (firmware compatibility)
         assert _UPDATE_CMD_TO_DEVICE_TYPE["light_update_ind"] == DeviceType.LIGHT
         assert _UPDATE_CMD_TO_DEVICE_TYPE["opening_update_ind"] == DeviceType.OPENING
         assert (
@@ -91,13 +119,9 @@ class TestDeviceType:
         )
         assert _UPDATE_CMD_TO_DEVICE_TYPE["thermo_update_ind"] == DeviceType.THERMOSTAT
         assert (
-            _UPDATE_CMD_TO_DEVICE_TYPE["thermo_zone_info_ind"] == DeviceType.THERMOSTAT
-        )
-        assert (
             _UPDATE_CMD_TO_DEVICE_TYPE["digitalin_update_ind"]
             == DeviceType.DIGITAL_INPUT
         )
-        assert _UPDATE_CMD_TO_DEVICE_TYPE["scenario_status_ind"] == DeviceType.SCENARIO
         assert _UPDATE_CMD_TO_DEVICE_TYPE["scenario_user_ind"] == DeviceType.SCENARIO
 
     def test_device_type_to_feature_mapping(self):
@@ -312,6 +336,27 @@ class TestUpdateList:
         assert updates.data == []
 
     def test_get_update_device_type_known(self):
+        # Traffic-observed names
+        assert (
+            get_update_device_type({"cmd_name": "light_switch_ind"}) == DeviceType.LIGHT
+        )
+        assert (
+            get_update_device_type({"cmd_name": "opening_move_ind"})
+            == DeviceType.OPENING
+        )
+        assert (
+            get_update_device_type({"cmd_name": "thermo_zone_info_ind"})
+            == DeviceType.THERMOSTAT
+        )
+        assert (
+            get_update_device_type({"cmd_name": "digitalin_status_ind"})
+            == DeviceType.DIGITAL_INPUT
+        )
+        assert (
+            get_update_device_type({"cmd_name": "scenario_status_ind"})
+            == DeviceType.SCENARIO
+        )
+        # Legacy names
         assert (
             get_update_device_type({"cmd_name": "light_update_ind"}) == DeviceType.LIGHT
         )
@@ -319,16 +364,763 @@ class TestUpdateList:
             get_update_device_type({"cmd_name": "opening_update_ind"})
             == DeviceType.OPENING
         )
-        assert (
-            get_update_device_type({"cmd_name": "thermo_zone_info_ind"})
-            == DeviceType.THERMOSTAT
-        )
 
     def test_get_update_device_type_unknown(self):
         assert get_update_device_type({"cmd_name": "plant_update_ind"}) is None
 
     def test_get_update_device_type_missing_cmd_name(self):
         assert get_update_device_type({}) is None
+
+
+class TestDeviceUpdate:
+    def test_parse_light_update(self):
+        raw = {
+            "cmd_name": "light_switch_ind",
+            "act_id": 32,
+            "name": "Lampada studio",
+            "floor_ind": 37,
+            "room_ind": 42,
+            "status": 0,
+            "type": "DIMMER",
+            "perc": 94,
+        }
+        update = parse_update(raw)
+        assert isinstance(update, LightUpdate)
+        assert update.act_id == 32
+        assert update.name == "Lampada studio"
+        assert update.floor_ind == 37
+        assert update.room_ind == 42
+        assert update.status == LightStatus.OFF
+        assert update.light_type == LightType.DIMMER
+        assert update.perc == 94
+        assert update.rgb is None
+        assert update.device_type == DeviceType.LIGHT
+        assert update.device_id == 32
+        assert update.update_indicator == UpdateIndicator.LIGHT
+
+    def test_parse_light_update_rgb(self):
+        raw = {
+            "cmd_name": "light_switch_ind",
+            "act_id": 10,
+            "name": "Led RGB",
+            "floor_ind": 1,
+            "room_ind": 2,
+            "status": 1,
+            "type": "RGB",
+            "perc": 50,
+            "rgb": [255, 128, 0],
+        }
+        update = parse_update(raw)
+        assert isinstance(update, LightUpdate)
+        assert update.light_type == LightType.RGB
+        assert update.rgb == [255, 128, 0]
+
+    def test_parse_light_update_unknown_type(self):
+        raw = {
+            "cmd_name": "light_switch_ind",
+            "act_id": 10,
+            "name": "Led",
+            "status": 1,
+            "type": "SOMETHING_NEW",
+        }
+        update = parse_update(raw)
+        assert isinstance(update, LightUpdate)
+        assert update.light_type == LightType.UNKNOWN
+
+    def test_parse_opening_update(self):
+        raw = {
+            "cmd_name": "opening_move_ind",
+            "open_act_id": 62,
+            "close_act_id": 63,
+            "name": "Tapparella Bagno Camera matrimo",
+            "floor_ind": 37,
+            "room_ind": 54,
+            "status": 2,
+        }
+        update = parse_update(raw)
+        assert isinstance(update, OpeningUpdate)
+        assert update.open_act_id == 62
+        assert update.close_act_id == 63
+        assert update.name == "Tapparella Bagno Camera matrimo"
+        assert update.status == OpeningStatus.CLOSING
+        assert update.device_type == DeviceType.OPENING
+        assert update.device_id == 62
+        assert update.update_indicator == UpdateIndicator.OPENING
+
+    def test_parse_opening_update_unknown_status(self):
+        raw = {
+            "cmd_name": "opening_move_ind",
+            "open_act_id": 1,
+            "close_act_id": 2,
+            "name": "Test",
+            "status": 99,
+        }
+        update = parse_update(raw)
+        assert isinstance(update, OpeningUpdate)
+        assert update.status == OpeningStatus.UNKNOWN
+
+    def test_parse_thermo_zone_update(self):
+        raw = {
+            "cmd_name": "thermo_zone_info_ind",
+            "act_id": 76,
+            "name": "Bagno",
+            "floor_ind": 37,
+            "room_ind": 45,
+            "temp_dec": 212,
+            "status": 0,
+            "mode": 2,
+            "set_point": 349,
+            "season": "winter",
+            "antifreeze": 30,
+            "t1": 190,
+            "t2": 200,
+            "t3": 210,
+            "thermo_algo": {"type": "D", "diff_t_dec": 2, "pi_set_in_use": 1},
+            "reason": 1,
+        }
+        update = parse_update(raw)
+        assert isinstance(update, ThermoZoneUpdate)
+        assert update.act_id == 76
+        assert update.name == "Bagno"
+        assert update.temperature == 21.2
+        assert update.status == ThermoZoneStatus.OFF
+        assert update.mode == ThermoZoneMode.AUTO
+        assert update.set_point == 34.9
+        assert update.season == ThermoZoneSeason.WINTER
+        assert update.device_type == DeviceType.THERMOSTAT
+        assert update.device_id == 76
+        assert update.update_indicator == UpdateIndicator.THERMOSTAT
+
+    def test_parse_scenario_update(self):
+        raw = {
+            "cmd_name": "scenario_status_ind",
+            "id": 8,
+            "name": "Tapparelle notte chiudi",
+            "scenario_status": 1,
+        }
+        update = parse_update(raw)
+        assert isinstance(update, ScenarioUpdate)
+        assert update.id == 8
+        assert update.name == "Tapparelle notte chiudi"
+        assert update.scenario_status == ScenarioStatus.TRIGGERED
+        assert update.device_type == DeviceType.SCENARIO
+        assert update.device_id == 8
+        assert update.update_indicator == UpdateIndicator.SCENARIO_STATUS
+
+    def test_parse_scenario_update_missing_status(self):
+        raw = {
+            "cmd_name": "scenario_status_ind",
+            "id": 1,
+            "name": "Test",
+        }
+        update = parse_update(raw)
+        assert isinstance(update, ScenarioUpdate)
+        assert update.scenario_status == ScenarioStatus.UNKNOWN
+
+    def test_parse_digitalin_update(self):
+        raw = {
+            "name": "Pulsante faretti sala pranzo anticamera",
+            "act_id": 84,
+            "type": 1,
+            "addr": 96,
+            "ack": 0,
+            "status": 0,
+            "radio_node_id": "00000000",
+            "rf_radio_link_quality": 0,
+            "utc_time": 1772894788,
+            "cmd_name": "digitalin_status_ind",
+        }
+        update = parse_update(raw)
+        assert isinstance(update, DigitalInputUpdate)
+        assert update.act_id == 84
+        assert update.name == "Pulsante faretti sala pranzo anticamera"
+        assert update.status == 0
+        assert update.addr == 96
+        assert update.utc_time == 1772894788
+        assert update.device_type == DeviceType.DIGITAL_INPUT
+        assert update.device_id == 84
+        assert update.update_indicator == UpdateIndicator.DIGITAL_INPUT
+
+    def test_parse_plant_update(self):
+        raw = {"cmd_name": "plant_update_ind"}
+        update = parse_update(raw)
+        assert isinstance(update, PlantUpdate)
+        assert update.is_plant_update is True
+        assert update.device_type is None
+        assert update.update_indicator == UpdateIndicator.PLANT
+
+    def test_parse_unknown_update(self):
+        raw = {"cmd_name": "some_future_ind", "data": 42}
+        update = parse_update(raw)
+        assert isinstance(update, DeviceUpdate)
+        assert not isinstance(update, LightUpdate)
+        assert update.cmd_name == "some_future_ind"
+        assert update.device_type is None
+        assert update.update_indicator is None
+        assert update.raw_data == raw
+
+    def test_device_update_device_id_act_id(self):
+        raw = {"cmd_name": "x", "act_id": 10}
+        assert DeviceUpdate(raw_data=raw).device_id == 10
+
+    def test_device_update_device_id_open_act_id(self):
+        raw = {"cmd_name": "x", "open_act_id": 20}
+        assert DeviceUpdate(raw_data=raw).device_id == 20
+
+    def test_device_update_device_id_id(self):
+        raw = {"cmd_name": "x", "id": 30}
+        assert DeviceUpdate(raw_data=raw).device_id == 30
+
+    def test_device_update_device_id_none(self):
+        raw = {"cmd_name": "x"}
+        assert DeviceUpdate(raw_data=raw).device_id is None
+
+    def test_parse_legacy_cmd_names(self):
+        assert isinstance(
+            parse_update({"cmd_name": "light_update_ind", "act_id": 1, "status": 0}),
+            LightUpdate,
+        )
+        assert isinstance(
+            parse_update(
+                {
+                    "cmd_name": "opening_update_ind",
+                    "open_act_id": 1,
+                    "close_act_id": 2,
+                    "status": 0,
+                }
+            ),
+            OpeningUpdate,
+        )
+        assert isinstance(
+            parse_update(
+                {"cmd_name": "thermo_update_ind", "act_id": 1, "temp_dec": 200}
+            ),
+            ThermoZoneUpdate,
+        )
+        assert isinstance(
+            parse_update(
+                {"cmd_name": "digitalin_update_ind", "act_id": 1, "status": 0}
+            ),
+            DigitalInputUpdate,
+        )
+        assert isinstance(
+            parse_update(
+                {"cmd_name": "scenario_user_ind", "id": 1, "scenario_status": 0}
+            ),
+            ScenarioUpdate,
+        )
+
+
+class TestUpdateListEnhanced:
+    def _make_mixed_updates(self):
+        return [
+            {
+                "cmd_name": "thermo_zone_info_ind",
+                "act_id": 76,
+                "name": "Bagno",
+                "floor_ind": 37,
+                "room_ind": 45,
+                "temp_dec": 212,
+                "status": 0,
+                "mode": 2,
+                "set_point": 349,
+                "season": "winter",
+            },
+            {
+                "cmd_name": "light_switch_ind",
+                "act_id": 32,
+                "name": "Lampada studio",
+                "floor_ind": 37,
+                "room_ind": 42,
+                "status": 0,
+                "type": "DIMMER",
+                "perc": 94,
+            },
+            {
+                "cmd_name": "scenario_status_ind",
+                "id": 5,
+                "name": "Tapparelle apri",
+                "scenario_status": 1,
+            },
+            {
+                "cmd_name": "digitalin_status_ind",
+                "act_id": 84,
+                "name": "Pulsante",
+                "type": 1,
+                "addr": 96,
+                "ack": 0,
+                "status": 0,
+                "radio_node_id": "00000000",
+                "rf_radio_link_quality": 0,
+                "utc_time": 1772894788,
+            },
+            {
+                "cmd_name": "opening_move_ind",
+                "open_act_id": 62,
+                "close_act_id": 63,
+                "name": "Tapparella",
+                "floor_ind": 37,
+                "room_ind": 54,
+                "status": 2,
+            },
+        ]
+
+    def test_get_by_device_type(self):
+        updates = UpdateList(self._make_mixed_updates())
+        thermo = updates.get_by_device_type(DeviceType.THERMOSTAT)
+        assert len(thermo) == 1
+        assert thermo[0]["act_id"] == 76
+
+    def test_get_by_device_type_empty(self):
+        updates = UpdateList(self._make_mixed_updates())
+        relays = updates.get_by_device_type(DeviceType.GENERIC_RELAY)
+        assert relays == []
+
+    def test_get_typed_updates(self):
+        updates = UpdateList(self._make_mixed_updates())
+        typed = updates.get_typed_updates()
+        assert len(typed) == 5
+        assert isinstance(typed[0], ThermoZoneUpdate)
+        assert isinstance(typed[1], LightUpdate)
+        assert isinstance(typed[2], ScenarioUpdate)
+        assert isinstance(typed[3], DigitalInputUpdate)
+        assert isinstance(typed[4], OpeningUpdate)
+
+    def test_get_typed_by_device_type(self):
+        updates = UpdateList(self._make_mixed_updates())
+        lights = updates.get_typed_by_device_type(DeviceType.LIGHT)
+        assert len(lights) == 1
+        assert isinstance(lights[0], LightUpdate)
+        assert lights[0].act_id == 32
+
+    def test_has_plant_update_false(self):
+        updates = UpdateList(self._make_mixed_updates())
+        assert updates.has_plant_update is False
+
+    def test_has_plant_update_true(self):
+        data = self._make_mixed_updates()
+        data.append({"cmd_name": "plant_update_ind"})
+        updates = UpdateList(data)
+        assert updates.has_plant_update is True
+
+    def test_backward_compat_iteration(self):
+        raw_data = self._make_mixed_updates()
+        updates = UpdateList(raw_data)
+        for item in updates:
+            assert isinstance(item, dict)
+        assert list(updates) == raw_data
+
+    def test_empty_update_list_methods(self):
+        updates = UpdateList([])
+        assert updates.get_by_device_type(DeviceType.LIGHT) == []
+        assert updates.get_typed_updates() == []
+        assert updates.get_typed_by_device_type(DeviceType.LIGHT) == []
+        assert updates.has_plant_update is False
+
+
+class TestUpdateClassesRealWorld:
+    """Tests using anonymized payloads derived from real API traffic patterns."""
+
+    @pytest.mark.parametrize(
+        "raw, exp_status, exp_type, exp_perc, exp_floor, exp_room",
+        [
+            pytest.param(
+                {
+                    "cmd_name": "light_switch_ind",
+                    "act_id": 201,
+                    "name": "My ceiling spots",
+                    "floor_ind": 5,
+                    "room_ind": 11,
+                    "status": 0,
+                    "type": "STEP_STEP",
+                },
+                LightStatus.OFF,
+                LightType.STEP_STEP,
+                100,
+                5,
+                11,
+                id="step_step_off_no_perc",
+            ),
+            pytest.param(
+                {
+                    "cmd_name": "light_switch_ind",
+                    "act_id": 202,
+                    "name": "My dimmable lamp",
+                    "floor_ind": 3,
+                    "room_ind": 7,
+                    "status": 1,
+                    "type": "DIMMER",
+                    "perc": 14,
+                },
+                LightStatus.ON,
+                LightType.DIMMER,
+                14,
+                3,
+                7,
+                id="dimmer_on_low_brightness",
+            ),
+            pytest.param(
+                {
+                    "cmd_name": "light_switch_ind",
+                    "act_id": 203,
+                    "name": "My desk lamp",
+                    "floor_ind": 8,
+                    "room_ind": 12,
+                    "status": 1,
+                    "type": "DIMMER",
+                    "perc": 94,
+                },
+                LightStatus.ON,
+                LightType.DIMMER,
+                94,
+                8,
+                12,
+                id="dimmer_on_high_brightness",
+            ),
+            pytest.param(
+                {
+                    "cmd_name": "light_switch_ind",
+                    "act_id": 204,
+                    "name": "My living room light",
+                    "floor_ind": 3,
+                    "room_ind": 7,
+                    "status": 0,
+                    "type": "DIMMER",
+                    "perc": 54,
+                },
+                LightStatus.OFF,
+                LightType.DIMMER,
+                54,
+                3,
+                7,
+                id="dimmer_off_retains_perc",
+            ),
+        ],
+    )
+    def test_light_update_real_world(
+        self, raw, exp_status, exp_type, exp_perc, exp_floor, exp_room
+    ):
+        update = parse_update(raw)
+        assert isinstance(update, LightUpdate)
+        assert update.act_id == raw["act_id"]
+        assert update.name == raw["name"]
+        assert update.floor_ind == exp_floor
+        assert update.room_ind == exp_room
+        assert update.status == exp_status
+        assert update.light_type == exp_type
+        assert update.perc == exp_perc
+        assert update.rgb is None
+        assert update.device_type == DeviceType.LIGHT
+        assert update.device_id == raw["act_id"]
+        assert update.cmd_name == "light_switch_ind"
+        assert update.update_indicator == UpdateIndicator.LIGHT
+
+    @pytest.mark.parametrize(
+        "raw, exp_status",
+        [
+            pytest.param(
+                {
+                    "cmd_name": "opening_move_ind",
+                    "open_act_id": 301,
+                    "close_act_id": 302,
+                    "name": "My office shutter",
+                    "floor_ind": 8,
+                    "room_ind": 12,
+                    "status": 2,
+                },
+                OpeningStatus.CLOSING,
+                id="closing",
+            ),
+            pytest.param(
+                {
+                    "cmd_name": "opening_move_ind",
+                    "open_act_id": 303,
+                    "close_act_id": 304,
+                    "name": "My kitchen window shutter",
+                    "floor_ind": 5,
+                    "room_ind": 9,
+                    "status": 0,
+                },
+                OpeningStatus.STOPPED,
+                id="stopped",
+            ),
+            pytest.param(
+                {
+                    "cmd_name": "opening_move_ind",
+                    "open_act_id": 303,
+                    "close_act_id": 304,
+                    "name": "My kitchen window shutter",
+                    "floor_ind": 5,
+                    "room_ind": 9,
+                    "status": 1,
+                },
+                OpeningStatus.OPENING,
+                id="opening_same_device",
+            ),
+            pytest.param(
+                {
+                    "cmd_name": "opening_move_ind",
+                    "open_act_id": 305,
+                    "close_act_id": 306,
+                    "name": "My living room shutter",
+                    "floor_ind": 5,
+                    "room_ind": 7,
+                    "status": 1,
+                },
+                OpeningStatus.OPENING,
+                id="opening_different_device",
+            ),
+        ],
+    )
+    def test_opening_update_real_world(self, raw, exp_status):
+        update = parse_update(raw)
+        assert isinstance(update, OpeningUpdate)
+        assert update.open_act_id == raw["open_act_id"]
+        assert update.close_act_id == raw["close_act_id"]
+        assert update.name == raw["name"]
+        assert update.floor_ind == raw["floor_ind"]
+        assert update.room_ind == raw["room_ind"]
+        assert update.status == exp_status
+        assert update.device_type == DeviceType.OPENING
+        assert update.device_id == raw["open_act_id"]
+        assert update.cmd_name == "opening_move_ind"
+        assert update.update_indicator == UpdateIndicator.OPENING
+
+    @pytest.mark.parametrize(
+        "raw, exp_temp, exp_set_point",
+        [
+            pytest.param(
+                {
+                    "cmd_name": "thermo_zone_info_ind",
+                    "act_id": 401,
+                    "name": "My zone A",
+                    "floor_ind": 8,
+                    "room_ind": 14,
+                    "temp_dec": 212,
+                    "status": 0,
+                    "mode": 2,
+                    "set_point": 349,
+                    "season": "winter",
+                    "antifreeze": 30,
+                    "t1": 190,
+                    "t2": 200,
+                    "t3": 210,
+                    "thermo_algo": {"type": "D", "diff_t_dec": 2, "pi_set_in_use": 1},
+                    "reason": 1,
+                },
+                21.2,
+                34.9,
+                id="zone_a",
+            ),
+            pytest.param(
+                {
+                    "cmd_name": "thermo_zone_info_ind",
+                    "act_id": 402,
+                    "name": "My zone B",
+                    "floor_ind": 5,
+                    "room_ind": 11,
+                    "temp_dec": 219,
+                    "status": 0,
+                    "mode": 2,
+                    "set_point": 310,
+                    "season": "winter",
+                    "antifreeze": 30,
+                    "t1": 185,
+                    "t2": 195,
+                    "t3": 205,
+                    "thermo_algo": {"type": "D", "diff_t_dec": 2, "pi_set_in_use": 1},
+                    "reason": 1,
+                },
+                21.9,
+                31.0,
+                id="zone_b",
+            ),
+            pytest.param(
+                {
+                    "cmd_name": "thermo_zone_info_ind",
+                    "act_id": 403,
+                    "name": "My zone C",
+                    "floor_ind": 8,
+                    "room_ind": 16,
+                    "temp_dec": 210,
+                    "status": 0,
+                    "mode": 2,
+                    "set_point": 341,
+                    "season": "winter",
+                    "antifreeze": 30,
+                    "t1": 185,
+                    "t2": 198,
+                    "t3": 210,
+                    "thermo_algo": {"type": "D", "diff_t_dec": 2, "pi_set_in_use": 1},
+                    "reason": 1,
+                },
+                21.0,
+                34.1,
+                id="zone_c",
+            ),
+            pytest.param(
+                {
+                    "cmd_name": "thermo_zone_info_ind",
+                    "act_id": 404,
+                    "name": "My zone D",
+                    "floor_ind": 8,
+                    "room_ind": 12,
+                    "temp_dec": 219,
+                    "status": 0,
+                    "mode": 2,
+                    "set_point": 206,
+                    "season": "winter",
+                    "antifreeze": 30,
+                    "t1": 175,
+                    "t2": 200,
+                    "t3": 210,
+                    "thermo_algo": {"type": "D", "diff_t_dec": 2, "pi_set_in_use": 1},
+                    "reason": 1,
+                },
+                21.9,
+                20.6,
+                id="zone_d",
+            ),
+        ],
+    )
+    def test_thermo_zone_update_real_world(self, raw, exp_temp, exp_set_point):
+        update = parse_update(raw)
+        assert isinstance(update, ThermoZoneUpdate)
+        assert update.act_id == raw["act_id"]
+        assert update.name == raw["name"]
+        assert update.floor_ind == raw["floor_ind"]
+        assert update.room_ind == raw["room_ind"]
+        assert update.temperature == pytest.approx(exp_temp)
+        assert update.set_point == pytest.approx(exp_set_point)
+        assert update.status == ThermoZoneStatus.OFF
+        assert update.mode == ThermoZoneMode.AUTO
+        assert update.season == ThermoZoneSeason.WINTER
+        assert update.device_type == DeviceType.THERMOSTAT
+        assert update.device_id == raw["act_id"]
+        assert update.cmd_name == "thermo_zone_info_ind"
+        assert update.update_indicator == UpdateIndicator.THERMOSTAT
+
+    @pytest.mark.parametrize(
+        "raw, exp_scenario_status, exp_indicator",
+        [
+            pytest.param(
+                {
+                    "cmd_name": "scenario_status_ind",
+                    "id": 501,
+                    "name": "My scenario 1",
+                    "scenario_status": 1,
+                },
+                ScenarioStatus.TRIGGERED,
+                UpdateIndicator.SCENARIO_STATUS,
+                id="status_ind_triggered",
+            ),
+            pytest.param(
+                {
+                    "cmd_name": "scenario_status_ind",
+                    "id": 501,
+                    "name": "My scenario 1",
+                    "scenario_status": 2,
+                },
+                ScenarioStatus.ACTIVE,
+                UpdateIndicator.SCENARIO_STATUS,
+                id="status_ind_active",
+            ),
+            pytest.param(
+                {
+                    "cmd_name": "scenario_status_ind",
+                    "id": 502,
+                    "name": "My scenario 2",
+                    "scenario_status": 0,
+                },
+                ScenarioStatus.OFF,
+                UpdateIndicator.SCENARIO_STATUS,
+                id="status_ind_off",
+            ),
+            pytest.param(
+                {
+                    "cmd_name": "scenario_activation_ind",
+                    "id": 501,
+                    "name": "My scenario 1",
+                    "status": 0,
+                },
+                ScenarioStatus.UNKNOWN,
+                UpdateIndicator.SCENARIO_ACTIVATION,
+                id="activation_ind_no_scenario_status_key",
+            ),
+        ],
+    )
+    def test_scenario_update_real_world(self, raw, exp_scenario_status, exp_indicator):
+        update = parse_update(raw)
+        assert isinstance(update, ScenarioUpdate)
+        assert update.id == raw["id"]
+        assert update.name == raw["name"]
+        assert update.scenario_status == exp_scenario_status
+        assert update.device_type == DeviceType.SCENARIO
+        assert update.device_id == raw["id"]
+        assert update.update_indicator == exp_indicator
+
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            pytest.param(
+                {
+                    "name": "My button A",
+                    "act_id": 601,
+                    "type": 1,
+                    "addr": 30,
+                    "ack": 0,
+                    "status": 0,
+                    "radio_node_id": "00000000",
+                    "rf_radio_link_quality": 0,
+                    "utc_time": 1700000001,
+                    "cmd_name": "digitalin_status_ind",
+                },
+                id="button_pressed",
+            ),
+            pytest.param(
+                {
+                    "name": "My button A",
+                    "act_id": 601,
+                    "type": 1,
+                    "addr": 30,
+                    "ack": 0,
+                    "status": 1,
+                    "radio_node_id": "00000000",
+                    "rf_radio_link_quality": 0,
+                    "utc_time": 1700000002,
+                    "cmd_name": "digitalin_status_ind",
+                },
+                id="button_released",
+            ),
+            pytest.param(
+                {
+                    "name": "My button B",
+                    "act_id": 602,
+                    "type": 1,
+                    "addr": 45,
+                    "ack": 0,
+                    "status": 0,
+                    "radio_node_id": "00000000",
+                    "rf_radio_link_quality": 0,
+                    "utc_time": 1700000010,
+                    "cmd_name": "digitalin_status_ind",
+                },
+                id="different_button_pressed",
+            ),
+        ],
+    )
+    def test_digital_input_update_real_world(self, raw):
+        update = parse_update(raw)
+        assert isinstance(update, DigitalInputUpdate)
+        assert update.act_id == raw["act_id"]
+        assert update.name == raw["name"]
+        assert update.status == raw["status"]
+        assert update.addr == raw["addr"]
+        assert update.utc_time == raw["utc_time"]
+        assert update.device_type == DeviceType.DIGITAL_INPUT
+        assert update.device_id == raw["act_id"]
+        assert update.cmd_name == "digitalin_status_ind"
+        assert update.update_indicator == UpdateIndicator.DIGITAL_INPUT
 
 
 class TestLight:

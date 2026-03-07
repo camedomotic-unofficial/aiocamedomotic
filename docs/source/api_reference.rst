@@ -57,7 +57,7 @@ Constants
 ---------
 
 .. automodule:: aiocamedomotic.const
-   :members: DeviceType
+   :members: DeviceType, UpdateIndicator
 
 
 Errors

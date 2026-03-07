@@ -19,7 +19,7 @@ CAME Domotic API.
 
 from __future__ import annotations
 
-from ..const import DeviceType  # noqa: F401
+from ..const import DeviceType, UpdateIndicator  # noqa: F401
 from .base import CameEntity, Floor, Room, ServerInfo, User  # noqa: F401
 from .light import Light, LightStatus, LightType  # noqa: F401
 from .opening import Opening, OpeningStatus, OpeningType  # noqa: F401
@@ -31,30 +31,50 @@ from .thermo_zone import (  # noqa: F401
     ThermoZoneSeason,
     ThermoZoneStatus,
 )
-from .update import UpdateList, get_update_device_type  # noqa: F401
+from .update import (  # noqa: F401
+    DeviceUpdate,
+    DigitalInputUpdate,
+    LightUpdate,
+    OpeningUpdate,
+    PlantUpdate,
+    ScenarioUpdate,
+    ThermoZoneUpdate,
+    UpdateList,
+    get_update_device_type,
+    parse_update,
+)
 
 __all__ = [
     "AnalogSensor",
     "CameEntity",
     "DeviceType",
+    "DeviceUpdate",
+    "DigitalInputUpdate",
     "Floor",
     "Light",
     "LightStatus",
     "LightType",
+    "LightUpdate",
     "Opening",
     "OpeningStatus",
     "OpeningType",
+    "OpeningUpdate",
+    "PlantUpdate",
     "Room",
     "Scenario",
     "ScenarioStatus",
+    "ScenarioUpdate",
     "ServerInfo",
     "ThermoZone",
     "ThermoZoneMode",
     "ThermoZoneSeason",
     "ThermoZoneStatus",
+    "ThermoZoneUpdate",
+    "UpdateIndicator",
     "UpdateList",
     "User",
     "get_update_device_type",
+    "parse_update",
 ]
 
 # Digital inputs

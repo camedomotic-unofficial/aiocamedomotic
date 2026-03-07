@@ -172,16 +172,54 @@ class _ServerFeature(Enum):
 # endregion
 
 
+class UpdateIndicator(Enum):
+    """Known status-update indication cmd_names from the CAME API.
+
+    These identify the type of state change in a ``status_update_resp`` result
+    item. Some indicators have two variants: one observed in real API traffic
+    and one documented in API_reference.md. Both are mapped for firmware
+    compatibility.
+    """
+
+    # Traffic-observed names
+    LIGHT = "light_switch_ind"
+    OPENING = "opening_move_ind"
+    THERMOSTAT = "thermo_zone_info_ind"
+    DIGITAL_INPUT = "digitalin_status_ind"
+    SCENARIO_STATUS = "scenario_status_ind"
+    SCENARIO_ACTIVATION = "scenario_activation_ind"
+    ENERGY_METER = "meter_instant_power_ind"
+    LOADSCTRL_METER = "loadsctrl_meter_ind"
+    LOADSCTRL_RELAY = "loadsctrl_relay_ind"
+    PLANT = "plant_update_ind"
+    # API_reference.md variants (kept for firmware compatibility)
+    LIGHT_LEGACY = "light_update_ind"
+    OPENING_LEGACY = "opening_update_ind"
+    THERMOSTAT_LEGACY = "thermo_update_ind"
+    RELAY_LEGACY = "relay_update_ind"
+    DIGITAL_INPUT_LEGACY = "digitalin_update_ind"
+    SCENARIO_USER_LEGACY = "scenario_user_ind"
+
+
 # Mapping from status update cmd_name to DeviceType
 _UPDATE_CMD_TO_DEVICE_TYPE: dict[str, DeviceType] = {
+    # Traffic-observed indicator names
+    "light_switch_ind": DeviceType.LIGHT,
+    "opening_move_ind": DeviceType.OPENING,
+    "thermo_zone_info_ind": DeviceType.THERMOSTAT,
+    "digitalin_status_ind": DeviceType.DIGITAL_INPUT,
+    "scenario_status_ind": DeviceType.SCENARIO,
+    "scenario_activation_ind": DeviceType.SCENARIO,
+    "meter_instant_power_ind": DeviceType.ENERGY_SENSOR,
+    # API_reference.md variant names (firmware compatibility)
     "light_update_ind": DeviceType.LIGHT,
     "opening_update_ind": DeviceType.OPENING,
-    "relay_update_ind": DeviceType.GENERIC_RELAY,
     "thermo_update_ind": DeviceType.THERMOSTAT,
-    "thermo_zone_info_ind": DeviceType.THERMOSTAT,
+    "relay_update_ind": DeviceType.GENERIC_RELAY,
     "digitalin_update_ind": DeviceType.DIGITAL_INPUT,
-    "scenario_status_ind": DeviceType.SCENARIO,
     "scenario_user_ind": DeviceType.SCENARIO,
+    # plant_update_ind intentionally omitted: it requires full cache
+    # invalidation, not a per-device update
 }
 
 # Mapping from DeviceType to the corresponding server feature
