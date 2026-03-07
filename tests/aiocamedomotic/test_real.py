@@ -24,6 +24,7 @@ variable to True.
 # pylint: disable=redefined-outer-name
 
 import asyncio
+
 import pytest
 
 from aiocamedomotic import CameDomoticAPI
@@ -124,7 +125,8 @@ async def test_async_control_specific_shutter(
         shutter_name = real_server_config["test_devices"]["shutter_name"]
     else:
         print(
-            f"Warning: 'shutter_name' not found in test_config.ini, using default: {shutter_name}"
+            "Warning: 'shutter_name' not found in "
+            f"test_config.ini, using default: {shutter_name}"
         )
 
     print(f"\nLooking for shutter: '{shutter_name}'...")
@@ -143,19 +145,19 @@ async def test_async_control_specific_shutter(
 
     try:
         # Close
-        print(f"  Setting to CLOSING")
+        print("  Setting to CLOSING")
         await target_shutter.async_set_status(OpeningStatus.CLOSING)
         print(f"  Status: {target_shutter.status.name}")
         await asyncio.sleep(wait_time_sec)
 
         # Stop
-        print(f"  Setting to STOPPED")
+        print("  Setting to STOPPED")
         await target_shutter.async_set_status(OpeningStatus.STOPPED)
         print(f"  Status: {target_shutter.status.name}")
         await asyncio.sleep(wait_time_sec)
 
         # Open
-        print(f"  Setting to OPENING")
+        print("  Setting to OPENING")
         await target_shutter.async_set_status(OpeningStatus.OPENING)
         print(f"  Status: {target_shutter.status.name}")
 

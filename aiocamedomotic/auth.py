@@ -25,16 +25,20 @@ Note:
    the feature yourself.
 """
 
+from __future__ import annotations
+
+import contextlib
 import functools
 import json
 import time
-from typing import Optional
 from asyncio import Lock
-from importlib.metadata import version, PackageNotFoundError
+from collections.abc import Callable
+from importlib.metadata import PackageNotFoundError, version
+from types import TracebackType
+from typing import Any, TypeVar
 from urllib.parse import urlsplit
 
 import aiohttp
-
 from cryptography.fernet import Fernet
 
 from .const import _CommandType
@@ -44,16 +48,17 @@ try:
     _LIBRARY_VERSION = version(__package__ or "aiocamedomotic")
 except PackageNotFoundError:
     _LIBRARY_VERSION = "unknown"
-from .utils import LOGGER
 from .errors import (
     CameDomoticAuthError,
     CameDomoticServerError,
     CameDomoticServerNotFoundError,
 )
-from .const import get_ack_error_message, is_auth_error
+from .utils import LOGGER
+
+_F = TypeVar("_F", bound=Callable[..., Any])
 
 
-def handle_came_domotic_errors(func):
+def handle_came_domotic_errors(func: _F) -> _F:
     """Decorator to handle CAME Domotic API errors.
 
     The decorator catches the following exceptions:
@@ -69,7 +74,7 @@ def handle_came_domotic_errors(func):
     """
 
     @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
         """Wrapper function for the decorator."""
         try:
             return await func(*args, **kwargs)
@@ -98,7 +103,7 @@ def handle_came_domotic_errors(func):
                 "Generic error in communication with CAME Domotic API."
             ) from e
 
-    return wrapper
+    return wrapper  # type: ignore[return-value]
 
 
 class Auth:
@@ -111,8 +116,8 @@ class Auth:
     """
 
     # Default timeout "safe zone" for session expiration
-    _DEFAULT_SAFE_ZONE_SEC = 30
-    _DEFAULT_HTTP_HEADERS = {
+    _DEFAULT_SAFE_ZONE_SEC: int = 30
+    _DEFAULT_HTTP_HEADERS: dict[str, str] = {
         "User-Agent": f"aiocamedomotic/{_LIBRARY_VERSION}",
         "Accept": "application/json, text/plain, */*",  # Desumed from pycame library
         "Content-Type": "application/x-www-form-urlencoded",
@@ -129,7 +134,7 @@ class Auth:
         password: str,
         *,
         close_websession_on_disposal: bool = True,
-    ):
+    ) -> Auth:
         """Create an Auth instance.
 
         Args:
@@ -168,6 +173,17 @@ class Auth:
         key = Fernet.generate_key()
         return Fernet(key)
 
+    cipher_suite: Fernet | None
+    username: bytes | None
+    password: bytes | None
+    host: str
+    websession: aiohttp.ClientSession
+    close_websession_on_disposal: bool
+    session_expiration_timestamp: float
+    client_id: str
+    keep_alive_timeout_sec: int
+    cseq: int
+
     def __init__(
         self,
         websession: aiohttp.ClientSession,
@@ -176,7 +192,7 @@ class Auth:
         password: str,
         *,
         close_websession_on_disposal: bool = True,
-    ):
+    ) -> None:
         """Initialize the Auth instance.
 
         Args:
@@ -236,10 +252,15 @@ class Auth:
 
     # region Context manager
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Auth:
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         await self.async_dispose()
 
     # endregion
@@ -270,14 +291,14 @@ class Auth:
     @handle_came_domotic_errors
     async def async_send_command(  # pylint: disable=too-many-branches
         self,
-        command: dict,
+        command: dict[str, Any],
         *,
-        response_command: Optional[str] = None,
-        timeout: Optional[int] = 10,
+        response_command: str | None = None,
+        timeout: int | None = 10,
         skip_ack_check: bool = False,
         command_type: str = _CommandType.DATA_REQUEST.value,
-        additional_payload: Optional[dict] = None,
-    ) -> dict:
+        additional_payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Send a command to the CAME Domotic server.
 
         Args:
@@ -287,7 +308,8 @@ class Auth:
             timeout (int, optional): the timeout in seconds (default: 10s).
             skip_ack_check (bool, optional): whether to skip the ACK check (default:
                 False).
-            command_type (str, optional): the command type to send (default: "sl_data_req").
+            command_type (str, optional): the command type to send
+                (default: "sl_data_req").
             additional_payload (dict, optional): additional key-value pairs to include
                 in the request payload (default: None).
 
@@ -386,7 +408,7 @@ class Auth:
             raise CameDomoticServerError("Error sending command") from e
 
     # The following method is not async because it is used in the __init__ method
-    async def async_validate_host(self, timeout: Optional[int] = 10) -> None:
+    async def async_validate_host(self, timeout: int | None = 10) -> None:
         """Validate the host asynchronously using aiohttp.
 
         Args:
@@ -455,6 +477,9 @@ class Auth:
             CameDomoticAuthError: if an error occurs during the login.
         """
         try:
+            assert self.cipher_suite is not None
+            assert self.username is not None
+            assert self.password is not None
             login_payload = {
                 "sl_login": self.cipher_suite.decrypt(self.username).decode(),
                 "sl_pwd": self.cipher_suite.decrypt(self.password).decode(),
@@ -477,8 +502,8 @@ class Auth:
                 )
 
             # ACK is ok, store the login data
-            self.client_id = data.get("sl_client_id")
-            self.keep_alive_timeout_sec = data.get("sl_keep_alive_timeout_sec")
+            self.client_id = data.get("sl_client_id", "")
+            self.keep_alive_timeout_sec = data.get("sl_keep_alive_timeout_sec", 0)
             self.session_expiration_timestamp = time.monotonic() + max(
                 0, self.keep_alive_timeout_sec - Auth._DEFAULT_SAFE_ZONE_SEC
             )
@@ -537,17 +562,15 @@ class Auth:
             self.client_id = ""
             self.session_expiration_timestamp = time.monotonic()
 
-    async def async_dispose(self):
+    async def async_dispose(self) -> None:
         """Dispose the Auth instance, eventually logging out if needed.
 
         This method also explicitly clears sensitive attributes (username, password,
         and cipher_suite) to enhance security when the Auth instance is disposed.
         """
         if self.is_session_valid():
-            try:
+            with contextlib.suppress(CameDomoticServerError):
                 await self.async_logout()
-            except CameDomoticServerError:
-                pass
         if self.close_websession_on_disposal:
             await self.websession.close()
 
@@ -568,7 +591,7 @@ class Auth:
         )
 
     @staticmethod
-    async def async_raise_for_status_and_ack(response: aiohttp.ClientResponse):
+    async def async_raise_for_status_and_ack(response: aiohttp.ClientResponse) -> None:
         """Check the response status and raise an error if necessary.
 
         Args:
@@ -597,7 +620,9 @@ class Auth:
         if ack_reason and ack_reason != 0:
             raise CameDomoticServerError.create_ack_error(ack_reason)
 
-    def backup_auth_credentials(self):
+    def backup_auth_credentials(
+        self,
+    ) -> tuple[bytes | None, bytes | None, str, float, int, int]:
         """Backup the current authentication credentials."""
         return (
             self.username,
@@ -608,7 +633,10 @@ class Auth:
             self.cseq,
         )
 
-    def restore_auth_credentials(self, backup_state):
+    def restore_auth_credentials(
+        self,
+        backup_state: tuple[bytes | None, bytes | None, str, float, int, int],
+    ) -> None:
         """Restore authentication credentials from a backup.
 
         Args:
@@ -623,13 +651,14 @@ class Auth:
             self.cseq,
         ) = backup_state
 
-    def update_auth_credentials(self, username, password):
+    def update_auth_credentials(self, username: str, password: str) -> None:
         """Update the authentication credentials.
 
         Args:
             username (str): New username.
             password (str): New password.
         """
+        assert self.cipher_suite is not None
         self.username = self.cipher_suite.encrypt(username.encode())
         self.password = self.cipher_suite.encrypt(password.encode())
 

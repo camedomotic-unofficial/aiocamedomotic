@@ -20,7 +20,6 @@ These responses are used to test the CAME Domotic server client.
 # pylint: disable=import-error
 # pylint: disable=no-name-in-module
 
-
 SL_REGISTRATION_ACK = {
     "sl_cmd": "sl_registration_ack",
     "sl_client_id": "my_session_id",

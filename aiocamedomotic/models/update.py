@@ -21,17 +21,18 @@ structure to track chronological updates and state changes received from
 the CAME Domotic API, facilitating the consumption of system state changes.
 """
 
-from dataclasses import dataclass
+from __future__ import annotations
 
-from typing import Any, Optional
 from collections import UserList
+from dataclasses import dataclass
+from typing import Any
 
-from .base import CameEntity
-from ..const import DeviceType, _UPDATE_CMD_TO_DEVICE_TYPE
+from ..const import _UPDATE_CMD_TO_DEVICE_TYPE, DeviceType
 from ..utils import LOGGER
+from .base import CameEntity
 
 
-def get_update_device_type(update: dict[str, Any]) -> Optional[DeviceType]:
+def get_update_device_type(update: dict[str, Any]) -> DeviceType | None:
     """Return the device type for a status update dict, or None if unknown.
 
     Args:

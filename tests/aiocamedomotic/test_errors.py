@@ -18,14 +18,12 @@
 
 """Tests for aiocamedomotic error classes."""
 
-import pytest
-
 
 def test_all_error_classes_instantiation():
     """Test that all error classes can be instantiated properly."""
     from aiocamedomotic.errors import (
-        CameDomoticError,
         CameDomoticAuthError,
+        CameDomoticError,
         CameDomoticServerError,
         CameDomoticServerNotFoundError,
     )
@@ -53,8 +51,8 @@ def test_all_error_classes_instantiation():
 def test_error_inheritance_chain():
     """Test that error inheritance chain is correct."""
     from aiocamedomotic.errors import (
-        CameDomoticError,
         CameDomoticAuthError,
+        CameDomoticError,
         CameDomoticServerError,
         CameDomoticServerNotFoundError,
     )
@@ -95,8 +93,8 @@ def test_error_with_non_string_message():
 def test_all_errors_with_args():
     """Test all error classes with args."""
     from aiocamedomotic.errors import (
-        CameDomoticError,
         CameDomoticAuthError,
+        CameDomoticError,
         CameDomoticServerError,
         CameDomoticServerNotFoundError,
     )
@@ -153,7 +151,7 @@ def test_format_ack_error():
 
 def test_create_ack_error():
     """Test the create_ack_error static method."""
-    from aiocamedomotic.errors import CameDomoticServerError, CameDomoticAuthError
+    from aiocamedomotic.errors import CameDomoticAuthError, CameDomoticServerError
 
     # Test authentication error codes (1, 3) return CameDomoticAuthError
     auth_error_1 = CameDomoticServerError.create_ack_error(1)
@@ -184,7 +182,7 @@ def test_create_ack_error():
 
 def test_create_ack_error_all_known_codes():
     """Test create_ack_error with all known ACK error codes."""
-    from aiocamedomotic.errors import CameDomoticServerError, CameDomoticAuthError
+    from aiocamedomotic.errors import CameDomoticAuthError, CameDomoticServerError
 
     # All known ACK error codes and their expected exception types
     test_cases = [

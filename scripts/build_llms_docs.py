@@ -63,7 +63,9 @@ def run_sphinx_build():
     if result.stderr:
         print(result.stderr, file=sys.stderr)
     if result.returncode != 0:
-        print(f"sphinx-build failed with return code {result.returncode}", file=sys.stderr)
+        print(
+            f"sphinx-build failed with return code {result.returncode}", file=sys.stderr
+        )
         sys.exit(1)
 
 
@@ -134,9 +136,7 @@ def fix_internal_links(content: str) -> str:
     }
     for name, anchor in file_to_anchor.items():
         # Links with section anchors: file.md#section -> #section
-        content = re.sub(
-            rf"\]\({re.escape(name)}\.md#([^)]*)\)", r"](#\1)", content
-        )
+        content = re.sub(rf"\]\({re.escape(name)}\.md#([^)]*)\)", r"](#\1)", content)
         # Links without anchors: file.md -> #anchor
         content = content.replace(f"]({name}.md)", f"]({anchor})")
     # Remove links to genindex that are now broken

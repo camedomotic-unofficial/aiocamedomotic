@@ -74,4 +74,3 @@ Auth module
    :members:
 ..    :undoc-members:
 ..    :show-inheritance:
-

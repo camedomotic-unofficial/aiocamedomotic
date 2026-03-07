@@ -18,10 +18,9 @@
 
 """Tests for aiocamedomotic package initialization."""
 
-import sys
 import logging
-from unittest.mock import patch, MagicMock
-import pytest
+import sys
+from unittest.mock import patch
 
 
 def test_get_logger_returns_package_logger():
@@ -43,6 +42,7 @@ def test_version_when_package_not_found():
 
         # Reload the module to trigger the exception handling
         import importlib
+
         import aiocamedomotic
 
         importlib.reload(aiocamedomotic)
@@ -58,6 +58,7 @@ def test_version_when_package_found():
 
         # Reload the module
         import importlib
+
         import aiocamedomotic
 
         importlib.reload(aiocamedomotic)

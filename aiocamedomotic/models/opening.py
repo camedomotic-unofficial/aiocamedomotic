@@ -21,17 +21,18 @@ It provides properties to access opening attributes and methods to control
 opening state, including open, close, and stop functionality.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Optional, List
+from typing import Any
 
 from ..auth import Auth
 from ..const import _CommandName
 from ..utils import (
-    EntityValidator,
     LOGGER,
+    EntityValidator,
 )
-
 from .base import CameEntity
 
 
@@ -82,10 +83,10 @@ class Opening(CameEntity):
             or the auth argument is not an instance of the expected `Auth` class.
     """
 
-    raw_data: dict
+    raw_data: dict[str, Any]
     auth: Auth
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         EntityValidator.validate_data(
             self.raw_data, required_keys=["name", "open_act_id", "close_act_id"]
         )
@@ -109,7 +110,8 @@ class Opening(CameEntity):
         except ValueError:
             LOGGER.warning(
                 "Unknown status '%s' encountered for opening '%s' (ID: %s). "
-                "Returning OpeningStatus.UNKNOWN. Please report this to the library developers.",
+                "Returning OpeningStatus.UNKNOWN. Please report "
+                "this to the library developers.",
                 self.raw_data["status"],
                 self.name,
                 self.open_act_id,
@@ -129,7 +131,8 @@ class Opening(CameEntity):
         except ValueError:
             LOGGER.warning(
                 "Unknown opening type '%s' encountered for opening '%s' (ID: %s). "
-                "Returning OpeningType.UNKNOWN. Please report this to the library developers.",
+                "Returning OpeningType.UNKNOWN. Please report "
+                "this to the library developers.",
                 self.raw_data["type"],
                 self.name,
                 self.open_act_id,
@@ -137,12 +140,12 @@ class Opening(CameEntity):
             return OpeningType.UNKNOWN
 
     @property
-    def floor_ind(self) -> Optional[int]:
+    def floor_ind(self) -> int | None:
         """Floor index where the opening is located."""
         return self.raw_data.get("floor_ind")
 
     @property
-    def room_ind(self) -> Optional[int]:
+    def room_ind(self) -> int | None:
         """Room index where the opening is located."""
         return self.raw_data.get("room_ind")
 
@@ -157,7 +160,7 @@ class Opening(CameEntity):
         return self.raw_data["close_act_id"]
 
     @property
-    def partial_positions(self) -> List[str]:
+    def partial_positions(self) -> list[str]:
         """List of configured partial opening positions, if any."""
         # TODO Check against actual values if it's a list of dict, int or strings
         return self.raw_data.get("partial", [])

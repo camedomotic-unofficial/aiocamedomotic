@@ -19,9 +19,11 @@ This library is designed to simplify the management of domotic devices by abstra
 the complexities of the CAME Domotic API.
 """
 
-import sys
+from __future__ import annotations
+
 import logging
-from importlib.metadata import version, PackageNotFoundError
+import sys
+from importlib.metadata import PackageNotFoundError, version
 
 from .auth import Auth  # noqa: F401
 from .came_domotic_api import CameDomoticAPI  # noqa: F401
@@ -47,7 +49,7 @@ LOGGER.addHandler(_console_handler)
 LOGGER.setLevel(logging.WARNING)
 
 
-def get_logger():
+def get_logger() -> logging.Logger:
     """
     Allows to set the log level and other properties from the calling code.
 

@@ -17,19 +17,44 @@ This module defines the Python representation of each of the entity types used b
 CAME Domotic API.
 """
 
-from .base import CameEntity, ServerInfo, User, Floor, Room  # noqa: F401
-from .light import Light, LightType, LightStatus  # noqa: F401
-from .update import UpdateList, get_update_device_type  # noqa: F401
+from __future__ import annotations
+
+from ..const import DeviceType  # noqa: F401
+from .base import CameEntity, Floor, Room, ServerInfo, User  # noqa: F401
+from .light import Light, LightStatus, LightType  # noqa: F401
 from .opening import Opening, OpeningStatus, OpeningType  # noqa: F401
 from .scenario import Scenario, ScenarioStatus  # noqa: F401
 from .thermo_zone import (  # noqa: F401
+    AnalogSensor,
     ThermoZone,
-    ThermoZoneStatus,
     ThermoZoneMode,
     ThermoZoneSeason,
-    AnalogSensor,
+    ThermoZoneStatus,
 )
+from .update import UpdateList, get_update_device_type  # noqa: F401
 
-from ..const import DeviceType  # noqa: F401
+__all__ = [
+    "AnalogSensor",
+    "CameEntity",
+    "DeviceType",
+    "Floor",
+    "Light",
+    "LightStatus",
+    "LightType",
+    "Opening",
+    "OpeningStatus",
+    "OpeningType",
+    "Room",
+    "Scenario",
+    "ScenarioStatus",
+    "ServerInfo",
+    "ThermoZone",
+    "ThermoZoneMode",
+    "ThermoZoneSeason",
+    "ThermoZoneStatus",
+    "UpdateList",
+    "User",
+    "get_update_device_type",
+]
 
 # Digital inputs

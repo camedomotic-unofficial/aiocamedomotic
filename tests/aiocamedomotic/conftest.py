@@ -67,7 +67,8 @@ def real_server_config():
     config_path = Path(__file__).parent / "test_config.ini"
     if not config_path.is_file():
         pytest.skip(
-            "Real server configuration file (test_config.ini) not found. Skipping real server tests."
+            "Real server configuration file (test_config.ini) "
+            "not found. Skipping real server tests."
         )
         return None
 
@@ -76,14 +77,17 @@ def real_server_config():
 
     if "came_server" not in config:
         pytest.skip(
-            "Missing [came_server] section in test_config.ini. Skipping real server tests."
+            "Missing [came_server] section in test_config.ini. "
+            "Skipping real server tests."
         )
         return None
 
     required_keys = ["host", "username", "password"]
     if not all(key in config["came_server"] for key in required_keys):
         pytest.skip(
-            f"Missing one or more required keys ({', '.join(required_keys)}) in [came_server] section. Skipping real server tests."
+            f"Missing one or more required keys "
+            f"({', '.join(required_keys)}) in [came_server] "
+            f"section. Skipping real server tests."
         )
         return None
 

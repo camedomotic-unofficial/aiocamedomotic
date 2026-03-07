@@ -1,55 +1,52 @@
 {
-    "name": "aiocamedomotic library development",
-    "context": "..",
-    "dockerFile": "../Dockerfile.dev",
-    "customizations": {
-        "vscode": {
-            "extensions": [
-                "charliermarsh.ruff",
-                "ms-python.python",
-                "ms-python.pylint",
-                "ms-python.vscode-pylance",
-                "ms-azuretools.vscode-docker",
-                "anthropic.claude-code",
-                "redhat.vscode-yaml",
-                "esbenp.prettier-vscode",
-                "GitHub.vscode-pull-request-github",
-                "GitHub.copilot",
-                "njpwerner.autodocstring",
-                "swyddfa.esbonio",
-                "lextudio.restructuredtext-pack",
-                "tamasfe.even-better-toml",
-                "github.vscode-github-actions",
-                "yzhang.markdown-all-in-one",
-                "DavidAnson.vscode-markdownlint",
-                "littlefoxteam.vscode-python-test-adapter",
-                "lextudio.restructuredtext"
-            ],
-            // Please keep this file in sync with settings in home-assistant/.vscode/settings.default.json
-            "settings": {
-                "python.experiments.optOutFrom": [
-                    "pythonTestAdapter"
-                ],
-                "python.defaultInterpreterPath": "/home/vscode/.local/aiocamedomotic-venv/bin/python",
-                "python.pythonPath": "/home/vscode/.local/aiocamedomotic-venv/bin/python",
-                "python.terminal.activateEnvInCurrentTerminal": true,
-                "python.testing.pytestArgs": [
-                    "--no-cov"
-                ],
-                "editor.formatOnPaste": false,
-                "editor.formatOnSave": true,
-                "editor.formatOnType": true,
-                "files.trimTrailingWhitespace": true,
-                "terminal.integrated.profiles.linux": {
-                    "zsh": {
-                        "path": "/usr/bin/zsh"
-                    }
-                },
-                "terminal.integrated.defaultProfile.linux": "zsh",
-                "[python]": {
-                    "editor.defaultFormatter": "charliermarsh.ruff"
-                }
-            }
+  "name": "aiocamedomotic library development",
+  "context": "..",
+  "dockerFile": "../Dockerfile.dev",
+  "postCreateCommand": "pre-commit install && pre-commit install --hook-type pre-push",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "charliermarsh.ruff",
+        "ms-python.python",
+        "ms-python.pylint",
+        "ms-python.vscode-pylance",
+        "ms-azuretools.vscode-docker",
+        "anthropic.claude-code",
+        "redhat.vscode-yaml",
+        "esbenp.prettier-vscode",
+        "GitHub.vscode-pull-request-github",
+        "GitHub.copilot",
+        "njpwerner.autodocstring",
+        "swyddfa.esbonio",
+        "lextudio.restructuredtext-pack",
+        "tamasfe.even-better-toml",
+        "github.vscode-github-actions",
+        "yzhang.markdown-all-in-one",
+        "DavidAnson.vscode-markdownlint",
+        "littlefoxteam.vscode-python-test-adapter",
+        "lextudio.restructuredtext"
+      ],
+      // Please keep this file in sync with settings in home-assistant/.vscode/settings.default.json
+      "settings": {
+        "python.experiments.optOutFrom": ["pythonTestAdapter"],
+        "python.defaultInterpreterPath": "/home/vscode/.local/aiocamedomotic-venv/bin/python",
+        "python.pythonPath": "/home/vscode/.local/aiocamedomotic-venv/bin/python",
+        "python.terminal.activateEnvInCurrentTerminal": true,
+        "python.testing.pytestArgs": ["--no-cov"],
+        "editor.formatOnPaste": false,
+        "editor.formatOnSave": true,
+        "editor.formatOnType": true,
+        "files.trimTrailingWhitespace": true,
+        "terminal.integrated.profiles.linux": {
+          "zsh": {
+            "path": "/usr/bin/zsh"
+          }
+        },
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff"
         }
+      }
     }
+  }
 }

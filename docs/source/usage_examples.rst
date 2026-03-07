@@ -453,4 +453,3 @@ Exploring further
 -----------------
 
 For technical details, see the :doc:`api_reference`.
-
