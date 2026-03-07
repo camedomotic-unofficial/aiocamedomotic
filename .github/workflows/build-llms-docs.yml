@@ -17,7 +17,7 @@ name: Build LLM documentation
 on:
   push:
     branches:
-      - master
+      - main
     paths:
       - "README.rst"
       - "docs/source/**"
@@ -82,7 +82,7 @@ jobs:
           Sphinx documentation.
           EOF
           )" \
-            --base master \
+            --base main \
             --head "$BRANCH_NAME"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

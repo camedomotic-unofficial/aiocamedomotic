@@ -95,7 +95,7 @@ The full documentation of the CAME Domotic API that this library wraps is in `lo
 
 ## Other notes
 
-- The `master` git branch is protected, to merge you must create a new branch and raise a PR
+- The `main` git branch is protected, to merge you must create a new branch and raise a PR
 - Never mention in comments (commits, PRs, etc.) Claude or any other AI tool
 - Python 3.12, 3.13 and 3.14 are supported
 - Library is available under Apache License 2.0
