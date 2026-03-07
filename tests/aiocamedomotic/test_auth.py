@@ -28,11 +28,53 @@ from aiohttp import ClientSession, ClientTimeout
 from cryptography.fernet import Fernet
 
 from aiocamedomotic import Auth
+from aiocamedomotic.auth import handle_came_domotic_errors
 from aiocamedomotic.errors import (
     CameDomoticAuthError,
     CameDomoticServerError,
     CameDomoticServerNotFoundError,
 )
+
+
+class TestHandleCameDomoticErrorsDecorator:
+    """Tests for the handle_came_domotic_errors decorator."""
+
+    async def test_client_response_error(self):
+        @handle_came_domotic_errors
+        async def dummy():
+            raise aiohttp.ClientResponseError(
+                request_info=Mock(),
+                history=[],
+                status=500,
+                message="Internal Server Error",
+            )
+
+        with pytest.raises(CameDomoticServerError, match="HTTP 500"):
+            await dummy()
+
+    async def test_server_timeout_error(self):
+        @handle_came_domotic_errors
+        async def dummy():
+            raise aiohttp.ServerTimeoutError("timed out")
+
+        with pytest.raises(CameDomoticServerError, match="timeout"):
+            await dummy()
+
+    async def test_client_error(self):
+        @handle_came_domotic_errors
+        async def dummy():
+            raise aiohttp.ClientError("network failure")
+
+        with pytest.raises(CameDomoticServerError, match="network error"):
+            await dummy()
+
+    async def test_generic_exception(self):
+        @handle_came_domotic_errors
+        async def dummy():
+            raise RuntimeError("something unexpected")
+
+        with pytest.raises(CameDomoticServerError, match="Generic error"):
+            await dummy()
 
 
 class TestAuthInit:
@@ -521,6 +563,35 @@ class TestAuthSendCommand:
         ):
             await auth_instance.async_send_command(payload)
 
+    @freezegun.freeze_time("2020-01-01")
+    async def test_response_cmd_name_mismatch(self, auth_instance):
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {
+            "sl_data_ack_reason": 0,
+            "cmd_name": "wrong_cmd",
+        }
+
+        payload = {"command": "test_command"}
+
+        with patch.object(
+            auth_instance.websession, "post", new_callable=AsyncMock
+        ) as mock_post:
+            mock_post.return_value = mock_response
+
+            with patch.object(
+                auth_instance, "async_get_valid_client_id", new_callable=AsyncMock
+            ) as mock_get_client_id:
+                mock_get_client_id.return_value = "test_client_id"
+
+                with pytest.raises(
+                    CameDomoticServerError, match="Invalid server response"
+                ):
+                    await auth_instance.async_send_command(
+                        payload, response_command="expected_cmd"
+                    )
+
     async def test_raise_for_status_and_ack_http_error(self):
         """Test handling of HTTP errors in async_raise_for_status_and_ack."""
         mock_response = AsyncMock()
@@ -613,6 +684,30 @@ class TestAuthValidateHost:
                     auth.session_expiration_timestamp = time.monotonic() + 3600
 
                 mock_get.side_effect = aiohttp.ClientError()
+
+                with pytest.raises(CameDomoticServerNotFoundError):
+                    await auth.async_validate_host()
+
+                mock_get.assert_called_with(
+                    auth.get_endpoint_url(),
+                    timeout=aiohttp.ClientTimeout(total=10),
+                )
+
+    async def test_failure_server_timeout_error(self):
+        async with aiohttp.ClientSession() as session:
+            with patch("aiohttp.ClientSession.get") as mock_get:
+                mock_response = Mock()
+                mock_response.status = 200
+                mock_get.return_value.__aenter__.return_value = mock_response
+
+                async with await Auth.async_create(
+                    session, "192.168.x.x", "username", "password"
+                ) as auth:
+                    auth.client_id = "test_client_id"
+                    auth.keep_alive_timeout_sec = 900
+                    auth.session_expiration_timestamp = time.monotonic() + 3600
+
+                mock_get.side_effect = aiohttp.ServerTimeoutError()
 
                 with pytest.raises(CameDomoticServerNotFoundError):
                     await auth.async_validate_host()
@@ -804,6 +899,45 @@ class TestAuthLogin:
             ):
                 await auth_instance_not_logged_in.async_login()
 
+    async def test_login_credentials_not_initialized(
+        self, auth_instance_not_logged_in: Auth
+    ):
+        auth_instance_not_logged_in.cipher_suite = None
+
+        with pytest.raises(
+            CameDomoticAuthError, match="credentials are not initialized"
+        ):
+            await auth_instance_not_logged_in.async_login()
+
+    async def test_login_json_decode_error(self, auth_instance_not_logged_in: Auth):
+        with (
+            patch.object(
+                Auth,
+                "async_send_command",
+                new_callable=AsyncMock,
+                side_effect=json.JSONDecodeError("Error", "", 0),
+            ),
+            pytest.raises(CameDomoticAuthError, match="JSON decoding failed"),
+        ):
+            await auth_instance_not_logged_in.async_login()
+
+    async def test_login_client_response_error(self, auth_instance_not_logged_in: Auth):
+        with (
+            patch.object(
+                Auth,
+                "async_send_command",
+                new_callable=AsyncMock,
+                side_effect=aiohttp.ClientResponseError(
+                    request_info=Mock(),
+                    history=[],
+                    status=503,
+                    message="Service Unavailable",
+                ),
+            ),
+            pytest.raises(CameDomoticAuthError, match="HTTP 503"),
+        ):
+            await auth_instance_not_logged_in.async_login()
+
 
 class TestAuthKeepAlive:
     """Tests for async_keep_alive method."""
@@ -960,6 +1094,14 @@ class TestAuthCredentials:
             auth_instance.cipher_suite.decrypt(auth_instance.password).decode()
             == "new_password"
         )
+
+    async def test_update_credentials_cipher_suite_none(self, auth_instance):
+        auth_instance.cipher_suite = None
+
+        with pytest.raises(
+            CameDomoticAuthError, match="credentials are not initialized"
+        ):
+            auth_instance.update_auth_credentials("user", "pass")
 
     def test_backup_restore(self):
         """Test Auth backup and restore credentials methods."""
