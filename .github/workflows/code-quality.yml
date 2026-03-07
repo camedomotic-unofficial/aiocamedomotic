@@ -16,7 +16,7 @@ name: Code quality check
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - "aiocamedomotic/**/*.py"
       - "pyproject.toml"
@@ -24,7 +24,7 @@ on:
       # - 'mypy.ini'
   pull_request:
     # Always run for PRs to satisfy required status checks
-    branches: [master, update-version]
+    branches: [main, update-version]
   schedule:
     # At 06:30 on day-of-month 24.
     - cron: "30 6 24 * *"
