@@ -477,9 +477,14 @@ class Auth:
             CameDomoticAuthError: if an error occurs during the login.
         """
         try:
-            assert self.cipher_suite is not None
-            assert self.username is not None
-            assert self.password is not None
+            if (
+                self.cipher_suite is None
+                or self.username is None
+                or self.password is None
+            ):
+                raise CameDomoticAuthError(
+                    "Authentication credentials are not initialized."
+                )
             login_payload = {
                 "sl_login": self.cipher_suite.decrypt(self.username).decode(),
                 "sl_pwd": self.cipher_suite.decrypt(self.password).decode(),
@@ -658,7 +663,10 @@ class Auth:
             username (str): New username.
             password (str): New password.
         """
-        assert self.cipher_suite is not None
+        if self.cipher_suite is None:
+            raise CameDomoticAuthError(
+                "Authentication credentials are not initialized."
+            )
         self.username = self.cipher_suite.encrypt(username.encode())
         self.password = self.cipher_suite.encrypt(password.encode())
 
