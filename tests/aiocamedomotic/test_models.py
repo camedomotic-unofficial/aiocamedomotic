@@ -261,6 +261,23 @@ class TestUser:
         mock_auth.async_login.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_async_set_as_current_user_failure_restores_credentials(self):
+        mock_auth = AsyncMock(spec=Auth)
+        backup_credentials = ("old_user", "old_pass", "client_id", 123, 30, 1)
+        mock_auth.backup_auth_credentials.return_value = backup_credentials
+
+        user_data = {"name": "new_user", "id": 123}
+        user = User(user_data, mock_auth)
+
+        mock_auth.async_logout.side_effect = CameDomoticAuthError("Login failed")
+
+        with pytest.raises(CameDomoticAuthError, match="Login failed"):
+            await user.async_set_as_current_user("new_password")
+
+        mock_auth.backup_auth_credentials.assert_called_once()
+        mock_auth.restore_auth_credentials.assert_called_once_with(backup_credentials)
+
+    @pytest.mark.asyncio
     async def test_attempt_login_as_current_user_login_failure(self):
         mock_auth = AsyncMock(spec=Auth)
         mock_auth.async_login.side_effect = CameDomoticAuthError("Login failed")
