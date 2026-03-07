@@ -10,21 +10,21 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-# limitations under the License. 
+# limitations under the License.
 
 name: Unit tests and coverage report
 
 on:
   push:
-    branches: [master,update-version]
+    branches: [master, update-version]
     paths:
-      - 'aiocamedomotic/**/*.py'
-      - 'tests/**/*.py'
-      - 'pyproject.toml'
-      - '.github/workflows/code-tests.yml'
+      - "aiocamedomotic/**/*.py"
+      - "tests/**/*.py"
+      - "pyproject.toml"
+      - ".github/workflows/code-tests.yml"
   pull_request:
     # Always run for PRs to satisfy required status checks
-    branches: [master,update-version]
+    branches: [master, update-version]
   workflow_dispatch:
 
 # Define minimal required permissions at workflow level
@@ -36,35 +36,35 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.12', '3.13', '3.14']
+        python-version: ["3.12", "3.13", "3.14"]
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
+      - name: Checkout code
+        uses: actions/checkout@v6
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v6
-      with:
-        python-version: ${{ matrix.python-version }}
-        allow-prereleases: true
-        # cache: pip
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+          # cache: pip
 
-    - name: Install Poetry
-      run: |
-        pip install pipx
-        pipx ensurepath
-        pipx install poetry
+      - name: Install Poetry
+        run: |
+          pip install pipx
+          pipx ensurepath
+          pipx install poetry
 
-    - name: Install package and its dependencies
-      run: poetry install --with tests
+      - name: Install package and its dependencies
+        run: poetry install --with tests
 
-    - name: Run pytest with coverage
-      run: poetry run pytest --timeout 10 --cov=aiocamedomotic --cov-report xml --cov-report term-missing
+      - name: Run pytest with coverage
+        run: poetry run pytest --timeout 10 --cov=aiocamedomotic --cov-report xml --cov-report term-missing
 
-    - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v5
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        name: "pytest-${{ matrix.python-version }}"
-        flags: "pytest-coverage,python-${{ matrix.python-version }}"
-        fail_ci_if_error: false
-        files: ./coverage.xml
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          name: "pytest-${{ matrix.python-version }}"
+          flags: "pytest-coverage,python-${{ matrix.python-version }}"
+          fail_ci_if_error: false
+          files: ./coverage.xml

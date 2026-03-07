@@ -21,16 +21,18 @@ activated to control multiple devices at once. It provides properties to access
 scenario attributes and a method to activate a scenario.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 from ..auth import Auth
 from ..const import _CommandName
 from ..utils import (
-    EntityValidator,
     LOGGER,
+    EntityValidator,
 )
-
 from .base import CameEntity
 
 
@@ -62,10 +64,10 @@ class Scenario(CameEntity):
             argument is not an instance of the expected `Auth` class.
     """
 
-    raw_data: dict
+    raw_data: dict[str, Any]
     auth: Auth
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         EntityValidator.validate_data(self.raw_data, required_keys=["name", "id"])
         # Basic type-safety on the auth argument
         if not isinstance(self.auth, Auth):

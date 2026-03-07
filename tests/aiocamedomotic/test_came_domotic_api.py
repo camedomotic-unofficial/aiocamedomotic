@@ -16,32 +16,33 @@
 # pylint: disable=missing-function-docstring
 # pylint: disable=redefined-outer-name
 from unittest.mock import AsyncMock, patch
+
 import pytest
 
 from aiocamedomotic import Auth, CameDomoticAPI
+from aiocamedomotic.errors import (
+    CameDomoticAuthError,
+    CameDomoticError,
+    CameDomoticServerError,
+    CameDomoticServerNotFoundError,
+)
+from aiocamedomotic.models import (
+    AnalogSensor,
+    Floor,
+    Light,
+    Opening,
+    Room,
+    Scenario,
+    ServerInfo,
+    ThermoZone,
+    UpdateList,
+    User,
+)
 from tests.aiocamedomotic.mocked_responses import (
     FEATURE_LIST_RESP,
     LIGHT_LIST_RESP,
     SCENARIOS_LIST_RESP,
     THERMO_LIST_RESP,
-)
-from aiocamedomotic.models import (
-    ServerInfo,
-    User,
-    Light,
-    Opening,
-    Scenario,
-    UpdateList,
-    Floor,
-    Room,
-    ThermoZone,
-    AnalogSensor,
-)
-from aiocamedomotic.errors import (
-    CameDomoticServerNotFoundError,
-    CameDomoticError,
-    CameDomoticAuthError,
-    CameDomoticServerError,
 )
 
 

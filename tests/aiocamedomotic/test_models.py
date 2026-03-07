@@ -19,37 +19,38 @@
 
 
 from unittest.mock import AsyncMock, patch
+
 import pytest
+
 from aiocamedomotic import Auth
-from aiocamedomotic.errors import CameDomoticAuthError
 from aiocamedomotic.const import (
-    DeviceType,
-    _UPDATE_CMD_TO_DEVICE_TYPE,
     _DEVICE_TYPE_TO_FEATURE,
+    _UPDATE_CMD_TO_DEVICE_TYPE,
+    DeviceType,
     _ServerFeature,
 )
+from aiocamedomotic.errors import CameDomoticAuthError
 from aiocamedomotic.models import (
-    ServerInfo,
-    User,
+    AnalogSensor,
+    Floor,
     Light,
-    UpdateList,
     LightStatus,
     LightType,
     Opening,
     OpeningStatus,
     OpeningType,
-    Floor,
     Room,
     Scenario,
     ScenarioStatus,
+    ServerInfo,
     ThermoZone,
-    ThermoZoneStatus,
     ThermoZoneMode,
     ThermoZoneSeason,
-    AnalogSensor,
+    ThermoZoneStatus,
+    UpdateList,
+    User,
     get_update_device_type,
 )
-
 from tests.aiocamedomotic.mocked_responses import STATUS_UPDATE_RESP
 
 
@@ -625,8 +626,8 @@ class TestLight:
             await light.async_set_status(LightStatus.ON)
 
         assert (
-            "Attempting to set status for light 'Unknown Type Light' (ID: 1) with UNKNOWN type"
-            in caplog.text
+            "Attempting to set status for light "
+            "'Unknown Type Light' (ID: 1) with UNKNOWN type" in caplog.text
         )
         assert "Command might fail or have unintended effects" in caplog.text
 

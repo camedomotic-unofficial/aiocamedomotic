@@ -17,8 +17,6 @@
 
 """Tests for aiocamedomotic constants."""
 
-import pytest
-
 
 def test_ack_error_codes_exist():
     """Test that ACK_ERROR_CODES dictionary contains all expected error codes."""
@@ -45,7 +43,7 @@ def test_ack_error_codes_messages():
         11: "Wrong application data.",
     }
 
-    assert ACK_ERROR_CODES == expected_messages
+    assert expected_messages == ACK_ERROR_CODES
 
 
 def test_auth_error_codes():
@@ -53,7 +51,7 @@ def test_auth_error_codes():
     from aiocamedomotic.const import AUTH_ERROR_CODES
 
     expected_auth_codes = {1, 3}
-    assert AUTH_ERROR_CODES == expected_auth_codes
+    assert expected_auth_codes == AUTH_ERROR_CODES
 
 
 def test_get_ack_error_message_known_codes():

@@ -21,17 +21,16 @@ import json
 import time
 from unittest.mock import AsyncMock, Mock, patch
 
-from cryptography.fernet import Fernet
-
 import aiohttp
-from aiohttp import ClientSession, ClientTimeout
-import pytest
 import freezegun
+import pytest
+from aiohttp import ClientSession, ClientTimeout
+from cryptography.fernet import Fernet
 
 from aiocamedomotic import Auth
 from aiocamedomotic.errors import (
-    CameDomoticServerError,
     CameDomoticAuthError,
+    CameDomoticServerError,
     CameDomoticServerNotFoundError,
 )
 
@@ -453,7 +452,9 @@ class TestAuthSendCommand:
             "Wrong application data.",
         ]
 
-        for ack_code, expected_message in zip(server_error_codes, error_messages):
+        for ack_code, expected_message in zip(
+            server_error_codes, error_messages, strict=False
+        ):
             mock_response = AsyncMock()
             mock_response.status = 200
             mock_response.raise_for_status = Mock()
@@ -505,7 +506,7 @@ class TestAuthSendCommand:
     @patch.object(ClientSession, "post", new_callable=AsyncMock)
     @freezegun.freeze_time("2020-01-01")
     async def test_auth_ack_errors(self, mock_post, mock_get_client_id, auth_instance):
-        """Test that authentication ACK error codes (1, 3) raise CameDomoticAuthError."""
+        """Test that ACK error codes (1, 3) raise CameDomoticAuthError."""
         auth_instance.keep_alive_timeout_sec = 900
         payload = {"command": "test_command"}
 
@@ -1008,12 +1009,12 @@ class TestAuthConcurrency:
 
             await asyncio.gather(*(auth_instance.async_keep_alive() for _ in range(10)))
 
-            assert (
-                auth_instance.is_session_valid()
-            ), "Session should be valid after concurrent logins"
-            assert (
-                auth_instance._async_perform_login.call_count == 1
-            ), "Login should be called exactly once"
+            assert auth_instance.is_session_valid(), (
+                "Session should be valid after concurrent logins"
+            )
+            assert auth_instance._async_perform_login.call_count == 1, (
+                "Login should be called exactly once"
+            )
 
     @pytest.mark.asyncio
     async def test_no_deadlocks_under_load(self, auth_instance):
@@ -1028,6 +1029,6 @@ class TestAuthConcurrency:
             ]
             await asyncio.gather(*tasks)
 
-        assert all(
-            task.done() for task in tasks
-        ), "All tasks should complete successfully"
+        assert all(task.done() for task in tasks), (
+            "All tasks should complete successfully"
+        )

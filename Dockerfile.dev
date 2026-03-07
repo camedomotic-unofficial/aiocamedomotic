@@ -49,7 +49,7 @@ RUN pip install --upgrade pip && \
     pip install poetry
 
 # Activate the virtual environment and install dependencies
-RUN . $VIRTUAL_ENV/bin/activate && poetry install --with tests,docs
+RUN . $VIRTUAL_ENV/bin/activate && poetry install --with tests,docs,code-quality,dev
 
 WORKDIR /workspaces
 

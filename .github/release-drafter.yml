@@ -1,55 +1,55 @@
-name-template: 'v$RESOLVED_VERSION'
-tag-template: 'v$RESOLVED_VERSION'
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
 include-paths:
   - "aiocamedomotic/"
 autolabeler:
-  - label: 'chore'
+  - label: "chore"
     files:
-      - 'pyproject.toml'
+      - "pyproject.toml"
     branch:
       - '/actions{0,1}\/.+/'
       - '/tests{0,1}\/.+/'
       - '/chore\/.+/'
-  - label: 'documentation'
+  - label: "documentation"
     files:
-      - '*.md'
+      - "*.md"
     branch:
       - '/docs{0,1}\/.+/'
-  - label: 'bug'
+  - label: "bug"
     branch:
       - '/fix\/.+/'
       - '/bug\/.+/'
     title:
-      - '/fix/i'
-      - '/bug/i'
-  - label: 'enhancement'
+      - "/fix/i"
+      - "/bug/i"
+  - label: "enhancement"
     branch:
       - '/features{0,1}\/.+/'
       - '/enhancements{0,1}\/.+/'
 categories:
-  - title: 'Features'
+  - title: "Features"
     labels:
-      - 'enhancement'
-  - title: 'Bug Fixes'
+      - "enhancement"
+  - title: "Bug Fixes"
     labels:
-      - 'bug'
-      - 'fix'
-  - title: 'Maintenance'
-    labels: 
-      - 'chore'
-      - 'documentation'
-change-template: '- $TITLE @$AUTHOR'
+      - "bug"
+      - "fix"
+  - title: "Maintenance"
+    labels:
+      - "chore"
+      - "documentation"
+change-template: "- $TITLE @$AUTHOR"
 change-title-escapes: '\<*_&' # You can add # and @ to disable mentions, and add ` to disable code blocks.
 version-resolver:
   major:
     labels:
-      - 'major'
+      - "major"
   minor:
     labels:
-      - 'minor'
+      - "minor"
   patch:
     labels:
-      - 'patch'
+      - "patch"
   default: patch
 template: |
   # Changelog

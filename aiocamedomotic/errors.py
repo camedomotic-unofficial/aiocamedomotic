@@ -16,6 +16,8 @@
 This module contains the exceptions that can be raised by the CAME Domotic API.
 """
 
+from __future__ import annotations
+
 from .const import get_ack_error_message, is_auth_error
 
 
@@ -54,7 +56,7 @@ class CameDomoticServerError(CameDomoticError):
         return f"ACK error {ack_code}: {message}"
 
     @staticmethod
-    def create_ack_error(ack_code: int):
+    def create_ack_error(ack_code: int) -> CameDomoticError:
         """Create appropriate exception based on ACK error code.
 
         Args:

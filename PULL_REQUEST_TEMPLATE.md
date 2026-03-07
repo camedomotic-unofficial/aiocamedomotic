@@ -21,7 +21,7 @@ Please select the relevant options:
 - [ ] New feature (non-breaking change which adds functionality)
 - [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
 - [ ] Documentation update
-- [ ] Unit test enhancement or other chore activites
+- [ ] Unit test enhancement or other chore activities
 
 ## Checklist
 

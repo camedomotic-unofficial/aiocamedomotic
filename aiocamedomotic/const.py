@@ -16,6 +16,8 @@
 Constants for the CAME Domotic API.
 """
 
+from __future__ import annotations
+
 from enum import Enum, IntEnum
 
 # ACK error codes and their meanings from the CAME Domotic server

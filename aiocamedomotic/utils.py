@@ -14,7 +14,11 @@
 
 """Utilities for the CAME Domotic API."""
 
+from __future__ import annotations
+
 import logging
+from collections.abc import Sequence
+from typing import Any
 
 LOGGER = logging.getLogger(__package__)
 
@@ -23,7 +27,7 @@ class EntityValidator:
     """Mixin class to validate the CAME entities."""
 
     @staticmethod
-    def validate_data(data, required_keys) -> None:
+    def validate_data(data: Any, required_keys: Sequence[str]) -> None:
         """
         Validates the necessary data fields in the provided dictionary.
 

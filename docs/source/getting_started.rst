@@ -180,4 +180,3 @@ Exploring further
 - To check the technical specifications see the :doc:`api_reference`.
 
 Thank you for choosing the CAME Domotic Unofficial library. Happy automating!
-

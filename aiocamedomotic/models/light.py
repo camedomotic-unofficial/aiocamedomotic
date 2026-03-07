@@ -22,17 +22,18 @@ access light attributes and methods to control light state, including on/off
 functionality, brightness control, and RGB color control.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Any
 
 from ..auth import Auth
 from ..const import _CommandName
 from ..utils import (
-    EntityValidator,
     LOGGER,
+    EntityValidator,
 )
-
 from .base import CameEntity
 
 
@@ -71,14 +72,15 @@ class Light(CameEntity):
     Light entity in the CameDomotic API.
 
     Raises:
-        ValueError: If `name` or `act_id` keys are missing from the input data or the auth
-            argument is not an instance of the expected `Auth` class.
+        ValueError: If `name` or `act_id` keys are missing from the
+            input data or the auth argument is not an instance of the
+            expected `Auth` class.
     """
 
-    raw_data: dict
+    raw_data: dict[str, Any]
     auth: Auth
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         EntityValidator.validate_data(self.raw_data, required_keys=["name", "act_id"])
         # Basic type-safety on the auth argument
         if not isinstance(self.auth, Auth):
@@ -125,7 +127,8 @@ class Light(CameEntity):
         except ValueError:
             LOGGER.warning(
                 "Unknown light type '%s' encountered for light '%s' (ID: %s). "
-                "Returning LightType.UNKNOWN. Please report this to the library developers.",
+                "Returning LightType.UNKNOWN. Please report this "
+                "to the library developers.",
                 self.raw_data["type"],
                 self.name,
                 self.act_id,
@@ -141,7 +144,7 @@ class Light(CameEntity):
         return self.raw_data.get("perc", 100)
 
     @property
-    def rgb(self) -> Optional[List[int]]:
+    def rgb(self) -> list[int] | None:
         """
         RGB color values of the light as [R, G, B], each in range 0-255.
         Returns None for non-RGB lights.
@@ -151,8 +154,8 @@ class Light(CameEntity):
     async def async_set_status(
         self,
         status: LightStatus,
-        brightness: Optional[int] = None,
-        rgb: Optional[List[int]] = None,
+        brightness: int | None = None,
+        rgb: list[int] | None = None,
     ) -> None:
         """Control the light.
 
@@ -182,7 +185,7 @@ class Light(CameEntity):
         # Ignore RGB for non-RGB lights
         if self.type != LightType.RGB and rgb is not None:
             LOGGER.debug(
-                "Light '%s' (type: %s) does not support RGB. " "Ignoring rgb setting.",
+                "Light '%s' (type: %s) does not support RGB. Ignoring rgb setting.",
                 self.name,
                 self.type.name,
             )
@@ -213,10 +216,10 @@ class Light(CameEntity):
     def _prepare_light_payload(
         self,
         status: LightStatus,
-        brightness: Optional[int],
-        rgb: Optional[List[int]],
+        brightness: int | None,
+        rgb: list[int] | None,
         client_id: str,
-    ) -> Dict:
+    ) -> dict[str, Any]:
         """Prepare the payload for the light control API call."""
         payload = {
             "act_id": self.act_id,

@@ -32,7 +32,7 @@ within our project, we kindly ask you to follow these steps:
 
 1. **Do Not publicly disclose**: Please do not open issues for vulnerabilities on
     GitHub or discuss them in public forums. Instead, contact us directly.
-2. **Contact**: Send an email to the mantainers with a detailed description of the
+2. **Contact**: Send an email to the maintainers with a detailed description of the
    issue. Include steps to reproduce the vulnerability, its impact, and any other
    information that may help us understand the severity and urgency.
 3. **Response time**: We aim to respond to security reports as soon as possible,

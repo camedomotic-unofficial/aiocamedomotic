@@ -16,33 +16,32 @@
 This module exposes the CAME Domotic API to the end-users.
 """
 
-from typing import List, Optional
+from __future__ import annotations
+
+from types import TracebackType
 
 import aiohttp
 
-from .utils import LOGGER
-
 from .auth import Auth
 from .const import (
-    _CommandType,
     _CommandName,
     _CommandNameResponse,
+    _CommandType,
     _TopologicScope,
-    _ServerFeature,
 )
 from .models import (
-    CameEntity,
-    ServerInfo,
-    User,
-    Light,
-    UpdateList,
-    Opening,
-    Scenario,
-    Floor,
-    Room,
-    ThermoZone,
     AnalogSensor,
+    Floor,
+    Light,
+    Opening,
+    Room,
+    Scenario,
+    ServerInfo,
+    ThermoZone,
+    UpdateList,
+    User,
 )
+from .utils import LOGGER
 
 
 class CameDomoticAPI:
@@ -57,24 +56,29 @@ class CameDomoticAPI:
         """
         self.auth = auth
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> CameDomoticAPI:
         return self
 
-    async def __aexit__(self, exc_type, exc, tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
         await self.async_dispose()
 
-    async def async_dispose(self):
+    async def async_dispose(self) -> None:
         """Dispose the CameDomoticAPI object."""
         try:
             await self.auth.async_dispose()
         except Exception:  # pylint: disable=broad-except
             LOGGER.exception("Error while disposing the CameDomoticAPI object")
 
-    async def async_get_users(self) -> List[User]:
+    async def async_get_users(self) -> list[User]:
         """Get the list of users defined on the server.
 
         Returns:
-            List[User]: List of users. Returns an empty list if no users are defined
+            list[User]: List of users. Returns an empty list if no users are defined
             or if the server response doesn't contain the users list.
 
         Raises:
@@ -113,19 +117,19 @@ class CameDomoticAPI:
         )
 
         return ServerInfo(
-            keycode=json_response.get("keycode"),
+            keycode=json_response.get("keycode"),  # type: ignore[arg-type]
             swver=json_response.get("swver"),
             type=json_response.get("type"),
             board=json_response.get("board"),
-            serial=json_response.get("serial"),
-            features=json_response.get("list"),
+            serial=json_response.get("serial"),  # type: ignore[arg-type]
+            features=json_response.get("list"),  # type: ignore[arg-type]
         )
 
-    async def async_get_floors(self) -> List[Floor]:
+    async def async_get_floors(self) -> list[Floor]:
         """Get the list of all the floors defined on the server.
 
         Returns:
-            List[Floor]: List of floors.
+            list[Floor]: List of floors.
 
         Raises:
             CameDomoticAuthError: If the authentication fails.
@@ -145,11 +149,11 @@ class CameDomoticAPI:
         floor_list = json_response.get("floor_list", [])
         return [Floor(floor) for floor in floor_list]
 
-    async def async_get_rooms(self) -> List[Room]:
+    async def async_get_rooms(self) -> list[Room]:
         """Get the list of all the rooms defined on the server.
 
         Returns:
-            List[Room]: List of rooms.
+            list[Room]: List of rooms.
 
         Raises:
             CameDomoticAuthError: If the authentication fails.
@@ -169,11 +173,11 @@ class CameDomoticAPI:
         room_list = json_response.get("room_list", [])
         return [Room(room) for room in room_list]
 
-    async def async_get_lights(self) -> List[Light]:
+    async def async_get_lights(self) -> list[Light]:
         """Get the list of all the light devices defined on the server.
 
         Returns:
-            List[Light]: List of lights.
+            list[Light]: List of lights.
 
         Raises:
             CameDomoticAuthError: If the authentication fails.
@@ -193,11 +197,11 @@ class CameDomoticAPI:
         lights_list = json_response.get("array", [])
         return [Light(light, self.auth) for light in lights_list]
 
-    async def async_get_thermo_zones(self) -> List[ThermoZone]:
+    async def async_get_thermo_zones(self) -> list[ThermoZone]:
         """Get the list of all thermoregulation zones defined on the server.
 
         Returns:
-            List[ThermoZone]: List of thermoregulation zones.
+            list[ThermoZone]: List of thermoregulation zones.
 
         Raises:
             CameDomoticAuthError: If the authentication fails.
@@ -217,14 +221,14 @@ class CameDomoticAPI:
         zones_list = json_response.get("array", [])
         return [ThermoZone(zone, self.auth) for zone in zones_list]
 
-    async def async_get_analog_sensors(self) -> List[AnalogSensor]:
+    async def async_get_analog_sensors(self) -> list[AnalogSensor]:
         """Get analog sensor readings from the thermoregulation system.
 
         Retrieves top-level temperature, humidity, and pressure sensor
         readings from the thermoregulation list response.
 
         Returns:
-            List[AnalogSensor]: List of analog sensors found in the response.
+            list[AnalogSensor]: List of analog sensors found in the response.
 
         Raises:
             CameDomoticAuthError: If the authentication fails.
@@ -266,11 +270,11 @@ class CameDomoticAPI:
         )
         return UpdateList((json_response or {}).get("result", []))
 
-    async def async_get_openings(self) -> List[Opening]:
+    async def async_get_openings(self) -> list[Opening]:
         """Get the list of all opening devices defined on the server.
 
         Returns:
-            List[Opening]: List of openings.
+            list[Opening]: List of openings.
 
         Raises:
             CameDomoticAuthError: If the authentication fails.
@@ -288,11 +292,11 @@ class CameDomoticAPI:
         openings_data = json_response.get("array", [])
         return [Opening(opening_data, self.auth) for opening_data in openings_data]
 
-    async def async_get_scenarios(self) -> List[Scenario]:
+    async def async_get_scenarios(self) -> list[Scenario]:
         """Get the list of all scenarios defined on the server.
 
         Returns:
-            List[Scenario]: List of scenarios.
+            list[Scenario]: List of scenarios.
 
         Raises:
             CameDomoticAuthError: If the authentication fails.
@@ -317,9 +321,9 @@ class CameDomoticAPI:
         username: str,
         password: str,
         *,
-        websession: Optional[aiohttp.ClientSession] = None,
+        websession: aiohttp.ClientSession | None = None,
         close_websession_on_disposal: bool = False,
-    ):
+    ) -> CameDomoticAPI:
         """Create a CameDomoticAPI object.
 
         Args:

@@ -20,14 +20,16 @@ API implementation, including the core CameEntity class and derived entity types
 such as User and ServerInfo that are common across the API functionality.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any
 
 from ..auth import Auth
 from ..errors import CameDomoticAuthError
 from ..utils import (
-    EntityValidator,
     LOGGER,
+    EntityValidator,
 )
 
 
@@ -45,10 +47,10 @@ class User(CameEntity):
             not an instance of the expected `Auth` class.
     """
 
-    raw_data: dict
+    raw_data: dict[str, Any]
     auth: Auth
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         EntityValidator.validate_data(self.raw_data, required_keys=["name"])
 
     @property
@@ -77,7 +79,7 @@ class User(CameEntity):
             await self._attempt_login_as_current_user(password)
         except CameDomoticAuthError as e:
             LOGGER.error("Unable to set user '%s' as current user (%s)", self.name, e)
-            await self.auth.restore_auth_credentials(backup_user)
+            self.auth.restore_auth_credentials(backup_user)
             raise
 
     async def _attempt_login_as_current_user(self, password: str) -> None:
@@ -117,18 +119,18 @@ class ServerInfo(CameEntity):
         - "loadsctrl"
     """
 
-    swver: Optional[str] = None
+    swver: str | None = None
     """Software version of the server."""
 
-    type: Optional[str] = None
+    type: str | None = None
     """Type of the server."""
 
-    board: Optional[str] = None
+    board: str | None = None
     """Board type of the server."""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate that required properties are present and not None."""
-        missing = []
+        missing: list[str] = []
 
         if self.keycode is None:
             missing.append("keycode")
@@ -151,9 +153,9 @@ class Floor(CameEntity):
     Represents a floor in the building structure with its identifier and name.
     """
 
-    raw_data: dict
+    raw_data: dict[str, Any]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         EntityValidator.validate_data(
             self.raw_data, required_keys=["floor_ind", "name"]
         )
@@ -178,9 +180,9 @@ class Room(CameEntity):
     and the floor it belongs to.
     """
 
-    raw_data: dict
+    raw_data: dict[str, Any]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         EntityValidator.validate_data(
             self.raw_data, required_keys=["room_ind", "name", "floor_ind"]
         )
