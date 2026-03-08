@@ -68,14 +68,23 @@ class DeviceType(IntEnum):
     Each device in the CAME Domotic system is associated with one of these type
     identifiers. Not all device types are currently supported by this library.
 
-    Supported types:
+    Values:
         - ENERGY_SENSOR (-2)
         - ANALOG_SENSOR (-1)
         - LIGHT (0)
         - OPENING (1)
         - THERMOSTAT (2)
+        - PAGE (3)
         - SCENARIO (4)
+        - CAMERA (5)
+        - SECURITY_PANEL (6)
+        - SECURITY_AREA (7)
+        - SECURITY_SCENARIO (8)
+        - SECURITY_INPUT (9)
+        - SECURITY_OUTPUT (10)
         - GENERIC_RELAY (11)
+        - GENERIC_TEXT (12)
+        - SOUND_ZONE (13)
         - DIGITAL_INPUT (14)
     """
 
@@ -179,6 +188,24 @@ class UpdateIndicator(Enum):
     item. Some indicators have two variants: one observed in real API traffic
     and one documented in API_reference.md. Both are mapped for firmware
     compatibility.
+
+    Values:
+        - LIGHT ("light_switch_ind")
+        - OPENING ("opening_move_ind")
+        - THERMOSTAT ("thermo_zone_info_ind")
+        - DIGITAL_INPUT ("digitalin_status_ind")
+        - SCENARIO_STATUS ("scenario_status_ind")
+        - SCENARIO_ACTIVATION ("scenario_activation_ind")
+        - ENERGY_METER ("meter_instant_power_ind")
+        - LOADSCTRL_METER ("loadsctrl_meter_ind")
+        - LOADSCTRL_RELAY ("loadsctrl_relay_ind")
+        - PLANT ("plant_update_ind")
+        - LIGHT_LEGACY ("light_update_ind")
+        - OPENING_LEGACY ("opening_update_ind")
+        - THERMOSTAT_LEGACY ("thermo_update_ind")
+        - RELAY_LEGACY ("relay_update_ind")
+        - DIGITAL_INPUT_LEGACY ("digitalin_update_ind")
+        - SCENARIO_USER_LEGACY ("scenario_user_ind")
     """
 
     # Traffic-observed names
