@@ -14,7 +14,7 @@
 
 [tool.poetry]
 name = "aiocamedomotic"
-version = "1.3.3"
+version = "1.4.0"
 description = "Async Python library for interacting with CAME Domotic home automation systems. Provides automatic session management and device control."
 license = "Apache-2.0"
 authors = ["camedomotic-unofficial <camedomotic-unofficial@gmail.com>"]
