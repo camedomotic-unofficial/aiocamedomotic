@@ -37,6 +37,9 @@ ACK_ERROR_CODES = {
 # Authentication-related error codes that should raise CameDomoticAuthError
 AUTH_ERROR_CODES = {1, 3}
 
+# Default timeout in seconds for commands sent to the CAME server.
+_DEFAULT_COMMAND_TIMEOUT: int = 30
+
 
 def get_ack_error_message(ack_code: int) -> str:
     """Get human-readable message for ACK error code.

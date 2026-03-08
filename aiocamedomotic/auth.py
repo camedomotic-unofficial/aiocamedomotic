@@ -41,7 +41,7 @@ from urllib.parse import urlsplit
 import aiohttp
 from cryptography.fernet import Fernet
 
-from .const import _CommandType
+from .const import _DEFAULT_COMMAND_TIMEOUT, _CommandType
 
 # Get package version to avoid circular imports
 try:
@@ -134,6 +134,7 @@ class Auth:
         password: str,
         *,
         close_websession_on_disposal: bool = True,
+        command_timeout: int = _DEFAULT_COMMAND_TIMEOUT,
     ) -> Auth:
         """Create an Auth instance.
 
@@ -144,6 +145,8 @@ class Auth:
             password (str): the password to use for the authentication.
             close_websession_on_disposal (bool, optional): whether to close the
                 websession when disposing the Auth instance (default: True).
+            command_timeout (int, optional): the default timeout in seconds
+                for commands sent to the server (default: 30s).
 
         Raises:
             CameDomoticServerNotFoundError: if the host doesn't respond to an HTTP
@@ -163,6 +166,7 @@ class Auth:
             password,
             close_websession_on_disposal=close_websession_on_disposal,
         )
+        auth.command_timeout = command_timeout
         await auth.async_validate_host()
 
         return auth
@@ -247,6 +251,7 @@ class Auth:
         self.client_id = ""
         self.keep_alive_timeout_sec = 0
         self.cseq = 0
+        self.command_timeout = _DEFAULT_COMMAND_TIMEOUT
 
         self._lock = Lock()
 
@@ -294,7 +299,7 @@ class Auth:
         command: dict[str, Any],
         *,
         response_command: str | None = None,
-        timeout: int | None = 10,
+        timeout: int | None = None,
         skip_ack_check: bool = False,
         command_type: str = _CommandType.DATA_REQUEST.value,
         additional_payload: dict[str, Any] | None = None,
@@ -305,7 +310,8 @@ class Auth:
             command (dict): the command to send.
             response_command (str, optional): expected response command name to validate
                 against the server response (default: None).
-            timeout (int, optional): the timeout in seconds (default: 10s).
+            timeout (int | None, optional): the timeout in seconds. If None,
+                uses the instance-level ``command_timeout`` (default: 30s).
             skip_ack_check (bool, optional): whether to skip the ACK check (default:
                 False).
             command_type (str, optional): the command type to send
@@ -357,7 +363,9 @@ class Auth:
                 self.get_endpoint_url(),
                 data={"command": json.dumps(request_payload)},
                 headers=Auth._DEFAULT_HTTP_HEADERS,
-                timeout=aiohttp.ClientTimeout(total=timeout),
+                timeout=aiohttp.ClientTimeout(
+                    total=timeout if timeout is not None else self.command_timeout
+                ),
             )
 
             LOGGER.debug("HTTP response status: %s", response.status)
@@ -408,7 +416,7 @@ class Auth:
             raise CameDomoticServerError("Error sending command") from e
 
     # The following method is not async because it is used in the __init__ method
-    async def async_validate_host(self, timeout: int | None = 10) -> None:
+    async def async_validate_host(self, timeout: int = 10) -> None:
         """Validate the host asynchronously using aiohttp.
 
         Args:
