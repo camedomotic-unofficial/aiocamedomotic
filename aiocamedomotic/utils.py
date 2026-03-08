@@ -39,10 +39,14 @@ class EntityValidator:
             ValueError: If any required key is missing from the data.
         """
         if not isinstance(data, dict):
+            LOGGER.debug(
+                "Validation failed: expected dict, got %s", type(data).__name__
+            )
             raise ValueError("Provided data must be a dictionary.")
 
         missing_keys = [key for key in required_keys if key not in data]
         if missing_keys:
+            LOGGER.debug("Validation failed: missing keys %s", missing_keys)
             raise ValueError(
                 f"Data is missing required keys: {', '.join(missing_keys)}"
             )

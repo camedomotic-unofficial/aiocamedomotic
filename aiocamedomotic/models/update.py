@@ -357,6 +357,10 @@ def parse_update(raw: dict[str, Any]) -> DeviceUpdate:
     """
     cmd_name = raw.get("cmd_name", "")
     cls = _INDICATOR_TO_UPDATE_CLASS.get(cmd_name, DeviceUpdate)
+    if cls is DeviceUpdate and cmd_name:
+        LOGGER.debug(
+            "Unknown update cmd_name '%s', using generic DeviceUpdate", cmd_name
+        )
     return cls(raw_data=raw)
 
 
@@ -380,6 +384,7 @@ class UpdateList(UserList[dict[str, Any]], CameEntity):
         except TypeError as exc:
             LOGGER.warning("Caught exception in the UpdateList method", exc_info=exc)
             super().__init__()
+        LOGGER.debug("UpdateList created with %d update(s)", len(self.data))
 
     def get_by_device_type(self, device_type: DeviceType) -> list[dict[str, Any]]:
         """Return raw update dicts filtered to the given device type.
