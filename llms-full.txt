@@ -28,6 +28,8 @@ with no guarantees. Use at your own risk.
 
 - **Simplicity**: Easy interaction with domotic entities.
 - **Automatic session management**: No need for manual login or session handling.
+- **Real-time updates**: Built-in long-polling support with typed update classes
+  for monitoring device state changes as they happen.
 - **First of its kind**: Unique in providing integration with CAME Domotic systems.
 - **Open source**: Freely available under the Apache 2.0 license, inviting
   contributions and adaptations.
@@ -266,6 +268,24 @@ To work with CAME devices, you may need one or more of the following imports:
 from aiocamedomotic.models import (
     DeviceType, LightStatus, OpeningStatus, ScenarioStatus,
     ThermoZoneMode, ThermoZoneSeason, ThermoZoneStatus,
+)
+```
+
+#### Working with real-time updates
+
+To receive and process real-time status updates from the CAME Domotic server,
+you will also need the following typed update classes:
+
+```python
+from aiocamedomotic.models import (
+    DeviceType,
+    DeviceUpdate,
+    LightUpdate,
+    OpeningUpdate,
+    ThermoZoneUpdate,
+    ScenarioUpdate,
+    DigitalInputUpdate,
+    PlantUpdate,
 )
 ```
 
@@ -614,6 +634,147 @@ Name: Indoor Humidity, Value: 55, Unit: %
 Name: Barometric Pressure, Value: 1013, Unit: hPa
 ```
 
+### Real-time updates
+
+The CAME Domotic server supports **long polling** for real-time status updates.
+When you call `async_get_updates()`, the request **blocks on the server**
+until one or more device state changes are detected, then returns an
+[`UpdateList`](#aiocamedomotic.models.update.UpdateList) containing all pending
+updates. This is the recommended mechanism for monitoring devices in real time
+without repeatedly fetching full device lists.
+
+#### Basic polling loop
+
+A typical polling loop continuously calls `async_get_updates()` and processes
+each batch of updates as it arrives:
+
+```python
+async with await CameDomoticAPI.async_create(
+    "192.168.x.x", "username", "password"
+) as api:
+    while True:
+        updates = await api.async_get_updates()
+
+        for update in updates.get_typed_updates():
+            print(f"[{update.device_type}] {update.name} (ID: {update.device_id})")
+```
+
+##### NOTE
+Because `async_get_updates()` blocks until the server has new updates,
+you do **not** need to add `asyncio.sleep()` between calls. If you need
+to run the polling loop alongside other logic, wrap it in
+`asyncio.create_task()`.
+
+#### Getting typed updates
+
+The `UpdateList` returned by `async_get_updates()` supports iteration over
+raw dicts for backward compatibility. To get **typed** update objects with
+convenient properties, use the `get_typed_updates()` method:
+
+```python
+updates = await api.async_get_updates()
+
+for update in updates.get_typed_updates():
+    print(
+        f"Type: {update.device_type}, "
+        f"ID: {update.device_id}, "
+        f"Name: {update.name}"
+    )
+```
+
+Example output:
+
+```text
+Type: DeviceType.LIGHT, ID: 15, Name: Living Room Spotlights
+Type: DeviceType.THERMOSTAT, ID: 76, Name: Bathroom
+```
+
+Each typed update is an instance of a [`DeviceUpdate`](#aiocamedomotic.models.update.DeviceUpdate)
+subclass (e.g. [`LightUpdate`](#aiocamedomotic.models.update.LightUpdate),
+[`ThermoZoneUpdate`](#aiocamedomotic.models.update.ThermoZoneUpdate)) and exposes
+device-specific properties.
+
+#### Filtering updates by device type
+
+To process only updates for a specific device type, use
+`get_typed_by_device_type()`:
+
+```python
+updates = await api.async_get_updates()
+
+# Get only light updates, already typed as LightUpdate
+light_updates = updates.get_typed_by_device_type(DeviceType.LIGHT)
+
+for light in light_updates:
+    print(
+        f"Light '{light.name}': status={light.status}, "
+        f"type={light.light_type}, brightness={light.perc}%"
+    )
+```
+
+Example output:
+
+```text
+Light 'Living Room Spotlights': status=LightStatus.ON, type=LightType.STEP_STEP, brightness=100%
+Light 'Bedroom Dimmer': status=LightStatus.ON, type=LightType.DIMMER, brightness=50%
+```
+
+#### Dispatching by update type
+
+For more granular control, use `isinstance` to dispatch each update to
+device-specific handling logic:
+
+```python
+updates = await api.async_get_updates()
+
+for update in updates.get_typed_updates():
+    if isinstance(update, LightUpdate):
+        print(f"Light '{update.name}': {update.status.name}, brightness={update.perc}%")
+
+    elif isinstance(update, OpeningUpdate):
+        print(f"Opening '{update.name}': {update.status.name}")
+
+    elif isinstance(update, ThermoZoneUpdate):
+        print(
+            f"Thermo '{update.name}': {update.temperature}°C, "
+            f"setpoint={update.set_point}°C, mode={update.mode.name}"
+        )
+
+    elif isinstance(update, ScenarioUpdate):
+        print(f"Scenario '{update.name}': {update.scenario_status.name}")
+
+    elif isinstance(update, DigitalInputUpdate):
+        print(f"Input '{update.name}': status={update.status}, addr={update.addr}")
+
+    elif isinstance(update, PlantUpdate):
+        print("Plant configuration changed, re-fetching devices...")
+```
+
+#### Handling plant updates
+
+A special `plant_update_ind` indication signals that the **device
+configuration on the server has changed** (e.g. devices were added, removed, or
+reconfigured). When this happens, all locally cached device lists must be
+discarded and re-fetched.
+
+You can check for this using the `has_plant_update` property:
+
+```python
+updates = await api.async_get_updates()
+
+if updates.has_plant_update:
+    # Device configuration changed: refresh all cached device lists
+    lights = await api.async_get_lights()
+    openings = await api.async_get_openings()
+    scenarios = await api.async_get_scenarios()
+    thermo_zones = await api.async_get_thermo_zones()
+```
+
+##### NOTE
+Plant updates are relatively rare. They typically occur when an installer
+modifies the system configuration. Failing to handle them may result in
+stale device data or missing newly added devices.
+
 ### Checking Authentication Status
 
 **Session management** is automatic and **transparent to the user**. However, if you
@@ -857,15 +1018,80 @@ Device type IDs used by the CAME ETI/Domo system.
 Each device in the CAME Domotic system is associated with one of these type
 identifiers. Not all device types are currently supported by this library.
 
-Supported types:
+Values:
 : - ENERGY_SENSOR (-2)
   - ANALOG_SENSOR (-1)
   - LIGHT (0)
   - OPENING (1)
   - THERMOSTAT (2)
+  - PAGE (3)
   - SCENARIO (4)
+  - CAMERA (5)
+  - SECURITY_PANEL (6)
+  - SECURITY_AREA (7)
+  - SECURITY_SCENARIO (8)
+  - SECURITY_INPUT (9)
+  - SECURITY_OUTPUT (10)
   - GENERIC_RELAY (11)
+  - GENERIC_TEXT (12)
+  - SOUND_ZONE (13)
   - DIGITAL_INPUT (14)
+
+#### *class* aiocamedomotic.models.DeviceUpdate(raw_data: dict[str, Any])
+
+Base class for a typed status update from the CAME API.
+
+Wraps the raw update dict and exposes common properties. Subclasses add
+device-specific accessors.
+
+* **Parameters:**
+  **raw_data** – The original dict from the `status_update_resp` result
+  array.
+
+##### *property* cmd_name *: str*
+
+The indication `cmd_name` string from the raw update.
+
+##### *property* device_id *: int | None*
+
+Primary device identifier (`act_id`, `open_act_id`, or `id`).
+
+Returns the first available identifier, or `None` if none is present.
+
+##### *property* device_type *: [DeviceType](#aiocamedomotic.const.DeviceType) | None*
+
+The [`DeviceType`](#aiocamedomotic.const.DeviceType) for this update,
+or `None` if the `cmd_name` is not recognized.
+
+##### *property* name *: str*
+
+Device name from the update.
+
+##### *property* update_indicator *: [UpdateIndicator](#aiocamedomotic.const.UpdateIndicator) | None*
+
+The [`UpdateIndicator`](#aiocamedomotic.const.UpdateIndicator) for this update,
+or `None` if the `cmd_name` is not recognized.
+
+#### *class* aiocamedomotic.models.DigitalInputUpdate(raw_data: dict[str, Any])
+
+Typed update for a digital input (`digitalin_status_ind` /
+`digitalin_update_ind`).
+
+##### *property* act_id *: int*
+
+Digital input actuator ID.
+
+##### *property* addr *: int*
+
+Digital input address.
+
+##### *property* status *: int*
+
+Digital input status value.
+
+##### *property* utc_time *: int*
+
+UTC timestamp of the digital input event.
 
 #### *class* aiocamedomotic.models.Floor(raw_data: dict[str, Any])
 
@@ -962,6 +1188,39 @@ Allowed values are:
   - DIMMER (dimmable lights)
   - RGB (color lights with brightness via HSV V channel)
 
+#### *class* aiocamedomotic.models.LightUpdate(raw_data: dict[str, Any])
+
+Typed update for a light device (`light_switch_ind` /
+`light_update_ind`).
+
+##### *property* act_id *: int*
+
+Light actuator ID.
+
+##### *property* floor_ind *: int*
+
+Floor index.
+
+##### *property* light_type *: [LightType](#aiocamedomotic.models.light.LightType)*
+
+Light type (STEP_STEP, DIMMER, RGB).
+
+##### *property* perc *: int*
+
+Brightness percentage (0-100). Defaults to 100 for non-dimmable.
+
+##### *property* rgb *: list[int] | None*
+
+RGB color values `[R, G, B]` (0-255 each), or `None`.
+
+##### *property* room_ind *: int*
+
+Room index.
+
+##### *property* status *: [LightStatus](#aiocamedomotic.models.light.LightStatus)*
+
+Light status (OFF, ON, AUTO).
+
 #### *class* aiocamedomotic.models.Opening(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
 
 Opening entity in the CameDomotic API.
@@ -1036,6 +1295,46 @@ Type of an opening.
 
 Allowed values are:
 : - SHUTTER (0)
+
+#### *class* aiocamedomotic.models.OpeningUpdate(raw_data: dict[str, Any])
+
+Typed update for an opening device (`opening_move_ind` /
+`opening_update_ind`).
+
+##### *property* close_act_id *: int*
+
+Actuator ID for the closing action.
+
+##### *property* device_id *: int | None*
+
+For openings the primary ID is `open_act_id`.
+
+##### *property* floor_ind *: int*
+
+Floor index.
+
+##### *property* open_act_id *: int*
+
+Actuator ID for the opening action.
+
+##### *property* room_ind *: int*
+
+Room index.
+
+##### *property* status *: [OpeningStatus](#aiocamedomotic.models.opening.OpeningStatus)*
+
+Opening status (STOPPED, OPENING, CLOSING, etc.).
+
+#### *class* aiocamedomotic.models.PlantUpdate(raw_data: dict[str, Any])
+
+Marker update for `plant_update_ind`.
+
+When this indication is received, all cached devices must be discarded and
+re-fetched from the server.
+
+##### *property* is_plant_update *: bool*
+
+Always returns `True`.
 
 #### *class* aiocamedomotic.models.Room(raw_data: dict[str, Any])
 
@@ -1112,6 +1411,23 @@ Allowed values are:
 : - OFF (0): scenario is not active
   - TRIGGERED (1): scenario has just been activated and is executing
   - ACTIVE (2): scenario is currently in effect
+
+#### *class* aiocamedomotic.models.ScenarioUpdate(raw_data: dict[str, Any])
+
+Typed update for a scenario (`scenario_status_ind` /
+`scenario_activation_ind` / `scenario_user_ind`).
+
+##### *property* device_id *: int | None*
+
+For scenarios the primary ID is `id`.
+
+##### *property* id *: int*
+
+Scenario ID.
+
+##### *property* scenario_status *: [ScenarioStatus](#aiocamedomotic.models.scenario.ScenarioStatus)*
+
+Scenario status (OFF, TRIGGERED, ACTIVE).
 
 #### *class* aiocamedomotic.models.ServerInfo(keycode: str, serial: str, features: list[str], swver: str | None = None, type: str | None = None, board: str | None = None)
 
@@ -1244,9 +1560,116 @@ Allowed values are:
 : - OFF (0)
   - ON (1)
 
+#### *class* aiocamedomotic.models.ThermoZoneUpdate(raw_data: dict[str, Any])
+
+Typed update for a thermostat zone (`thermo_zone_info_ind` /
+`thermo_update_ind`).
+
+##### *property* act_id *: int*
+
+Zone actuator ID.
+
+##### *property* floor_ind *: int*
+
+Floor index.
+
+##### *property* mode *: [ThermoZoneMode](#aiocamedomotic.models.thermo_zone.ThermoZoneMode)*
+
+Operating mode (OFF, MANUAL, AUTO, JOLLY).
+
+##### *property* room_ind *: int*
+
+Room index.
+
+##### *property* season *: [ThermoZoneSeason](#aiocamedomotic.models.thermo_zone.ThermoZoneSeason)*
+
+Season setting (PLANT_OFF, WINTER, SUMMER).
+
+##### *property* set_point *: float*
+
+Target temperature in degrees Celsius (converted from
+`set_point`).
+
+##### *property* status *: [ThermoZoneStatus](#aiocamedomotic.models.thermo_zone.ThermoZoneStatus)*
+
+Zone status (OFF, ON).
+
+##### *property* temperature *: float*
+
+Current temperature in degrees Celsius (converted from
+`temp_dec`).
+
+#### *class* aiocamedomotic.models.UpdateIndicator(\*values)
+
+Known status-update indication cmd_names from the CAME API.
+
+These identify the type of state change in a `status_update_resp` result
+item. Some indicators have two variants: one observed in real API traffic
+and one documented in API_reference.md. Both are mapped for firmware
+compatibility.
+
+Values:
+: - LIGHT (“light_switch_ind”)
+  - OPENING (“opening_move_ind”)
+  - THERMOSTAT (“thermo_zone_info_ind”)
+  - DIGITAL_INPUT (“digitalin_status_ind”)
+  - SCENARIO_STATUS (“scenario_status_ind”)
+  - SCENARIO_ACTIVATION (“scenario_activation_ind”)
+  - ENERGY_METER (“meter_instant_power_ind”)
+  - LOADSCTRL_METER (“loadsctrl_meter_ind”)
+  - LOADSCTRL_RELAY (“loadsctrl_relay_ind”)
+  - PLANT (“plant_update_ind”)
+  - LIGHT_LEGACY (“light_update_ind”)
+  - OPENING_LEGACY (“opening_update_ind”)
+  - THERMOSTAT_LEGACY (“thermo_update_ind”)
+  - RELAY_LEGACY (“relay_update_ind”)
+  - DIGITAL_INPUT_LEGACY (“digitalin_update_ind”)
+  - SCENARIO_USER_LEGACY (“scenario_user_ind”)
+
 #### *class* aiocamedomotic.models.UpdateList(updates: UserList[dict[str, Any]] | None = None)
 
 Chronological list of status updates from the CameDomotic API.
+
+Extends `UserList` to maintain backward compatibility:
+iterating yields raw `dict` objects. Additional methods provide typed
+access and filtering.
+
+##### get_by_device_type(device_type: [DeviceType](#aiocamedomotic.const.DeviceType)) → list[dict[str, Any]]
+
+Return raw update dicts filtered to the given device type.
+
+* **Parameters:**
+  **device_type** – The [`DeviceType`](#aiocamedomotic.const.DeviceType) to
+  filter by.
+* **Returns:**
+  A list of raw update dicts whose `cmd_name` maps to
+  *device_type*.
+
+##### get_typed_by_device_type(device_type: [DeviceType](#aiocamedomotic.const.DeviceType)) → list[[DeviceUpdate](#aiocamedomotic.models.update.DeviceUpdate)]
+
+Parse and filter updates by device type.
+
+* **Parameters:**
+  **device_type** – The [`DeviceType`](#aiocamedomotic.const.DeviceType) to
+  filter by.
+* **Returns:**
+  Typed [`DeviceUpdate`](#aiocamedomotic.models.DeviceUpdate) instances whose
+  [`device_type`](#aiocamedomotic.models.DeviceUpdate.device_type) matches *device_type*.
+
+##### get_typed_updates() → list[[DeviceUpdate](#aiocamedomotic.models.update.DeviceUpdate)]
+
+Parse all updates into typed [`DeviceUpdate`](#aiocamedomotic.models.DeviceUpdate) objects.
+
+* **Returns:**
+  A list of [`DeviceUpdate`](#aiocamedomotic.models.DeviceUpdate) subclass instances, one per raw
+  update dict.
+
+##### *property* has_plant_update *: bool*
+
+Whether any update in this list is a `plant_update_ind`.
+
+When `True`, the consumer should discard all cached devices and
+re-fetch them from the server.
 
 #### *class* aiocamedomotic.models.User(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
 
@@ -1283,6 +1706,19 @@ Return the device type for a status update dict, or None if unknown.
 * **Returns:**
   The corresponding [`DeviceType`](#aiocamedomotic.const.DeviceType), or
   `None` if the `cmd_name` is not recognized.
+
+#### aiocamedomotic.models.parse_update(raw: dict[str, Any]) → [DeviceUpdate](#aiocamedomotic.models.update.DeviceUpdate)
+
+Parse a raw update dict into the appropriate typed
+[`DeviceUpdate`](#aiocamedomotic.models.DeviceUpdate) subclass.
+
+* **Parameters:**
+  **raw** – A single update dict from the `status_update_resp` result
+  array.
+* **Returns:**
+  A typed [`DeviceUpdate`](#aiocamedomotic.models.DeviceUpdate) subclass instance. If the `cmd_name`
+  is not recognized, a generic [`DeviceUpdate`](#aiocamedomotic.models.DeviceUpdate) is returned so
+  that the consumer can still access `raw_data`.
 
 Base classes for the CAME Domotic API entity model system.
 
@@ -1760,13 +2196,240 @@ Allowed values are:
 CAME Domotic status update handling.
 
 This module provides classes for processing and representing status updates
-from the CAME Domotic system. It implements a specialized list-based data
-structure to track chronological updates and state changes received from
-the CAME Domotic API, facilitating the consumption of system state changes.
+from the CAME Domotic system. It implements typed dataclass wrappers for each
+update indication type, a factory function to parse raw update dicts, and a
+specialized list-based data structure to track chronological updates received
+from the CAME Domotic API.
+
+#### *class* aiocamedomotic.models.update.DeviceUpdate(raw_data: dict[str, Any])
+
+Base class for a typed status update from the CAME API.
+
+Wraps the raw update dict and exposes common properties. Subclasses add
+device-specific accessors.
+
+* **Parameters:**
+  **raw_data** – The original dict from the `status_update_resp` result
+  array.
+
+##### *property* cmd_name *: str*
+
+The indication `cmd_name` string from the raw update.
+
+##### *property* device_id *: int | None*
+
+Primary device identifier (`act_id`, `open_act_id`, or `id`).
+
+Returns the first available identifier, or `None` if none is present.
+
+##### *property* device_type *: [DeviceType](#aiocamedomotic.const.DeviceType) | None*
+
+The [`DeviceType`](#aiocamedomotic.const.DeviceType) for this update,
+or `None` if the `cmd_name` is not recognized.
+
+##### *property* name *: str*
+
+Device name from the update.
+
+##### *property* update_indicator *: [UpdateIndicator](#aiocamedomotic.const.UpdateIndicator) | None*
+
+The [`UpdateIndicator`](#aiocamedomotic.const.UpdateIndicator) for this update,
+or `None` if the `cmd_name` is not recognized.
+
+#### *class* aiocamedomotic.models.update.DigitalInputUpdate(raw_data: dict[str, Any])
+
+Typed update for a digital input (`digitalin_status_ind` /
+`digitalin_update_ind`).
+
+##### *property* act_id *: int*
+
+Digital input actuator ID.
+
+##### *property* addr *: int*
+
+Digital input address.
+
+##### *property* status *: int*
+
+Digital input status value.
+
+##### *property* utc_time *: int*
+
+UTC timestamp of the digital input event.
+
+#### *class* aiocamedomotic.models.update.LightUpdate(raw_data: dict[str, Any])
+
+Typed update for a light device (`light_switch_ind` /
+`light_update_ind`).
+
+##### *property* act_id *: int*
+
+Light actuator ID.
+
+##### *property* floor_ind *: int*
+
+Floor index.
+
+##### *property* light_type *: [LightType](#aiocamedomotic.models.light.LightType)*
+
+Light type (STEP_STEP, DIMMER, RGB).
+
+##### *property* perc *: int*
+
+Brightness percentage (0-100). Defaults to 100 for non-dimmable.
+
+##### *property* rgb *: list[int] | None*
+
+RGB color values `[R, G, B]` (0-255 each), or `None`.
+
+##### *property* room_ind *: int*
+
+Room index.
+
+##### *property* status *: [LightStatus](#aiocamedomotic.models.light.LightStatus)*
+
+Light status (OFF, ON, AUTO).
+
+#### *class* aiocamedomotic.models.update.OpeningUpdate(raw_data: dict[str, Any])
+
+Typed update for an opening device (`opening_move_ind` /
+`opening_update_ind`).
+
+##### *property* close_act_id *: int*
+
+Actuator ID for the closing action.
+
+##### *property* device_id *: int | None*
+
+For openings the primary ID is `open_act_id`.
+
+##### *property* floor_ind *: int*
+
+Floor index.
+
+##### *property* open_act_id *: int*
+
+Actuator ID for the opening action.
+
+##### *property* room_ind *: int*
+
+Room index.
+
+##### *property* status *: [OpeningStatus](#aiocamedomotic.models.opening.OpeningStatus)*
+
+Opening status (STOPPED, OPENING, CLOSING, etc.).
+
+#### *class* aiocamedomotic.models.update.PlantUpdate(raw_data: dict[str, Any])
+
+Marker update for `plant_update_ind`.
+
+When this indication is received, all cached devices must be discarded and
+re-fetched from the server.
+
+##### *property* is_plant_update *: bool*
+
+Always returns `True`.
+
+#### *class* aiocamedomotic.models.update.ScenarioUpdate(raw_data: dict[str, Any])
+
+Typed update for a scenario (`scenario_status_ind` /
+`scenario_activation_ind` / `scenario_user_ind`).
+
+##### *property* device_id *: int | None*
+
+For scenarios the primary ID is `id`.
+
+##### *property* id *: int*
+
+Scenario ID.
+
+##### *property* scenario_status *: [ScenarioStatus](#aiocamedomotic.models.scenario.ScenarioStatus)*
+
+Scenario status (OFF, TRIGGERED, ACTIVE).
+
+#### *class* aiocamedomotic.models.update.ThermoZoneUpdate(raw_data: dict[str, Any])
+
+Typed update for a thermostat zone (`thermo_zone_info_ind` /
+`thermo_update_ind`).
+
+##### *property* act_id *: int*
+
+Zone actuator ID.
+
+##### *property* floor_ind *: int*
+
+Floor index.
+
+##### *property* mode *: [ThermoZoneMode](#aiocamedomotic.models.thermo_zone.ThermoZoneMode)*
+
+Operating mode (OFF, MANUAL, AUTO, JOLLY).
+
+##### *property* room_ind *: int*
+
+Room index.
+
+##### *property* season *: [ThermoZoneSeason](#aiocamedomotic.models.thermo_zone.ThermoZoneSeason)*
+
+Season setting (PLANT_OFF, WINTER, SUMMER).
+
+##### *property* set_point *: float*
+
+Target temperature in degrees Celsius (converted from
+`set_point`).
+
+##### *property* status *: [ThermoZoneStatus](#aiocamedomotic.models.thermo_zone.ThermoZoneStatus)*
+
+Zone status (OFF, ON).
+
+##### *property* temperature *: float*
+
+Current temperature in degrees Celsius (converted from
+`temp_dec`).
 
 #### *class* aiocamedomotic.models.update.UpdateList(updates: UserList[dict[str, Any]] | None = None)
 
 Chronological list of status updates from the CameDomotic API.
+
+Extends `UserList` to maintain backward compatibility:
+iterating yields raw `dict` objects. Additional methods provide typed
+access and filtering.
+
+##### get_by_device_type(device_type: [DeviceType](#aiocamedomotic.const.DeviceType)) → list[dict[str, Any]]
+
+Return raw update dicts filtered to the given device type.
+
+* **Parameters:**
+  **device_type** – The [`DeviceType`](#aiocamedomotic.const.DeviceType) to
+  filter by.
+* **Returns:**
+  A list of raw update dicts whose `cmd_name` maps to
+  *device_type*.
+
+##### get_typed_by_device_type(device_type: [DeviceType](#aiocamedomotic.const.DeviceType)) → list[[DeviceUpdate](#aiocamedomotic.models.update.DeviceUpdate)]
+
+Parse and filter updates by device type.
+
+* **Parameters:**
+  **device_type** – The [`DeviceType`](#aiocamedomotic.const.DeviceType) to
+  filter by.
+* **Returns:**
+  Typed [`DeviceUpdate`](#aiocamedomotic.models.update.DeviceUpdate) instances whose
+  [`device_type`](#aiocamedomotic.models.update.DeviceUpdate.device_type) matches *device_type*.
+
+##### get_typed_updates() → list[[DeviceUpdate](#aiocamedomotic.models.update.DeviceUpdate)]
+
+Parse all updates into typed [`DeviceUpdate`](#aiocamedomotic.models.update.DeviceUpdate) objects.
+
+* **Returns:**
+  A list of [`DeviceUpdate`](#aiocamedomotic.models.update.DeviceUpdate) subclass instances, one per raw
+  update dict.
+
+##### *property* has_plant_update *: bool*
+
+Whether any update in this list is a `plant_update_ind`.
+
+When `True`, the consumer should discard all cached devices and
+re-fetch them from the server.
 
 #### aiocamedomotic.models.update.get_update_device_type(update: dict[str, Any]) → [DeviceType](#aiocamedomotic.const.DeviceType) | None
 
@@ -1779,6 +2442,19 @@ Return the device type for a status update dict, or None if unknown.
   The corresponding [`DeviceType`](#aiocamedomotic.const.DeviceType), or
   `None` if the `cmd_name` is not recognized.
 
+#### aiocamedomotic.models.update.parse_update(raw: dict[str, Any]) → [DeviceUpdate](#aiocamedomotic.models.update.DeviceUpdate)
+
+Parse a raw update dict into the appropriate typed
+[`DeviceUpdate`](#aiocamedomotic.models.update.DeviceUpdate) subclass.
+
+* **Parameters:**
+  **raw** – A single update dict from the `status_update_resp` result
+  array.
+* **Returns:**
+  A typed [`DeviceUpdate`](#aiocamedomotic.models.update.DeviceUpdate) subclass instance. If the `cmd_name`
+  is not recognized, a generic [`DeviceUpdate`](#aiocamedomotic.models.update.DeviceUpdate) is returned so
+  that the consumer can still access `raw_data`.
+
 ### Constants
 
 Constants for the CAME Domotic API.
@@ -1790,15 +2466,51 @@ Device type IDs used by the CAME ETI/Domo system.
 Each device in the CAME Domotic system is associated with one of these type
 identifiers. Not all device types are currently supported by this library.
 
-Supported types:
+Values:
 : - ENERGY_SENSOR (-2)
   - ANALOG_SENSOR (-1)
   - LIGHT (0)
   - OPENING (1)
   - THERMOSTAT (2)
+  - PAGE (3)
   - SCENARIO (4)
+  - CAMERA (5)
+  - SECURITY_PANEL (6)
+  - SECURITY_AREA (7)
+  - SECURITY_SCENARIO (8)
+  - SECURITY_INPUT (9)
+  - SECURITY_OUTPUT (10)
   - GENERIC_RELAY (11)
+  - GENERIC_TEXT (12)
+  - SOUND_ZONE (13)
   - DIGITAL_INPUT (14)
+
+#### *class* aiocamedomotic.const.UpdateIndicator(\*values)
+
+Known status-update indication cmd_names from the CAME API.
+
+These identify the type of state change in a `status_update_resp` result
+item. Some indicators have two variants: one observed in real API traffic
+and one documented in API_reference.md. Both are mapped for firmware
+compatibility.
+
+Values:
+: - LIGHT (“light_switch_ind”)
+  - OPENING (“opening_move_ind”)
+  - THERMOSTAT (“thermo_zone_info_ind”)
+  - DIGITAL_INPUT (“digitalin_status_ind”)
+  - SCENARIO_STATUS (“scenario_status_ind”)
+  - SCENARIO_ACTIVATION (“scenario_activation_ind”)
+  - ENERGY_METER (“meter_instant_power_ind”)
+  - LOADSCTRL_METER (“loadsctrl_meter_ind”)
+  - LOADSCTRL_RELAY (“loadsctrl_relay_ind”)
+  - PLANT (“plant_update_ind”)
+  - LIGHT_LEGACY (“light_update_ind”)
+  - OPENING_LEGACY (“opening_update_ind”)
+  - THERMOSTAT_LEGACY (“thermo_update_ind”)
+  - RELAY_LEGACY (“relay_update_ind”)
+  - DIGITAL_INPUT_LEGACY (“digitalin_update_ind”)
+  - SCENARIO_USER_LEGACY (“scenario_user_ind”)
 
 ### Errors
 
