@@ -475,6 +475,36 @@ each batch of updates as it arrives:
     to run the polling loop alongside other logic, wrap it in
     ``asyncio.create_task()``.
 
+Configuring timeouts
+^^^^^^^^^^^^^^^^^^^^
+
+All commands sent to the CAME server use a default timeout of **30 seconds**,
+configurable via the ``command_timeout`` parameter when creating the API
+instance:
+
+.. code-block:: python
+
+    # Set a custom timeout of 15 seconds for all commands
+    async with await CameDomoticAPI.async_create(
+        "192.168.x.x", "username", "password", command_timeout=15
+    ) as api:
+        lights = await api.async_get_lights()  # uses 15s timeout
+
+By default, ``async_get_updates()`` also uses ``command_timeout``. However,
+since this method uses **long polling** (the server holds the connection open
+until updates are available), a longer timeout is **strongly recommended** to
+avoid premature disconnections:
+
+.. code-block:: python
+
+    # Recommended: set a longer timeout for long-polling requests
+    updates = await api.async_get_updates(timeout=120)
+
+.. note::
+    If no ``timeout`` is passed to ``async_get_updates()``, the instance-level
+    ``command_timeout`` is used (default: 30s). For most real-time monitoring
+    use cases, a timeout of **60–120 seconds** is recommended.
+
 Getting typed updates
 ^^^^^^^^^^^^^^^^^^^^^
 

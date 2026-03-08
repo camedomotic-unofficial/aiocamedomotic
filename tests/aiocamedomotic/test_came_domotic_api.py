@@ -20,6 +20,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from aiocamedomotic import Auth, CameDomoticAPI
+from aiocamedomotic.const import _DEFAULT_COMMAND_TIMEOUT
 from aiocamedomotic.errors import (
     CameDomoticAuthError,
     CameDomoticError,
@@ -50,6 +51,11 @@ class TestAPIInit:
     async def test_init(self, auth_instance):
         api = CameDomoticAPI(auth_instance)
         assert api.auth == auth_instance
+        assert api.auth.command_timeout == _DEFAULT_COMMAND_TIMEOUT
+
+    async def test_init_custom_command_timeout(self, auth_instance):
+        api = CameDomoticAPI(auth_instance, command_timeout=15)
+        assert api.auth.command_timeout == 15
 
     @patch.object(Auth, "async_dispose")
     async def test_aexit_calls_async_dispose(self, mock_async_dispose, auth_instance):
@@ -119,6 +125,7 @@ class TestAPIInit:
             "username",
             "password",
             close_websession_on_disposal=True,
+            command_timeout=_DEFAULT_COMMAND_TIMEOUT,
         )
         assert api.auth == mock_auth
 
@@ -846,6 +853,21 @@ class TestAPIUpdates:
 
         assert isinstance(result, UpdateList)
         mock_send_command.assert_called_once()
+        _, kwargs = mock_send_command.call_args
+        assert kwargs["timeout"] is None
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_updates_custom_timeout(
+        self, mock_send_command, auth_instance
+    ):
+        """Test that a custom timeout is passed to async_send_command."""
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {}
+
+        await api.async_get_updates(timeout=120)
+
+        _, kwargs = mock_send_command.call_args
+        assert kwargs["timeout"] == 120
 
     @patch.object(
         Auth,

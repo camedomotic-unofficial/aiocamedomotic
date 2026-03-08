@@ -24,6 +24,7 @@ import aiohttp
 
 from .auth import Auth
 from .const import (
+    _DEFAULT_COMMAND_TIMEOUT,
     _CommandName,
     _CommandNameResponse,
     _CommandType,
@@ -47,14 +48,19 @@ from .utils import LOGGER
 class CameDomoticAPI:
     """Main class, exposes all the public methods of the CAME Domotic API."""
 
-    def __init__(self, auth: Auth):
+    def __init__(self, auth: Auth, *, command_timeout: int = _DEFAULT_COMMAND_TIMEOUT):
         """Initialize the CAME Domotic API object.
 
         Args:
             auth (Auth): the authentication object used to interact with
                 the CAME Domotic API.
+            command_timeout (int, optional): the default timeout in seconds
+                for all commands sent to the server (default: 30s). This
+                applies to all methods unless overridden per-call (e.g. via
+                the ``timeout`` parameter in ``async_get_updates``).
         """
         self.auth = auth
+        self.auth.command_timeout = command_timeout
 
     async def __aenter__(self) -> CameDomoticAPI:
         return self
@@ -251,11 +257,22 @@ class CameDomoticAPI:
                 sensors.append(AnalogSensor(sensor_data))
         return sensors
 
-    async def async_get_updates(self) -> UpdateList:
-        """Get the list of status updates from the server.
+    async def async_get_updates(self, timeout: int | None = None) -> UpdateList:
+        """Get status updates from the server using long polling.
+
+        This method performs a long-polling request: it blocks until the server
+        sends one or more real-time status updates (e.g., a light turned on, a
+        scenario activated), then returns them all at once.
+
+        Args:
+            timeout (int | None, optional): the timeout in seconds for the
+                long-polling request. If None, uses the instance-level
+                ``command_timeout`` (default: 30s). Since this method uses
+                long polling, a longer timeout (e.g. 120s) is recommended
+                to avoid premature disconnections.
 
         Returns:
-            UpdateList: List of status updates.
+            UpdateList: List of status updates received from the server.
 
         Raises:
             CameDomoticAuthError: If the authentication fails.
@@ -266,7 +283,9 @@ class CameDomoticAPI:
             "cmd_name": _CommandName.STATUS_UPDATE.value,
         }
         json_response = await self.auth.async_send_command(
-            payload, response_command=_CommandNameResponse.STATUS_UPDATE.value
+            payload,
+            response_command=_CommandNameResponse.STATUS_UPDATE.value,
+            timeout=timeout,
         )
         return UpdateList((json_response or {}).get("result", []))
 
@@ -323,6 +342,7 @@ class CameDomoticAPI:
         *,
         websession: aiohttp.ClientSession | None = None,
         close_websession_on_disposal: bool = False,
+        command_timeout: int = _DEFAULT_COMMAND_TIMEOUT,
     ) -> CameDomoticAPI:
         """Create a CameDomoticAPI object.
 
@@ -336,6 +356,8 @@ class CameDomoticAPI:
                 session will be closed when the CameDomoticAPI object is disposed. If
                 the websession is not provided, this argument is ignored and the session
                 will always be closed.
+            command_timeout (int, optional): the default timeout in seconds
+                for all commands sent to the server (default: 30s).
 
         Returns:
             CameDomoticAPI: The CameDomoticAPI object.
@@ -357,9 +379,10 @@ class CameDomoticAPI:
                 close_websession_on_disposal=(
                     close_websession_on_disposal if websession else True
                 ),
+                command_timeout=command_timeout,
             )
         except Exception:
             if not websession:
                 await session.close()
             raise
-        return cls(auth)
+        return cls(auth, command_timeout=command_timeout)

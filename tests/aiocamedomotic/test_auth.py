@@ -29,6 +29,7 @@ from cryptography.fernet import Fernet
 
 from aiocamedomotic import Auth
 from aiocamedomotic.auth import handle_came_domotic_errors
+from aiocamedomotic.const import _DEFAULT_COMMAND_TIMEOUT
 from aiocamedomotic.errors import (
     CameDomoticAuthError,
     CameDomoticServerError,
@@ -287,7 +288,7 @@ class TestAuthSendCommand:
                     "http://192.168.x.x/domo/",
                     data={"command": json.dumps(expected_request_payload)},
                     headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
-                    timeout=aiohttp.ClientTimeout(total=10),
+                    timeout=aiohttp.ClientTimeout(total=_DEFAULT_COMMAND_TIMEOUT),
                 )
 
     @freezegun.freeze_time("2020-01-01")
@@ -342,7 +343,7 @@ class TestAuthSendCommand:
                     "http://192.168.x.x/domo/",
                     data={"command": json.dumps(expected_request_payload)},
                     headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
-                    timeout=aiohttp.ClientTimeout(total=10),
+                    timeout=aiohttp.ClientTimeout(total=_DEFAULT_COMMAND_TIMEOUT),
                 )
 
     async def test_failure(self, auth_instance):
@@ -377,7 +378,7 @@ class TestAuthSendCommand:
                     "http://192.168.x.x/domo/",
                     data={"command": json.dumps(expected_request_payload)},
                     headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
-                    timeout=aiohttp.ClientTimeout(total=10),
+                    timeout=aiohttp.ClientTimeout(total=_DEFAULT_COMMAND_TIMEOUT),
                 )
 
     async def test_timeout(self, auth_instance):
@@ -412,7 +413,7 @@ class TestAuthSendCommand:
                     "http://192.168.x.x/domo/",
                     data={"command": json.dumps(expected_request_payload)},
                     headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
-                    timeout=aiohttp.ClientTimeout(total=10),
+                    timeout=aiohttp.ClientTimeout(total=_DEFAULT_COMMAND_TIMEOUT),
                 )
 
     @patch.object(
@@ -458,7 +459,7 @@ class TestAuthSendCommand:
                 "http://192.168.x.x/domo/",
                 data={"command": json.dumps(full_payload)},
                 headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
-                timeout=aiohttp.ClientTimeout(total=10),
+                timeout=aiohttp.ClientTimeout(total=_DEFAULT_COMMAND_TIMEOUT),
             )
             mock_raise_for_status_and_ack.assert_called_once()
             assert auth_instance.cseq == 0
