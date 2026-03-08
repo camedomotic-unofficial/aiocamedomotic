@@ -28,7 +28,15 @@ import asyncio
 import pytest
 
 from aiocamedomotic import CameDomoticAPI
-from aiocamedomotic.models import LightStatus
+from aiocamedomotic.models import (
+    DigitalInputUpdate,
+    LightStatus,
+    LightUpdate,
+    OpeningUpdate,
+    PlantUpdate,
+    ScenarioUpdate,
+    ThermoZoneUpdate,
+)
 from aiocamedomotic.models.opening import OpeningStatus
 
 RUN_TESTS_ON_REAL_SERVER = False
@@ -307,3 +315,95 @@ async def test_async_dimmable_light(api_instance_real: CameDomoticAPI):
             f"Light '{light_name}' reverted to: "
             f"status={initial_status.name}, brightness={initial_brightness}%"
         )
+
+
+@pytest.mark.timeout(90)
+async def test_listen_for_updates(api_instance_real: CameDomoticAPI):
+    """Listens for 10 API calls and prints typed information for all updates."""
+    max_api_calls = 20
+    print(
+        f"\nListening for real-time updates (waiting for {max_api_calls} API calls)..."
+    )
+
+    total_updates = 0
+    batch_num = 0
+
+    for batch_num in range(1, max_api_calls + 1):
+        print(f"\n--- Waiting for batch {batch_num}/{max_api_calls}... ---")
+        updates = await api_instance_real.async_get_updates()
+
+        batch_count = len(updates)
+        print(f"Batch {batch_num}: received {batch_count} update(s)")
+
+        if updates.has_plant_update:
+            print(
+                "  *** Plant configuration changed — cached devices "
+                "should be refreshed ***"
+            )
+
+        for update in updates.get_typed_updates():
+            total_updates += 1
+            print(f"\n  Update #{total_updates}:")
+
+            if isinstance(update, LightUpdate):
+                print(
+                    f"    [Light] '{update.name}' (act_id={update.act_id})\n"
+                    f"      Status: {update.status.name}, "
+                    f"Type: {update.light_type.name}, "
+                    f"Brightness: {update.perc}%"
+                )
+                if update.rgb is not None:
+                    print(f"      RGB: {update.rgb}")
+
+            elif isinstance(update, OpeningUpdate):
+                print(
+                    f"    [Opening] '{update.name}' "
+                    f"(open_id={update.open_act_id}, "
+                    f"close_id={update.close_act_id})\n"
+                    f"      Status: {update.status.name}"
+                )
+
+            elif isinstance(update, ThermoZoneUpdate):
+                print(
+                    f"    [ThermoZone] '{update.name}' "
+                    f"(act_id={update.act_id})\n"
+                    f"      Temp: {update.temperature}\u00b0C, "
+                    f"Setpoint: {update.set_point}\u00b0C\n"
+                    f"      Mode: {update.mode.name}, "
+                    f"Season: {update.season.name}, "
+                    f"Status: {update.status.name}"
+                )
+
+            elif isinstance(update, ScenarioUpdate):
+                print(
+                    f"    [Scenario] '{update.name}' (id={update.id})\n"
+                    f"      Status: {update.scenario_status.name}"
+                )
+
+            elif isinstance(update, DigitalInputUpdate):
+                print(
+                    f"    [DigitalInput] '{update.name}' "
+                    f"(act_id={update.act_id})\n"
+                    f"      Status: {update.status}, "
+                    f"Addr: {update.addr}, "
+                    f"UTC time: {update.utc_time}"
+                )
+
+            elif isinstance(update, PlantUpdate):
+                print(
+                    "    [Plant] Configuration change detected — "
+                    "full device cache invalidation needed"
+                )
+
+            else:
+                print(
+                    f"    [Unknown] cmd_name='{update.cmd_name}', "
+                    f"device_type={update.device_type}, "
+                    f"device_id={update.device_id}, "
+                    f"name='{update.name}'"
+                )
+
+    print(
+        f"\nDone — collected {total_updates} update(s) "
+        f"across {max_api_calls} API call(s)."
+    )
