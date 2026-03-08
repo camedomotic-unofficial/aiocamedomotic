@@ -251,11 +251,19 @@ class CameDomoticAPI:
                 sensors.append(AnalogSensor(sensor_data))
         return sensors
 
-    async def async_get_updates(self) -> UpdateList:
-        """Get the list of status updates from the server.
+    async def async_get_updates(self, timeout: int = 120) -> UpdateList:
+        """Get status updates from the server using long polling.
+
+        This method performs a long-polling request: it blocks until the server
+        sends one or more real-time status updates (e.g., a light turned on, a
+        scenario activated), then returns them all at once.
+
+        Args:
+            timeout (int, optional): the timeout in seconds for the
+                long-polling request (default: 120s).
 
         Returns:
-            UpdateList: List of status updates.
+            UpdateList: List of status updates received from the server.
 
         Raises:
             CameDomoticAuthError: If the authentication fails.
@@ -266,7 +274,9 @@ class CameDomoticAPI:
             "cmd_name": _CommandName.STATUS_UPDATE.value,
         }
         json_response = await self.auth.async_send_command(
-            payload, response_command=_CommandNameResponse.STATUS_UPDATE.value
+            payload,
+            response_command=_CommandNameResponse.STATUS_UPDATE.value,
+            timeout=timeout,
         )
         return UpdateList((json_response or {}).get("result", []))
 

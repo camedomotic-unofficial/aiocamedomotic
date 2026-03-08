@@ -846,6 +846,21 @@ class TestAPIUpdates:
 
         assert isinstance(result, UpdateList)
         mock_send_command.assert_called_once()
+        _, kwargs = mock_send_command.call_args
+        assert kwargs["timeout"] == 120
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_updates_custom_timeout(
+        self, mock_send_command, auth_instance
+    ):
+        """Test that a custom timeout is passed to async_send_command."""
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {}
+
+        await api.async_get_updates(timeout=60)
+
+        _, kwargs = mock_send_command.call_args
+        assert kwargs["timeout"] == 60
 
     @patch.object(
         Auth,
