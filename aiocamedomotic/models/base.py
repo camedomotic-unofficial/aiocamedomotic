@@ -72,6 +72,8 @@ class User(CameEntity):
             In case of failure, the previous user is restored.
         """
 
+        LOGGER.debug("Attempting to switch to user '%s'", self.name)
+
         # Backup current user details
         backup_user = self.auth.backup_auth_credentials()
 
@@ -79,8 +81,11 @@ class User(CameEntity):
             await self._attempt_login_as_current_user(password)
         except CameDomoticAuthError as e:
             LOGGER.error("Unable to set user '%s' as current user (%s)", self.name, e)
+            LOGGER.warning("Restoring previous credentials after failed user switch")
             self.auth.restore_auth_credentials(backup_user)
             raise
+
+        LOGGER.info("Successfully switched to user '%s'", self.name)
 
     async def _attempt_login_as_current_user(self, password: str) -> None:
         """Attempt to login with the user details.

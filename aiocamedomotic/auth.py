@@ -80,16 +80,19 @@ def handle_came_domotic_errors(func: _F) -> _F:
             return await func(*args, **kwargs)
         except aiohttp.ClientResponseError as e:
             # Specific HTTP errors
+            LOGGER.error("HTTP %s error in %s: %s", e.status, func.__name__, e.message)
             raise CameDomoticServerError(
                 f"HTTP POST resulted in an HTTP {e.status} error ({e.message})"
             ) from e
         except aiohttp.ServerTimeoutError as e:
             # Handle timeouts specifically
+            LOGGER.error("Timeout in %s: %s", func.__name__, e)
             raise CameDomoticServerError(
                 f"HTTP POST resulted in a timeout error ({e})"
             ) from e
         except aiohttp.ClientError as e:
             # General network-related errors
+            LOGGER.error("Network error in %s: %s", func.__name__, e)
             raise CameDomoticServerError(
                 f"HTTP POST resulted in an unexpected network error ({e})'"
             ) from e
@@ -99,6 +102,7 @@ def handle_came_domotic_errors(func: _F) -> _F:
             raise e
         except Exception as e:
             # Catch-all for any other unforeseen errors
+            LOGGER.error("Unexpected error in %s: %s", func.__name__, e)
             raise CameDomoticServerError(
                 "Generic error in communication with CAME Domotic API."
             ) from e
@@ -159,6 +163,7 @@ class Auth:
             The session is not logged in until the first request is made.
         """
 
+        LOGGER.debug("Creating Auth instance for host '%s'", host)
         auth = cls(
             websession,
             host,
@@ -169,6 +174,7 @@ class Auth:
         auth.command_timeout = command_timeout
         await auth.async_validate_host()
 
+        LOGGER.debug("Auth instance created for host '%s'", host)
         return auth
 
     @staticmethod
@@ -255,6 +261,8 @@ class Auth:
 
         self._lock = Lock()
 
+        LOGGER.debug("Auth initialized for host '%s'", host)
+
     # region Context manager
 
     async def __aenter__(self) -> Auth:
@@ -290,6 +298,7 @@ class Auth:
         """
         async with self._lock:
             if not self.is_session_valid():
+                LOGGER.debug("Session expired or invalid, performing login")
                 await self._async_perform_login()
             return self.client_id
 
@@ -358,6 +367,14 @@ class Auth:
             # Add any additional key-value pairs to the request payload
             request_payload.update(additional_payload)
 
+        cmd_name = (command or {}).get("cmd_name", command_type)
+        LOGGER.debug(
+            "Sending command '%s' (type: %s) to %s",
+            cmd_name,
+            command_type,
+            self.get_endpoint_url(),
+        )
+
         try:
             response = await self.websession.post(
                 self.get_endpoint_url(),
@@ -379,20 +396,29 @@ class Auth:
                 self.session_expiration_timestamp = time.monotonic() + max(
                     0, self.keep_alive_timeout_sec - Auth._DEFAULT_SAFE_ZONE_SEC
                 )
+                LOGGER.debug("Session refreshed, cseq=%d", self.cseq)
 
             # Parse JSON response
             try:
                 json_response = await response.json(content_type=None)
             except json.JSONDecodeError as e:
+                LOGGER.error(
+                    "Failed to decode JSON response for command '%s'", cmd_name
+                )
                 raise CameDomoticServerError(
                     "Error decoding the response to JSON"
                 ) from e
 
-            cmd_name = json_response.get("cmd_name")
-            if response_command is not None and cmd_name != response_command:
+            resp_cmd_name = json_response.get("cmd_name")
+            if response_command is not None and resp_cmd_name != response_command:
+                LOGGER.error(
+                    "Unexpected response command: expected '%s', got '%s'",
+                    response_command,
+                    resp_cmd_name,
+                )
                 raise CameDomoticServerError(
                     f"Invalid server response. Expected {repr(response_command)}. "
-                    f"Actual {repr(cmd_name)}"
+                    f"Actual {repr(resp_cmd_name)}"
                 )
 
             return json_response
@@ -405,6 +431,11 @@ class Auth:
             # Invalidate session on session-related ACK errors
             # (7: no client ID, 8: wrong client ID)
             if getattr(e, "ack_code", None) in {7, 8}:
+                LOGGER.warning(
+                    "Session invalidated due to ACK error %s,"
+                    " will re-login on next command",
+                    getattr(e, "ack_code", None),
+                )
                 self.client_id = ""
                 self.session_expiration_timestamp = time.monotonic() - 3600
             cmd_name = (command or {}).get("cmd_name")
@@ -428,6 +459,7 @@ class Auth:
         """
         endpoint_url = self.get_endpoint_url()
         client_timeout = aiohttp.ClientTimeout(total=timeout)
+        LOGGER.debug("Validating host at '%s'", endpoint_url)
 
         try:
             async with self.websession.get(
@@ -445,23 +477,29 @@ class Auth:
                     )
         except aiohttp.ClientResponseError as e:
             # Specific HTTP errors
+            LOGGER.warning(
+                "Host validation failed: HTTP %s at '%s'", e.status, endpoint_url
+            )
             raise CameDomoticServerNotFoundError(
                 f"HTTP GET of '{endpoint_url}' resulted in an HTTP {e.status} error "
                 f"({e.message})"
             ) from e
         except aiohttp.ServerTimeoutError as e:
             # Handle timeouts specifically
+            LOGGER.warning("Host validation failed: timeout at '%s'", endpoint_url)
             raise CameDomoticServerNotFoundError(
                 f"HTTP GET of '{endpoint_url}' resulted in a timeout error)"
             ) from e
         except TimeoutError as e:
             # Handle generic asyncio timeouts (raised by aiohttp's internal
             # TimerContext when a host is unreachable)
+            LOGGER.warning("Host validation failed: timeout at '%s'", endpoint_url)
             raise CameDomoticServerNotFoundError(
                 f"HTTP GET of '{endpoint_url}' resulted in a timeout error)"
             ) from e
         except aiohttp.ClientError as e:
             # Broader category for client-side issues
+            LOGGER.warning("Host validation failed: %s at '%s'", e, endpoint_url)
             raise CameDomoticServerNotFoundError(
                 f"HTTP GET of '{endpoint_url}' resulted in an unexpected error ({e})'"
             ) from e
@@ -474,8 +512,10 @@ class Auth:
         """
         async with self._lock:
             if self.is_session_valid():
+                LOGGER.debug("Session valid, sending keep-alive")
                 await self._async_perform_keep_alive()
             else:
+                LOGGER.debug("Session not valid, performing login")
                 await self._async_perform_login()
 
     async def _async_perform_login(self) -> None:
@@ -484,6 +524,7 @@ class Auth:
         Raises:
             CameDomoticAuthError: if an error occurs during the login.
         """
+        LOGGER.debug("Attempting login to '%s'", self.host)
         try:
             if (
                 self.cipher_suite is None
@@ -520,17 +561,26 @@ class Auth:
             self.session_expiration_timestamp = time.monotonic() + max(
                 0, self.keep_alive_timeout_sec - Auth._DEFAULT_SAFE_ZONE_SEC
             )
+            LOGGER.info(
+                "Login successful to '%s' (keep_alive_timeout=%ds)",
+                self.host,
+                self.keep_alive_timeout_sec,
+            )
         except CameDomoticAuthError as e:
+            LOGGER.warning("Authentication failed for host '%s': %s", self.host, e)
             raise e
         except json.JSONDecodeError as e:
+            LOGGER.warning("Login response JSON decode failed for host '%s'", self.host)
             raise CameDomoticAuthError(
                 "Bad login response (JSON decoding failed)"
             ) from e
         except aiohttp.ClientResponseError as e:
+            LOGGER.warning("Login HTTP error for host '%s': %s", self.host, e.status)
             raise CameDomoticAuthError(
                 f"Login failed due to HTTP {e.status} error ({e.message})"
             ) from e
         except Exception as e:
+            LOGGER.warning("Unexpected login error for host '%s': %s", self.host, e)
             raise CameDomoticAuthError("Unexpected error logging in.") from e
 
     async def async_keep_alive(self) -> None:
@@ -553,7 +603,7 @@ class Auth:
             CameDomoticServerError: if an error occurs during the keep-alive request.
             CameDomoticAuthError: if an error occurs during the login.
         """
-
+        LOGGER.debug("Sending keep-alive to '%s'", self.host)
         await self.async_send_command(
             {}, command_type=_CommandType.KEEP_ALIVE_REQUEST.value
         )
@@ -568,12 +618,14 @@ class Auth:
 
         # Logout only if the session is still valid
         if self.is_session_valid():
+            LOGGER.debug("Logging out from '%s'", self.host)
             await self.async_send_command(
                 {}, command_type=_CommandType.LOGOUT_REQUEST.value
             )
 
             self.client_id = ""
             self.session_expiration_timestamp = time.monotonic()
+            LOGGER.info("Logged out from '%s'", self.host)
 
     async def async_dispose(self) -> None:
         """Dispose the Auth instance, eventually logging out if needed.
@@ -581,6 +633,7 @@ class Auth:
         This method also explicitly clears sensitive attributes (username, password,
         and cipher_suite) to enhance security when the Auth instance is disposed.
         """
+        LOGGER.debug("Disposing Auth instance for host '%s'", self.host)
         if self.is_session_valid():
             with contextlib.suppress(CameDomoticServerError):
                 await self.async_logout()
@@ -591,6 +644,7 @@ class Auth:
         self.username = None
         self.password = None
         self.cipher_suite = None
+        LOGGER.debug("Auth instance disposed, credentials cleared")
 
     # region Utilities
 
@@ -631,6 +685,7 @@ class Auth:
         ack_reason = resp_json.get("sl_data_ack_reason")
 
         if ack_reason and ack_reason != 0:
+            LOGGER.error("Server returned ACK error code %s", ack_reason)
             raise CameDomoticServerError.create_ack_error(ack_reason)
 
     def backup_auth_credentials(
@@ -681,5 +736,6 @@ class Auth:
         # Invalidate the (previous) session, since the credentials have changed
         self.session_expiration_timestamp = time.monotonic() - 3600
         self.client_id = ""
+        LOGGER.debug("Auth credentials updated, previous session invalidated")
 
     # endregion

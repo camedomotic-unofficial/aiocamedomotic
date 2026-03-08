@@ -61,6 +61,9 @@ class CameDomoticAPI:
         """
         self.auth = auth
         self.auth.command_timeout = command_timeout
+        LOGGER.debug(
+            "CameDomoticAPI initialized (command_timeout=%ds)", command_timeout
+        )
 
     async def __aenter__(self) -> CameDomoticAPI:
         return self
@@ -75,6 +78,7 @@ class CameDomoticAPI:
 
     async def async_dispose(self) -> None:
         """Dispose the CameDomoticAPI object."""
+        LOGGER.debug("Disposing CameDomoticAPI")
         try:
             await self.auth.async_dispose()
         except Exception:  # pylint: disable=broad-except
@@ -92,12 +96,14 @@ class CameDomoticAPI:
             CameDomoticServerError: If the server returns an error.
         """
 
+        LOGGER.debug("Fetching users list")
         json_response = await self.auth.async_send_command(
             {}, command_type=_CommandType.USERS_LIST_REQUEST.value
         )
 
         # Defaults to an empty list if the key is missing from the response JSON
         users_list = json_response.get("sl_users_list", [])
+        LOGGER.info("Retrieved %d user(s)", len(users_list))
         return [User(user, self.auth) for user in users_list]
 
     async def async_get_server_info(self) -> ServerInfo:
@@ -114,6 +120,7 @@ class CameDomoticAPI:
             CameDomoticServerError: If the server returns an error.
         """
 
+        LOGGER.debug("Fetching server info")
         payload = {
             "cmd_name": _CommandName.FEATURE_LIST.value,
         }
@@ -122,6 +129,12 @@ class CameDomoticAPI:
             payload, response_command=_CommandNameResponse.FEATURE_LIST.value
         )
 
+        LOGGER.info(
+            "Server info: keycode=%s, swver=%s, features=%s",
+            json_response.get("keycode"),
+            json_response.get("swver"),
+            json_response.get("list"),
+        )
         return ServerInfo(
             keycode=json_response.get("keycode"),  # type: ignore[arg-type]
             swver=json_response.get("swver"),
@@ -142,6 +155,7 @@ class CameDomoticAPI:
             CameDomoticServerError: If the server returns an error.
         """
 
+        LOGGER.debug("Fetching floors list")
         payload = {
             "cmd_name": _CommandName.FLOOR_LIST.value,
             "topologic_scope": _TopologicScope.PLANT.value,
@@ -153,6 +167,7 @@ class CameDomoticAPI:
 
         # Defaults to an empty list if the key is missing from the response JSON
         floor_list = json_response.get("floor_list", [])
+        LOGGER.info("Retrieved %d floor(s)", len(floor_list))
         return [Floor(floor) for floor in floor_list]
 
     async def async_get_rooms(self) -> list[Room]:
@@ -166,6 +181,7 @@ class CameDomoticAPI:
             CameDomoticServerError: If the server returns an error.
         """
 
+        LOGGER.debug("Fetching rooms list")
         payload = {
             "cmd_name": _CommandName.ROOM_LIST.value,
             "topologic_scope": _TopologicScope.PLANT.value,
@@ -177,6 +193,7 @@ class CameDomoticAPI:
 
         # Defaults to an empty list if the key is missing from the response JSON
         room_list = json_response.get("room_list", [])
+        LOGGER.info("Retrieved %d room(s)", len(room_list))
         return [Room(room) for room in room_list]
 
     async def async_get_lights(self) -> list[Light]:
@@ -190,6 +207,7 @@ class CameDomoticAPI:
             CameDomoticServerError: If the server returns an error.
         """
 
+        LOGGER.debug("Fetching lights list")
         payload = {
             "cmd_name": _CommandName.LIGHT_LIST.value,
             "topologic_scope": _TopologicScope.PLANT.value,
@@ -201,6 +219,7 @@ class CameDomoticAPI:
 
         # Defaults to an empty list if the key is missing from the response JSON
         lights_list = json_response.get("array", [])
+        LOGGER.info("Retrieved %d light(s)", len(lights_list))
         return [Light(light, self.auth) for light in lights_list]
 
     async def async_get_thermo_zones(self) -> list[ThermoZone]:
@@ -214,6 +233,7 @@ class CameDomoticAPI:
             CameDomoticServerError: If the server returns an error.
         """
 
+        LOGGER.debug("Fetching thermoregulation zones")
         payload = {
             "cmd_name": _CommandName.THERMO_LIST.value,
             "topologic_scope": _TopologicScope.PLANT.value,
@@ -225,6 +245,7 @@ class CameDomoticAPI:
 
         # Defaults to an empty list if the key is missing from the response JSON
         zones_list = json_response.get("array", [])
+        LOGGER.info("Retrieved %d thermo zone(s)", len(zones_list))
         return [ThermoZone(zone, self.auth) for zone in zones_list]
 
     async def async_get_analog_sensors(self) -> list[AnalogSensor]:
@@ -241,6 +262,7 @@ class CameDomoticAPI:
             CameDomoticServerError: If the server returns an error.
         """
 
+        LOGGER.debug("Fetching analog sensors")
         payload = {
             "cmd_name": _CommandName.THERMO_LIST.value,
             "topologic_scope": _TopologicScope.PLANT.value,
@@ -255,6 +277,7 @@ class CameDomoticAPI:
             sensor_data = json_response.get(key)
             if sensor_data and isinstance(sensor_data, dict):
                 sensors.append(AnalogSensor(sensor_data))
+        LOGGER.info("Retrieved %d analog sensor(s)", len(sensors))
         return sensors
 
     async def async_get_updates(self, timeout: int | None = None) -> UpdateList:
@@ -279,6 +302,7 @@ class CameDomoticAPI:
             CameDomoticServerError: If the server returns an error.
         """
 
+        LOGGER.debug("Fetching status updates (timeout=%s)", timeout)
         payload = {
             "cmd_name": _CommandName.STATUS_UPDATE.value,
         }
@@ -287,7 +311,13 @@ class CameDomoticAPI:
             response_command=_CommandNameResponse.STATUS_UPDATE.value,
             timeout=timeout,
         )
-        return UpdateList((json_response or {}).get("result", []))
+        updates = UpdateList((json_response or {}).get("result", []))
+        LOGGER.info(
+            "Received %d status update(s)%s",
+            len(updates),
+            " (includes plant update)" if updates.has_plant_update else "",
+        )
+        return updates
 
     async def async_get_openings(self) -> list[Opening]:
         """Get the list of all opening devices defined on the server.
@@ -299,6 +329,7 @@ class CameDomoticAPI:
             CameDomoticAuthError: If the authentication fails.
             CameDomoticServerError: If the server returns an error.
         """
+        LOGGER.debug("Fetching openings list")
         payload = {
             "cmd_name": _CommandName.OPENINGS_LIST.value,
             "topologic_scope": _TopologicScope.PLANT.value,
@@ -309,6 +340,7 @@ class CameDomoticAPI:
         )
 
         openings_data = json_response.get("array", [])
+        LOGGER.info("Retrieved %d opening(s)", len(openings_data))
         return [Opening(opening_data, self.auth) for opening_data in openings_data]
 
     async def async_get_scenarios(self) -> list[Scenario]:
@@ -321,6 +353,7 @@ class CameDomoticAPI:
             CameDomoticAuthError: If the authentication fails.
             CameDomoticServerError: If the server returns an error.
         """
+        LOGGER.debug("Fetching scenarios list")
         payload = {
             "cmd_name": _CommandName.SCENARIOS_LIST.value,
         }
@@ -331,6 +364,7 @@ class CameDomoticAPI:
 
         # Defaults to an empty list if the key is missing from the response JSON
         scenarios_list = json_response.get("array", [])
+        LOGGER.info("Retrieved %d scenario(s)", len(scenarios_list))
         return [Scenario(data, self.auth) for data in scenarios_list]
 
     @classmethod
@@ -369,6 +403,7 @@ class CameDomoticAPI:
         Note:
             The session is not logged in until the first request is made.
         """
+        LOGGER.debug("Creating CameDomoticAPI for host '%s'", host)
         session = websession or aiohttp.ClientSession()
         try:
             auth = await Auth.async_create(
@@ -382,7 +417,11 @@ class CameDomoticAPI:
                 command_timeout=command_timeout,
             )
         except Exception:
+            LOGGER.warning(
+                "Failed to create API for host '%s', cleaning up session", host
+            )
             if not websession:
                 await session.close()
             raise
+        LOGGER.info("CameDomoticAPI created for host '%s'", host)
         return cls(auth, command_timeout=command_timeout)

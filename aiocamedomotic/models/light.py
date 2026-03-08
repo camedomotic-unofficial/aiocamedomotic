@@ -213,6 +213,15 @@ class Light(CameEntity):
         if rgb is not None:
             self.raw_data["rgb"] = [max(0, min(v, 255)) for v in rgb]
 
+        LOGGER.info(
+            "Light '%s' (ID: %s) set to %s (brightness=%s, rgb=%s)",
+            self.name,
+            self.act_id,
+            status.name,
+            brightness,
+            rgb,
+        )
+
     def _prepare_light_payload(
         self,
         status: LightStatus,
