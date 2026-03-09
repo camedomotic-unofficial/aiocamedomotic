@@ -38,11 +38,11 @@
         "editor.formatOnType": true,
         "files.trimTrailingWhitespace": true,
         "terminal.integrated.profiles.linux": {
-          "zsh": {
-            "path": "/usr/bin/zsh"
+          "bash": {
+            "path": "/bin/bash"
           }
         },
-        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.defaultProfile.linux": "bash",
         "[python]": {
           "editor.defaultFormatter": "charliermarsh.ruff"
         }
