@@ -331,19 +331,19 @@ if is_came_mac(discovered_mac):
 #### Verifying the CAME API endpoint
 
 A matching MAC prefix alone does not guarantee the device is a CAME Domotic
-server. To confirm, attempt to connect and retrieve the server information:
+server. To confirm, use [`async_is_came_endpoint()`](#aiocamedomotic.utils.async_is_came_endpoint)
+to check whether the host exposes the CAME API endpoint. This check does
+**not** require credentials, making it suitable for autodiscovery:
 
 ```python
-from aiocamedomotic import CameDomoticAPI, CAME_MAC_PREFIXES
-from aiocamedomotic.errors import CameDomoticError
+from aiocamedomotic import CAME_MAC_PREFIXES, async_is_came_endpoint
 
-async def async_verify_came_server(
-    host: str, mac_address: str, username: str, password: str
-) -> bool:
-    """Verify that a device is a CAME Domotic server.
+async def async_discover_came_server(host: str, mac_address: str) -> bool:
+    """Check if a network device is a CAME Domotic server.
 
-    First checks the MAC prefix, then confirms by retrieving
-    server information from the CAME API.
+    No credentials are needed: the function only verifies that the
+    MAC address belongs to a known CAME/BPT manufacturer and that
+    the host exposes the expected API endpoint.
     """
     # Step 1: Quick MAC prefix check
     mac_upper = mac_address.upper()
@@ -351,19 +351,7 @@ async def async_verify_came_server(
         return False
 
     # Step 2: Verify the device exposes a valid CAME API endpoint
-    try:
-        async with await CameDomoticAPI.async_create(
-            host, username, password
-        ) as api:
-            server_info = await api.async_get_server_info()
-            print(
-                f"Confirmed CAME server at {host}: "
-                f"keycode={server_info.keycode}, "
-                f"version={server_info.swver}"
-            )
-            return True
-    except CameDomoticError:
-        return False
+    return await async_is_came_endpoint(host)
 ```
 
 ### Initializing the API client
@@ -2616,6 +2604,28 @@ Values:
   - RELAY_LEGACY (“relay_update_ind”)
   - DIGITAL_INPUT_LEGACY (“digitalin_update_ind”)
   - SCENARIO_USER_LEGACY (“scenario_user_ind”)
+
+### Utilities
+
+#### *async* aiocamedomotic.utils.async_is_came_endpoint(host: str, websession: ClientSession | None = None, timeout: int = 10) → bool
+
+Check whether a host exposes the CAME Domotic API endpoint.
+
+Performs a credential-free HTTP GET on the CAME API URL to determine
+if the host is a CAME ETI/Domo server. Suitable for network
+autodiscovery alongside `CAME_MAC_PREFIXES`.
+
+* **Parameters:**
+  * **host** – IP address or hostname of the device to check
+    (e.g., `"192.168.1.100"`, `"came-server.local"`).
+  * **websession** – Optional `aiohttp.ClientSession` to reuse. When
+    provided, the caller retains ownership and the session will **not**
+    be closed by this function. When omitted, a temporary session is
+    created and closed automatically.
+  * **timeout** – HTTP request timeout in seconds (default: 10).
+* **Returns:**
+  `True` if the host responds with HTTP 200 on the CAME API endpoint,
+  `False` otherwise (network error, timeout, wrong status, etc.).
 
 ### Errors
 
