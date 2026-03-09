@@ -60,6 +60,12 @@ Constants
    :members: CAME_MAC_PREFIXES, DeviceType, UpdateIndicator
 
 
+Utilities
+---------
+
+.. autofunction:: aiocamedomotic.utils.async_is_came_endpoint
+
+
 Errors
 ------
 

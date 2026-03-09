@@ -20,7 +20,57 @@ import logging
 from collections.abc import Sequence
 from typing import Any
 
+import aiohttp
+
 LOGGER = logging.getLogger(__package__)
+
+
+async def async_is_came_endpoint(
+    host: str,
+    websession: aiohttp.ClientSession | None = None,
+    timeout: int = 10,
+) -> bool:
+    """Check whether a host exposes the CAME Domotic API endpoint.
+
+    Performs a credential-free HTTP GET on the CAME API URL to determine
+    if the host is a CAME ETI/Domo server. Suitable for network
+    autodiscovery alongside :data:`~aiocamedomotic.const.CAME_MAC_PREFIXES`.
+
+    Args:
+        host: IP address or hostname of the device to check
+            (e.g., ``"192.168.1.100"``, ``"came-server.local"``).
+        websession: Optional :class:`aiohttp.ClientSession` to reuse. When
+            provided, the caller retains ownership and the session will **not**
+            be closed by this function. When omitted, a temporary session is
+            created and closed automatically.
+        timeout: HTTP request timeout in seconds (default: 10).
+
+    Returns:
+        ``True`` if the host responds with HTTP 200 on the CAME API endpoint,
+        ``False`` otherwise (network error, timeout, wrong status, etc.).
+    """
+    endpoint_url = f"http://{host}/domo/"
+    LOGGER.debug("Checking CAME endpoint at '%s'", endpoint_url)
+
+    own_session = websession is None
+    session = websession or aiohttp.ClientSession()
+
+    try:
+        client_timeout = aiohttp.ClientTimeout(total=timeout)
+        async with session.get(endpoint_url, timeout=client_timeout) as resp:
+            if resp.status == 200:
+                LOGGER.debug("CAME endpoint confirmed at '%s'", endpoint_url)
+                return True
+            LOGGER.debug(
+                "Host at '%s' responded with HTTP %s", endpoint_url, resp.status
+            )
+            return False
+    except Exception as exc:  # pylint: disable=broad-except
+        LOGGER.debug("CAME endpoint check failed for '%s': %s", endpoint_url, exc)
+        return False
+    finally:
+        if own_session:
+            await session.close()
 
 
 class EntityValidator:
