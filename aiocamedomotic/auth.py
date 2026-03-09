@@ -41,7 +41,12 @@ from urllib.parse import urlsplit
 import aiohttp
 from cryptography.fernet import Fernet
 
-from .const import _DEFAULT_COMMAND_TIMEOUT, _CommandType
+from .const import (
+    _DEFAULT_COMMAND_TIMEOUT,
+    _KEEP_ALIVE_MAX_SEC,
+    _KEEP_ALIVE_MIN_SEC,
+    _CommandType,
+)
 
 # Get package version to avoid circular imports
 try:
@@ -52,6 +57,7 @@ from .errors import (
     CameDomoticAuthError,
     CameDomoticServerError,
     CameDomoticServerNotFoundError,
+    CameDomoticServerTimeoutError,
 )
 from .utils import LOGGER
 
@@ -87,7 +93,7 @@ def handle_came_domotic_errors(func: _F) -> _F:
         except aiohttp.ServerTimeoutError as e:
             # Handle timeouts specifically
             LOGGER.error("Timeout in %s: %s", func.__name__, e)
-            raise CameDomoticServerError(
+            raise CameDomoticServerTimeoutError(
                 f"HTTP POST resulted in a timeout error ({e})"
             ) from e
         except aiohttp.ClientError as e:
@@ -298,7 +304,9 @@ class Auth:
         """
         async with self._lock:
             if not self.is_session_valid():
-                LOGGER.debug("Session expired or invalid, performing login")
+                LOGGER.debug(
+                    "Session expired or not yet established, triggering re-login"
+                )
                 await self._async_perform_login()
             return self.client_id
 
@@ -557,7 +565,18 @@ class Auth:
 
             # ACK is ok, store the login data
             self.client_id = data.get("sl_client_id", "")
-            self.keep_alive_timeout_sec = data.get("sl_keep_alive_timeout_sec", 0)
+            raw_timeout: int = data.get("sl_keep_alive_timeout_sec", 0)
+            # Clamp server-supplied keep-alive to a safe range.
+            # A value of 0 would trigger re-login on every command (re-login storm).
+            # A very large value would allow sessions to drift without renewal.
+            self.keep_alive_timeout_sec = max(
+                _KEEP_ALIVE_MIN_SEC, min(raw_timeout, _KEEP_ALIVE_MAX_SEC)
+            )
+            LOGGER.debug(
+                "Keep-alive timeout set to %d s (server sent %d s)",
+                self.keep_alive_timeout_sec,
+                raw_timeout,
+            )
             self.session_expiration_timestamp = time.monotonic() + max(
                 0, self.keep_alive_timeout_sec - Auth._DEFAULT_SAFE_ZONE_SEC
             )
@@ -692,7 +711,7 @@ class Auth:
         self,
     ) -> tuple[bytes | None, bytes | None, str, float, int, int]:
         """Backup the current authentication credentials."""
-        return (
+        result = (
             self.username,
             self.password,
             self.client_id,
@@ -700,6 +719,8 @@ class Auth:
             self.keep_alive_timeout_sec,
             self.cseq,
         )
+        LOGGER.debug("Auth credentials backed up")
+        return result
 
     def restore_auth_credentials(
         self,
@@ -718,6 +739,7 @@ class Auth:
             self.keep_alive_timeout_sec,
             self.cseq,
         ) = backup_state
+        LOGGER.debug("Auth credentials restored from backup")
 
     def update_auth_credentials(self, username: str, password: str) -> None:
         """Update the authentication credentials.
@@ -736,6 +758,6 @@ class Auth:
         # Invalidate the (previous) session, since the credentials have changed
         self.session_expiration_timestamp = time.monotonic() - 3600
         self.client_id = ""
-        LOGGER.debug("Auth credentials updated, previous session invalidated")
+        LOGGER.info("Auth credentials updated, session invalidated")
 
     # endregion

@@ -61,9 +61,20 @@ class CameDomoticAPI:
         """
         self.auth = auth
         self.auth.command_timeout = command_timeout
+        self._server_info_cache: ServerInfo | None = None
         LOGGER.debug(
             "CameDomoticAPI initialized (command_timeout=%ds)", command_timeout
         )
+
+    @property
+    def server_info(self) -> ServerInfo | None:
+        """Cached server information, or ``None`` if not yet fetched.
+
+        This property makes no API call. Call :meth:`async_get_server_info` to
+        populate it. All ``async_get_*()`` device list methods populate it
+        automatically before returning entities.
+        """
+        return self._server_info_cache
 
     async def __aenter__(self) -> CameDomoticAPI:
         return self
@@ -112,6 +123,9 @@ class CameDomoticAPI:
         Provides info about the server (keycode, software version, etc.) and the list of
         features supported by the CAME Domotic server.
 
+        If ``server_info`` is already cached, returns it immediately without making an
+        API call.
+
         Returns:
             ServerInfo: Server information.
 
@@ -119,6 +133,9 @@ class CameDomoticAPI:
             CameDomoticAuthError: If the authentication fails.
             CameDomoticServerError: If the server returns an error.
         """
+
+        if self._server_info_cache is not None:
+            return self._server_info_cache
 
         LOGGER.debug("Fetching server info")
         payload = {
@@ -135,7 +152,7 @@ class CameDomoticAPI:
             json_response.get("swver"),
             json_response.get("list"),
         )
-        return ServerInfo(
+        server_info = ServerInfo(
             keycode=json_response.get("keycode"),  # type: ignore[arg-type]
             swver=json_response.get("swver"),
             type=json_response.get("type"),
@@ -143,6 +160,9 @@ class CameDomoticAPI:
             serial=json_response.get("serial"),  # type: ignore[arg-type]
             features=json_response.get("list"),  # type: ignore[arg-type]
         )
+        self._server_info_cache = server_info
+        LOGGER.debug("Server info cached for host '%s'", self.auth.host)
+        return server_info
 
     async def async_get_floors(self) -> list[Floor]:
         """Get the list of all the floors defined on the server.
@@ -208,6 +228,13 @@ class CameDomoticAPI:
         """
 
         LOGGER.debug("Fetching lights list")
+        try:
+            await self.async_get_server_info()
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.warning(
+                "Could not fetch server info for lights; unique_id unavailable"
+            )
+
         payload = {
             "cmd_name": _CommandName.LIGHT_LIST.value,
             "topologic_scope": _TopologicScope.PLANT.value,
@@ -218,9 +245,14 @@ class CameDomoticAPI:
         )
 
         # Defaults to an empty list if the key is missing from the response JSON
-        lights_list = json_response.get("array", [])
-        LOGGER.info("Retrieved %d light(s)", len(lights_list))
-        return [Light(light, self.auth) for light in lights_list]
+        lights_list = json_response.get("array", []) or []
+        lights = []
+        for light_data in lights_list:
+            light = Light(light_data, self.auth)
+            light.server_info = self.server_info
+            lights.append(light)
+        LOGGER.info("Retrieved %d light(s)", len(lights))
+        return lights
 
     async def async_get_thermo_zones(self) -> list[ThermoZone]:
         """Get the list of all thermoregulation zones defined on the server.
@@ -234,6 +266,14 @@ class CameDomoticAPI:
         """
 
         LOGGER.debug("Fetching thermoregulation zones")
+        try:
+            await self.async_get_server_info()
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.warning(
+                "Could not fetch server info for thermo zones; "
+                "unique_id will not be available"
+            )
+
         payload = {
             "cmd_name": _CommandName.THERMO_LIST.value,
             "topologic_scope": _TopologicScope.PLANT.value,
@@ -244,9 +284,14 @@ class CameDomoticAPI:
         )
 
         # Defaults to an empty list if the key is missing from the response JSON
-        zones_list = json_response.get("array", [])
-        LOGGER.info("Retrieved %d thermo zone(s)", len(zones_list))
-        return [ThermoZone(zone, self.auth) for zone in zones_list]
+        zones_list = json_response.get("array", []) or []
+        zones = []
+        for zone_data in zones_list:
+            zone = ThermoZone(zone_data, self.auth)
+            zone.server_info = self.server_info
+            zones.append(zone)
+        LOGGER.info("Retrieved %d thermo zone(s)", len(zones))
+        return zones
 
     async def async_get_analog_sensors(self) -> list[AnalogSensor]:
         """Get analog sensor readings from the thermoregulation system.
@@ -263,6 +308,14 @@ class CameDomoticAPI:
         """
 
         LOGGER.debug("Fetching analog sensors")
+        try:
+            await self.async_get_server_info()
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.warning(
+                "Could not fetch server info for analog sensors; "
+                "unique_id will not be available"
+            )
+
         payload = {
             "cmd_name": _CommandName.THERMO_LIST.value,
             "topologic_scope": _TopologicScope.PLANT.value,
@@ -276,7 +329,9 @@ class CameDomoticAPI:
         for key in ("temperature", "humidity", "pressure"):
             sensor_data = json_response.get(key)
             if sensor_data and isinstance(sensor_data, dict):
-                sensors.append(AnalogSensor(sensor_data))
+                sensor = AnalogSensor(sensor_data)
+                sensor.server_info = self.server_info
+                sensors.append(sensor)
         LOGGER.info("Retrieved %d analog sensor(s)", len(sensors))
         return sensors
 
@@ -330,6 +385,14 @@ class CameDomoticAPI:
             CameDomoticServerError: If the server returns an error.
         """
         LOGGER.debug("Fetching openings list")
+        try:
+            await self.async_get_server_info()
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.warning(
+                "Could not fetch server info for openings; "
+                "unique_id will not be available"
+            )
+
         payload = {
             "cmd_name": _CommandName.OPENINGS_LIST.value,
             "topologic_scope": _TopologicScope.PLANT.value,
@@ -339,9 +402,14 @@ class CameDomoticAPI:
             payload, response_command=_CommandNameResponse.OPENINGS_LIST.value
         )
 
-        openings_data = json_response.get("array", [])
-        LOGGER.info("Retrieved %d opening(s)", len(openings_data))
-        return [Opening(opening_data, self.auth) for opening_data in openings_data]
+        openings_data = json_response.get("array", []) or []
+        openings = []
+        for opening_data in openings_data:
+            opening = Opening(opening_data, self.auth)
+            opening.server_info = self.server_info
+            openings.append(opening)
+        LOGGER.info("Retrieved %d opening(s)", len(openings))
+        return openings
 
     async def async_get_scenarios(self) -> list[Scenario]:
         """Get the list of all scenarios defined on the server.
@@ -354,6 +422,14 @@ class CameDomoticAPI:
             CameDomoticServerError: If the server returns an error.
         """
         LOGGER.debug("Fetching scenarios list")
+        try:
+            await self.async_get_server_info()
+        except Exception:  # pylint: disable=broad-except
+            LOGGER.warning(
+                "Could not fetch server info for scenarios; "
+                "unique_id will not be available"
+            )
+
         payload = {
             "cmd_name": _CommandName.SCENARIOS_LIST.value,
         }
@@ -363,9 +439,14 @@ class CameDomoticAPI:
         )
 
         # Defaults to an empty list if the key is missing from the response JSON
-        scenarios_list = json_response.get("array", [])
-        LOGGER.info("Retrieved %d scenario(s)", len(scenarios_list))
-        return [Scenario(data, self.auth) for data in scenarios_list]
+        scenarios_list = json_response.get("array", []) or []
+        scenarios = []
+        for scenario_data in scenarios_list:
+            scenario = Scenario(scenario_data, self.auth)
+            scenario.server_info = self.server_info
+            scenarios.append(scenario)
+        LOGGER.info("Retrieved %d scenario(s)", len(scenarios))
+        return scenarios
 
     @classmethod
     async def async_create(

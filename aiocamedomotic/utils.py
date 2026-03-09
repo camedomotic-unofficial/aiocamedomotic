@@ -77,16 +77,25 @@ class EntityValidator:
     """Mixin class to validate the CAME entities."""
 
     @staticmethod
-    def validate_data(data: Any, required_keys: Sequence[str]) -> None:
+    def validate_data(
+        data: Any,
+        required_keys: Sequence[str],
+        typed_keys: dict[str, type] | None = None,
+    ) -> None:
         """
         Validates the necessary data fields in the provided dictionary.
 
         Args:
             data (dict): The data dictionary to validate.
             required_keys (list): A list of keys that must be present in the data.
+            typed_keys (dict, optional): Mapping of key to expected type. For each
+                entry, the value at that key must be an instance of the expected type.
+                Keys in ``typed_keys`` should also appear in ``required_keys`` to
+                ensure they are present before type-checking.
 
         Raises:
-            ValueError: If any required key is missing from the data.
+            ValueError: If the data is not a dict, any required key is missing,
+                or any typed key has a value of the wrong type.
         """
         if not isinstance(data, dict):
             LOGGER.debug(
@@ -100,3 +109,17 @@ class EntityValidator:
             raise ValueError(
                 f"Data is missing required keys: {', '.join(missing_keys)}"
             )
+
+        if typed_keys:
+            for key, expected_type in typed_keys.items():
+                if key in data and not isinstance(data[key], expected_type):
+                    LOGGER.debug(
+                        "Validation failed: key '%s' expected %s, got %s",
+                        key,
+                        expected_type.__name__,
+                        type(data[key]).__name__,
+                    )
+                    raise ValueError(
+                        f"Key '{key}' expected {expected_type.__name__}, "
+                        f"got {type(data[key]).__name__}"
+                    )

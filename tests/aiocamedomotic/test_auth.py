@@ -29,11 +29,16 @@ from cryptography.fernet import Fernet
 
 from aiocamedomotic import Auth
 from aiocamedomotic.auth import handle_came_domotic_errors
-from aiocamedomotic.const import _DEFAULT_COMMAND_TIMEOUT
+from aiocamedomotic.const import (
+    _DEFAULT_COMMAND_TIMEOUT,
+    _KEEP_ALIVE_MAX_SEC,
+    _KEEP_ALIVE_MIN_SEC,
+)
 from aiocamedomotic.errors import (
     CameDomoticAuthError,
     CameDomoticServerError,
     CameDomoticServerNotFoundError,
+    CameDomoticServerTimeoutError,
 )
 
 
@@ -58,7 +63,7 @@ class TestHandleCameDomoticErrorsDecorator:
         async def dummy():
             raise aiohttp.ServerTimeoutError("timed out")
 
-        with pytest.raises(CameDomoticServerError, match="timeout"):
+        with pytest.raises(CameDomoticServerTimeoutError, match="timeout"):
             await dummy()
 
     async def test_client_error(self):
@@ -1175,3 +1180,131 @@ class TestAuthConcurrency:
         assert all(task.done() for task in tasks), (
             "All tasks should complete successfully"
         )
+
+
+class TestSessionRecovery:
+    """Tests verifying session invalidation and re-login behaviour."""
+
+    async def test_session_invalidated_on_ack_7(self, auth_instance):
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {"sl_data_ack_reason": 7}
+
+        auth_instance.client_id = "old_client_id"
+
+        with patch.object(
+            auth_instance.websession, "post", new_callable=AsyncMock
+        ) as mock_post:
+            mock_post.return_value = mock_response
+
+            with patch.object(
+                auth_instance, "async_get_valid_client_id", new_callable=AsyncMock
+            ) as mock_get_client_id:
+                mock_get_client_id.return_value = "old_client_id"
+
+                with pytest.raises(CameDomoticServerError):
+                    await auth_instance.async_send_command({})
+
+        assert auth_instance.client_id == ""
+
+    async def test_session_invalidated_on_ack_8(self, auth_instance):
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {"sl_data_ack_reason": 8}
+
+        auth_instance.client_id = "old_client_id"
+
+        with patch.object(
+            auth_instance.websession, "post", new_callable=AsyncMock
+        ) as mock_post:
+            mock_post.return_value = mock_response
+
+            with patch.object(
+                auth_instance, "async_get_valid_client_id", new_callable=AsyncMock
+            ) as mock_get_client_id:
+                mock_get_client_id.return_value = "old_client_id"
+
+                with pytest.raises(CameDomoticServerError):
+                    await auth_instance.async_send_command({})
+
+        assert auth_instance.client_id == ""
+
+    async def test_relogin_after_session_expiry(self, auth_instance):
+        auth_instance.session_expiration_timestamp = time.monotonic() - 3600
+        auth_instance.client_id = ""
+
+        with patch.object(
+            auth_instance, "_async_perform_login", new_callable=AsyncMock
+        ) as mock_login:
+
+            async def set_logged_in():
+                auth_instance.client_id = "refreshed_client"
+                auth_instance.session_expiration_timestamp = time.monotonic() + 3600
+
+            mock_login.side_effect = set_logged_in
+
+            result = await auth_instance.async_get_valid_client_id()
+
+        mock_login.assert_called_once()
+        assert result == "refreshed_client"
+
+    async def test_concurrent_commands_single_relogin(self, auth_instance):
+        auth_instance.session_expiration_timestamp = time.monotonic() - 3600
+        auth_instance.client_id = ""
+
+        async def set_logged_in():
+            auth_instance.client_id = "refreshed_client"
+            auth_instance.session_expiration_timestamp = time.monotonic() + 3600
+
+        with patch.object(
+            auth_instance, "_async_perform_login", new_callable=AsyncMock
+        ) as mock_login:
+            mock_login.side_effect = set_logged_in
+
+            results = await asyncio.gather(
+                auth_instance.async_get_valid_client_id(),
+                auth_instance.async_get_valid_client_id(),
+            )
+
+        assert mock_login.call_count == 1
+        assert all(r == "refreshed_client" for r in results)
+
+
+class TestKeepAliveClamping:
+    """Tests for server-supplied keep-alive timeout clamping."""
+
+    @freezegun.freeze_time("2020-01-01")
+    async def test_keep_alive_clamped_low(self, auth_instance_not_logged_in: Auth):
+        with (
+            patch.object(Auth, "async_send_command") as mock_send_command,
+            patch.object(Auth, "is_session_valid", return_value=False),
+        ):
+            mock_send_command.return_value = {
+                "sl_data_ack_reason": 0,
+                "sl_client_id": "test_client_id",
+                "sl_keep_alive_timeout_sec": 0,
+            }
+            await auth_instance_not_logged_in.async_login()
+            assert (
+                auth_instance_not_logged_in.keep_alive_timeout_sec
+                == _KEEP_ALIVE_MIN_SEC
+            )
+
+    @freezegun.freeze_time("2020-01-01")
+    async def test_keep_alive_clamped_high(self, auth_instance_not_logged_in: Auth):
+        with (
+            patch.object(Auth, "async_send_command") as mock_send_command,
+            patch.object(Auth, "is_session_valid", return_value=False),
+        ):
+            mock_send_command.return_value = {
+                "sl_data_ack_reason": 0,
+                "sl_client_id": "test_client_id",
+                "sl_keep_alive_timeout_sec": 99999,
+            }
+            await auth_instance_not_logged_in.async_login()
+            assert (
+                auth_instance_not_logged_in.keep_alive_timeout_sec
+                == _KEEP_ALIVE_MAX_SEC
+            )

@@ -14,6 +14,16 @@
 
 """
 This module contains the exceptions that can be raised by the CAME Domotic API.
+
+Exception hierarchy and suggested Home Assistant mapping:
+
+- :exc:`CameDomoticServerNotFoundError` → ``ConfigEntryNotReady``
+  (host unreachable, transient)
+- :exc:`CameDomoticAuthError` → ``ConfigEntryAuthFailed``
+  (bad credentials, permanent — triggers reauth flow)
+- :exc:`CameDomoticServerTimeoutError` → ``ConfigEntryNotReady``
+  (request timeout, transient)
+- :exc:`CameDomoticServerError` (other ACK codes) → log and re-raise
 """
 
 from __future__ import annotations
@@ -74,3 +84,22 @@ class CameDomoticServerError(CameDomoticError):
             exc = CameDomoticServerError(message)
         exc.ack_code = ack_code
         return exc
+
+
+class CameDomoticServerTimeoutError(CameDomoticServerError):
+    """Raised when a request to the CAME Domotic server times out.
+
+    This exception indicates a transient failure. When using this library with
+    Home Assistant, it should be mapped to ``ConfigEntryNotReady`` to allow the
+    integration to retry with exponential backoff.
+
+    See also the exception hierarchy mapping for Home Assistant integrations:
+
+    - :exc:`CameDomoticServerNotFoundError` → ``ConfigEntryNotReady``
+      (host unreachable, transient)
+    - :exc:`CameDomoticAuthError` → ``ConfigEntryAuthFailed``
+      (bad credentials, permanent — triggers reauth flow)
+    - :exc:`CameDomoticServerTimeoutError` → ``ConfigEntryNotReady``
+      (request timeout, transient)
+    - :exc:`CameDomoticServerError` (other ACK codes) → log and re-raise
+    """

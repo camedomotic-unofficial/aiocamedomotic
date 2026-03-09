@@ -479,6 +479,19 @@ class TestAPILights:
         assert isinstance(lights, list)
 
     @patch.object(Auth, "async_send_command")
+    async def test_async_get_lights_null_array(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": None,
+            "cmd_name": "light_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        lights = await api.async_get_lights()
+        assert lights == []
+
+    @patch.object(Auth, "async_send_command")
     async def test_async_get_lights_missing_act_id(
         self, mock_send_command, auth_instance
     ):

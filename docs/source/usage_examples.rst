@@ -81,11 +81,17 @@ To properly handle potential errors, you can add these imports:
 .. code-block:: python
 
     from aiocamedomotic.errors import (
-        CameDomoticError, # Base error raised by the library
-        CameDomoticServerNotFoundError, # Server not reachable (wrong IP/hostname?)
-        CameDomoticAuthError, # Authentication failure (wrong credentials?)
-        CameDomoticServerError, # Server-side error
+        CameDomoticError,                # Base error raised by the library
+        CameDomoticServerNotFoundError,  # Server not reachable (wrong IP/hostname?)
+        CameDomoticAuthError,            # Authentication failure (wrong credentials?)
+        CameDomoticServerTimeoutError,   # Request timed out (transient, retry later)
+        CameDomoticServerError,          # Other server-side error
     )
+
+.. note::
+    ``CameDomoticServerTimeoutError`` is a subclass of ``CameDomoticServerError``
+    and signals a **transient** failure. Catching it separately lets you distinguish
+    retryable timeouts from permanent errors.
 
 Initializing the API client
 ---------------------------
@@ -442,6 +448,36 @@ Example output for analog sensors:
     Name: Barometric Pressure, Value: 1013, Unit: hPa
 
 
+Entity unique IDs
+-----------------
+
+Every device entity exposes a ``unique_id`` property that returns a stable,
+globally unique string identifier suitable for use as a persistent key (e.g.
+as an entity ID in Home Assistant):
+
+.. code-block:: python
+
+    lights = await api.async_get_lights()
+
+    for light in lights:
+        print(f"unique_id: {light.unique_id}, name: {light.name}")
+
+Example output:
+
+.. code-block:: text
+
+    unique_id: 0000FFFF9999AAAA_light_1, name: Living Room Chandelier
+    unique_id: 0000FFFF9999AAAA_light_2, name: Hallway Night Light
+
+The ``unique_id`` follows the pattern ``{server_keycode}_{entity_type}_{device_id}``
+and is available on all device entities: ``Light``, ``Opening``, ``Scenario``,
+``ThermoZone``, and ``AnalogSensor``.
+
+.. note::
+    ``unique_id`` returns ``None`` if server info could not be retrieved during
+    the entity list fetch. Guard against ``None`` when using it as a persistent key.
+
+
 Real-time updates
 -----------------
 
@@ -619,6 +655,7 @@ You can check for this using the ``has_plant_update`` property:
         openings = await api.async_get_openings()
         scenarios = await api.async_get_scenarios()
         thermo_zones = await api.async_get_thermo_zones()
+        sensors = await api.async_get_analog_sensors()
 
 .. note::
     Plant updates are relatively rare. They typically occur when an installer

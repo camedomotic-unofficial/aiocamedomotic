@@ -1143,6 +1143,17 @@ class TestLight:
         assert light.type == LightType(light_data_dimmable["type"])
         assert light.perc == light_data_dimmable["perc"]
 
+    def test_unique_id_without_server_info(self, light_data_on_off, auth_instance):
+        light = Light(light_data_on_off, auth_instance)
+        assert light.unique_id is None
+
+    def test_unique_id_with_server_info(self, light_data_on_off, auth_instance):
+        light = Light(light_data_on_off, auth_instance)
+        light.server_info = ServerInfo(
+            keycode="ABC123", serial="SN001", features=["lights"]
+        )
+        assert light.unique_id == f"ABC123_light_{light_data_on_off['act_id']}"
+
     def test_unknown_type(self, auth_instance):
         unknown_light_data = {
             "act_id": 1,
@@ -1389,8 +1400,18 @@ class TestLight:
 
         light = Light(light_data, auth_instance)
 
-        with pytest.raises(ValueError):
-            status = light.status  # noqa: F841
+        assert light.status == LightStatus.UNKNOWN
+
+    def test_invalid_act_id_type(self, auth_instance):
+        light_data = {
+            "act_id": "not_an_int",
+            "name": "Test Light",
+            "status": 1,
+            "type": "STEP_STEP",
+        }
+
+        with pytest.raises(ValueError, match="Key 'act_id' expected int, got str"):
+            Light(light_data, auth_instance)
 
     def test_auth_type_validation(self):
         light_data = {
@@ -1454,6 +1475,23 @@ class TestOpening:
     def test_type_enum(self):
         assert OpeningType.SHUTTER.value == 0
         assert OpeningType.UNKNOWN.value == -1
+
+    def test_unique_id_without_server_info(
+        self, opening_data_shutter_stopped, auth_instance
+    ):
+        opening = Opening(opening_data_shutter_stopped, auth_instance)
+        assert opening.unique_id is None
+
+    def test_unique_id_with_server_info(
+        self, opening_data_shutter_stopped, auth_instance
+    ):
+        opening = Opening(opening_data_shutter_stopped, auth_instance)
+        opening.server_info = ServerInfo(
+            keycode="ABC123", serial="SN001", features=["openings"]
+        )
+        assert opening.unique_id == (
+            f"ABC123_opening_{opening_data_shutter_stopped['open_act_id']}"
+        )
 
     def test_unknown_type(self, auth_instance):
         unknown_opening_data = {
@@ -1796,6 +1834,17 @@ class TestScenario:
         with pytest.raises(ValueError):
             Scenario({"id": 1}, auth_instance)
 
+    def test_unique_id_without_server_info(self, scenario_data_off, auth_instance):
+        scenario = Scenario(scenario_data_off, auth_instance)
+        assert scenario.unique_id is None
+
+    def test_unique_id_with_server_info(self, scenario_data_off, auth_instance):
+        scenario = Scenario(scenario_data_off, auth_instance)
+        scenario.server_info = ServerInfo(
+            keycode="ABC123", serial="SN001", features=["scenarios"]
+        )
+        assert scenario.unique_id == f"ABC123_scenario_{scenario_data_off['id']}"
+
     def test_properties(self, scenario_data_on, auth_instance):
         scenario = Scenario(scenario_data_on, auth_instance)
         assert scenario.id == scenario_data_on["id"]
@@ -1908,6 +1957,24 @@ class TestThermoZone:
         zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
         assert zone.raw_data == thermo_zone_data_winter_auto
         assert zone.auth == auth_instance
+
+    def test_unique_id_without_server_info(
+        self, thermo_zone_data_winter_auto, auth_instance
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        assert zone.unique_id is None
+
+    def test_unique_id_with_server_info(
+        self, thermo_zone_data_winter_auto, auth_instance
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        zone.server_info = ServerInfo(
+            keycode="ABC123", serial="SN001", features=["thermoregulation"]
+        )
+        assert (
+            zone.unique_id
+            == f"ABC123_thermo_zone_{thermo_zone_data_winter_auto['act_id']}"
+        )
 
     def test_properties_winter_auto(self, thermo_zone_data_winter_auto, auth_instance):
         zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
@@ -2036,6 +2103,20 @@ class TestAnalogSensor:
         assert sensor.name == "Indoor Humidity"
         assert sensor.value == 55.0
         assert sensor.unit == "%"
+
+    def test_unique_id_without_server_info(self, analog_sensor_data_temperature):
+        sensor = AnalogSensor(analog_sensor_data_temperature)
+        assert sensor.unique_id is None
+
+    def test_unique_id_with_server_info(self, analog_sensor_data_temperature):
+        sensor = AnalogSensor(analog_sensor_data_temperature)
+        sensor.server_info = ServerInfo(
+            keycode="ABC123", serial="SN001", features=["thermoregulation"]
+        )
+        assert (
+            sensor.unique_id
+            == f"ABC123_analog_sensor_{analog_sensor_data_temperature['act_id']}"
+        )
 
     def test_missing_name(self):
         sensor_data = {"act_id": 100, "value": 215}
