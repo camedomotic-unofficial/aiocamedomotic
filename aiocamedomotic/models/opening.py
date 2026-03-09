@@ -33,7 +33,7 @@ from ..utils import (
     LOGGER,
     EntityValidator,
 )
-from .base import CameEntity
+from .base import CameEntity, ServerInfo
 
 
 class OpeningStatus(Enum):
@@ -85,16 +85,26 @@ class Opening(CameEntity):
 
     raw_data: dict[str, Any]
     auth: Auth
+    server_info: ServerInfo | None = None
 
     def __post_init__(self) -> None:
         EntityValidator.validate_data(
-            self.raw_data, required_keys=["name", "open_act_id", "close_act_id"]
+            self.raw_data,
+            required_keys=["name", "open_act_id", "close_act_id"],
+            typed_keys={"open_act_id": int, "close_act_id": int},
         )
         # Basic type-safety on the auth argument
         if not isinstance(self.auth, Auth):
             raise ValueError(
                 f"'auth' must be an instance of Auth, got {type(self.auth).__name__}"
             )
+
+    @property
+    def unique_id(self) -> str | None:
+        """Stable unique identifier for this opening entity."""
+        if self.server_info is None:
+            return None
+        return f"{self.server_info.keycode}_opening_{self.open_act_id}"
 
     @property
     def name(self) -> str:

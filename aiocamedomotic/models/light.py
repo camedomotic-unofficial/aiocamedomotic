@@ -34,7 +34,7 @@ from ..utils import (
     LOGGER,
     EntityValidator,
 )
-from .base import CameEntity
+from .base import CameEntity, ServerInfo
 
 
 class LightStatus(Enum):
@@ -49,6 +49,7 @@ class LightStatus(Enum):
     OFF = 0
     ON = 1
     AUTO = 4
+    UNKNOWN = -1
 
 
 class LightType(Enum):
@@ -79,14 +80,26 @@ class Light(CameEntity):
 
     raw_data: dict[str, Any]
     auth: Auth
+    server_info: ServerInfo | None = None
 
     def __post_init__(self) -> None:
-        EntityValidator.validate_data(self.raw_data, required_keys=["name", "act_id"])
+        EntityValidator.validate_data(
+            self.raw_data,
+            required_keys=["name", "act_id"],
+            typed_keys={"act_id": int},
+        )
         # Basic type-safety on the auth argument
         if not isinstance(self.auth, Auth):
             raise ValueError(
                 f"'auth' must be an instance of Auth, got {type(self.auth).__name__}"
             )
+
+    @property
+    def unique_id(self) -> str | None:
+        """Stable unique identifier for this light entity."""
+        if self.server_info is None:
+            return None
+        return f"{self.server_info.keycode}_light_{self.act_id}"
 
     @property
     def act_id(self) -> int:
@@ -111,7 +124,18 @@ class Light(CameEntity):
     @property
     def status(self) -> LightStatus:
         """Status of the light. Allowed values are OFF (0), ON (1) and AUTO (4)."""
-        return LightStatus(self.raw_data["status"])
+        try:
+            return LightStatus(self.raw_data["status"])
+        except (ValueError, KeyError):
+            LOGGER.warning(
+                "Unknown light status '%s' encountered for light '%s' (ID: %s). "
+                "Returning LightStatus.UNKNOWN. Please report this "
+                "to the library developers.",
+                self.raw_data.get("status"),
+                self.name,
+                self.act_id,
+            )
+            return LightStatus.UNKNOWN
 
     @property
     def type(self) -> LightType:

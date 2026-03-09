@@ -33,7 +33,7 @@ from ..utils import (
     LOGGER,
     EntityValidator,
 )
-from .base import CameEntity
+from .base import CameEntity, ServerInfo
 
 
 class ScenarioStatus(Enum):
@@ -66,14 +66,26 @@ class Scenario(CameEntity):
 
     raw_data: dict[str, Any]
     auth: Auth
+    server_info: ServerInfo | None = None
 
     def __post_init__(self) -> None:
-        EntityValidator.validate_data(self.raw_data, required_keys=["name", "id"])
+        EntityValidator.validate_data(
+            self.raw_data,
+            required_keys=["name", "id"],
+            typed_keys={"id": int},
+        )
         # Basic type-safety on the auth argument
         if not isinstance(self.auth, Auth):
             raise ValueError(
                 f"'auth' must be an instance of Auth, got {type(self.auth).__name__}"
             )
+
+    @property
+    def unique_id(self) -> str | None:
+        """Stable unique identifier for this scenario entity."""
+        if self.server_info is None:
+            return None
+        return f"{self.server_info.keycode}_scenario_{self.id}"
 
     @property
     def id(self) -> int:

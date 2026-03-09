@@ -33,6 +33,7 @@ Entity models
 
 .. automodule:: aiocamedomotic.models
    :members:
+   :noindex:
 
 .. automodule:: aiocamedomotic.models.base
    :members:

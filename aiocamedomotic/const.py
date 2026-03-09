@@ -44,6 +44,11 @@ CAME_MAC_PREFIXES: tuple[str, ...] = ("00:1C:B2",)
 # Default timeout in seconds for commands sent to the CAME server.
 _DEFAULT_COMMAND_TIMEOUT: int = 30
 
+# Bounds for the server-supplied keep-alive timeout (applied in auth.py).
+# Prevents re-login storms on zero/very-low values and runaway sessions on huge values.
+_KEEP_ALIVE_MIN_SEC: int = 30
+_KEEP_ALIVE_MAX_SEC: int = 3600
+
 
 def get_ack_error_message(ack_code: int) -> str:
     """Get human-readable message for ACK error code.
