@@ -98,7 +98,7 @@ async def main():
 
         # Get the server info
         server_info = await api.async_get_server_info()
-        print(f"Keycode (i.e. MAC address): {server_info.keycode}")
+        print(f"Keycode: {server_info.keycode}")
 
         # Get the list of all the lights configured on the CAME Domotic server
         lights = await api.async_get_lights()
@@ -170,7 +170,7 @@ Let’s go step by step:
    ```python
    # Get the server info
    server_info = await api.async_get_server_info()
-   print(f"Keycode (i.e. MAC address): {server_info.keycode}")
+   print(f"Keycode: {server_info.keycode}")
    ```
 3. **Fetching the list of available lights**:
 
@@ -341,7 +341,7 @@ async def async_my_usage_example():
 
 You can access the CAME Domotic server properties using the `async_get_server_info()`
 method. Should you need a **unique ID** for the server, you can use the `keycode`
-property (i.e. the MAC address of the server).
+property, a CAME proprietary unique identifier for the server.
 
 ```python
 server_info = await api.async_get_server_info()
@@ -1493,7 +1493,7 @@ Known values (as of now) are:
 
 ##### keycode *: str*
 
-Keycode of the server (i.e. MAC address in the form 001122AABBCC).
+Keycode of the server (CAME proprietary unique identifier).
 
 ##### serial *: str*
 
@@ -1827,7 +1827,7 @@ Known values (as of now) are:
 
 ##### keycode *: str*
 
-Keycode of the server (i.e. MAC address in the form 001122AABBCC).
+Keycode of the server (CAME proprietary unique identifier).
 
 ##### serial *: str*
 

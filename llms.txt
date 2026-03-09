@@ -98,7 +98,7 @@ async def main():
 
         # Get the server info
         server_info = await api.async_get_server_info()
-        print(f"Keycode (i.e. MAC address): {server_info.keycode}")
+        print(f"Keycode: {server_info.keycode}")
 
         # Get the list of all the lights configured on the CAME Domotic server
         lights = await api.async_get_lights()
@@ -170,7 +170,7 @@ Let’s go step by step:
    ```python
    # Get the server info
    server_info = await api.async_get_server_info()
-   print(f"Keycode (i.e. MAC address): {server_info.keycode}")
+   print(f"Keycode: {server_info.keycode}")
    ```
 3. **Fetching the list of available lights**:
 
