@@ -87,62 +87,6 @@ To properly handle potential errors, you can add these imports:
         CameDomoticServerError, # Server-side error
     )
 
-Device autodiscovery
---------------------
-
-The library exposes known MAC address OUI (Organizationally Unique Identifier)
-prefixes for CAME Domotic devices via the ``CAME_MAC_PREFIXES`` constant. This
-can be used as a first step to identify potential CAME ETI/Domo servers on the
-local network.
-
-Checking the MAC address prefix
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Use ``CAME_MAC_PREFIXES`` to quickly filter network devices that may be CAME
-Domotic servers:
-
-.. code-block:: python
-
-    from aiocamedomotic import CAME_MAC_PREFIXES
-
-    def is_came_mac(mac_address: str) -> bool:
-        """Check if a MAC address belongs to a known CAME/BPT manufacturer."""
-        mac_upper = mac_address.upper()
-        return any(mac_upper.startswith(prefix) for prefix in CAME_MAC_PREFIXES)
-
-    # Example: filter discovered devices on the network
-    discovered_mac = "00:1C:B2:71:1B:82"
-    if is_came_mac(discovered_mac):
-        print(f"{discovered_mac} looks like a CAME device")
-
-Verifying the CAME API endpoint
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-A matching MAC prefix alone does not guarantee the device is a CAME Domotic
-server. To confirm, use :func:`~aiocamedomotic.utils.async_is_came_endpoint`
-to check whether the host exposes the CAME API endpoint. This check does
-**not** require credentials, making it suitable for autodiscovery:
-
-.. code-block:: python
-
-    from aiocamedomotic import CAME_MAC_PREFIXES, async_is_came_endpoint
-
-    async def async_discover_came_server(host: str, mac_address: str) -> bool:
-        """Check if a network device is a CAME Domotic server.
-
-        No credentials are needed: the function only verifies that the
-        MAC address belongs to a known CAME/BPT manufacturer and that
-        the host exposes the expected API endpoint.
-        """
-        # Step 1: Quick MAC prefix check
-        mac_upper = mac_address.upper()
-        if not any(mac_upper.startswith(prefix) for prefix in CAME_MAC_PREFIXES):
-            return False
-
-        # Step 2: Verify the device exposes a valid CAME API endpoint
-        return await async_is_came_endpoint(host)
-
-
 Initializing the API client
 ---------------------------
 
@@ -516,6 +460,8 @@ each batch of updates as it arrives:
 
 .. code-block:: python
 
+    import asyncio
+
     async with await CameDomoticAPI.async_create(
         "192.168.x.x", "username", "password"
     ) as api:
@@ -525,10 +471,14 @@ each batch of updates as it arrives:
             for update in updates.get_typed_updates():
                 print(f"[{update.device_type}] {update.name} (ID: {update.device_id})")
 
+            # Throttle: avoid flooding the server on fast/error returns
+            await asyncio.sleep(1)
+
 .. note::
-    Because ``async_get_updates()`` blocks until the server has new updates,
-    you do **not** need to add ``asyncio.sleep()`` between calls. If you need
-    to run the polling loop alongside other logic, wrap it in
+    Although ``async_get_updates()`` blocks until the server has new updates,
+    the ``asyncio.sleep(1)`` acts as a safety throttle in case the server
+    returns immediately (e.g. errors or rapid update bursts). If you need to
+    run the polling loop alongside other logic, wrap it in
     ``asyncio.create_task()``.
 
 Configuring timeouts
@@ -674,6 +624,62 @@ You can check for this using the ``has_plant_update`` property:
     Plant updates are relatively rare. They typically occur when an installer
     modifies the system configuration. Failing to handle them may result in
     stale device data or missing newly added devices.
+
+
+Device autodiscovery
+--------------------
+
+The library exposes known MAC address OUI (Organizationally Unique Identifier)
+prefixes for CAME Domotic devices via the ``CAME_MAC_PREFIXES`` constant. This
+can be used as a first step to identify potential CAME ETI/Domo servers on the
+local network.
+
+Checking the MAC address prefix
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use ``CAME_MAC_PREFIXES`` to quickly filter network devices that may be CAME
+Domotic servers:
+
+.. code-block:: python
+
+    from aiocamedomotic import CAME_MAC_PREFIXES
+
+    def is_came_mac(mac_address: str) -> bool:
+        """Check if a MAC address belongs to a known CAME/BPT manufacturer."""
+        mac_upper = mac_address.upper()
+        return any(mac_upper.startswith(prefix) for prefix in CAME_MAC_PREFIXES)
+
+    # Example: filter discovered devices on the network
+    discovered_mac = "00:1C:B2:71:1B:82"
+    if is_came_mac(discovered_mac):
+        print(f"{discovered_mac} looks like a CAME device")
+
+Verifying the CAME API endpoint
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A matching MAC prefix alone does not guarantee the device is a CAME Domotic
+server. To confirm, use :func:`~aiocamedomotic.utils.async_is_came_endpoint`
+to check whether the host exposes the CAME API endpoint. This check does
+**not** require credentials, making it suitable for autodiscovery:
+
+.. code-block:: python
+
+    from aiocamedomotic import CAME_MAC_PREFIXES, async_is_came_endpoint
+
+    async def async_discover_came_server(host: str, mac_address: str) -> bool:
+        """Check if a network device is a CAME Domotic server.
+
+        No credentials are needed: the function only verifies that the
+        MAC address belongs to a known CAME/BPT manufacturer and that
+        the host exposes the expected API endpoint.
+        """
+        # Step 1: Quick MAC prefix check
+        mac_upper = mac_address.upper()
+        if not any(mac_upper.startswith(prefix) for prefix in CAME_MAC_PREFIXES):
+            return False
+
+        # Step 2: Verify the device exposes a valid CAME API endpoint
+        return await async_is_came_endpoint(host)
 
 
 Checking Authentication Status
