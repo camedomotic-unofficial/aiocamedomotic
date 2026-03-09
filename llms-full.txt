@@ -295,64 +295,18 @@ To properly handle potential errors, you can add these imports:
 
 ```python
 from aiocamedomotic.errors import (
-    CameDomoticError, # Base error raised by the library
-    CameDomoticServerNotFoundError, # Server not reachable (wrong IP/hostname?)
-    CameDomoticAuthError, # Authentication failure (wrong credentials?)
-    CameDomoticServerError, # Server-side error
+    CameDomoticError,                # Base error raised by the library
+    CameDomoticServerNotFoundError,  # Server not reachable (wrong IP/hostname?)
+    CameDomoticAuthError,            # Authentication failure (wrong credentials?)
+    CameDomoticServerTimeoutError,   # Request timed out (transient, retry later)
+    CameDomoticServerError,          # Other server-side error
 )
 ```
 
-### Device autodiscovery
-
-The library exposes known MAC address OUI (Organizationally Unique Identifier)
-prefixes for CAME Domotic devices via the `CAME_MAC_PREFIXES` constant. This
-can be used as a first step to identify potential CAME ETI/Domo servers on the
-local network.
-
-#### Checking the MAC address prefix
-
-Use `CAME_MAC_PREFIXES` to quickly filter network devices that may be CAME
-Domotic servers:
-
-```python
-from aiocamedomotic import CAME_MAC_PREFIXES
-
-def is_came_mac(mac_address: str) -> bool:
-    """Check if a MAC address belongs to a known CAME/BPT manufacturer."""
-    mac_upper = mac_address.upper()
-    return any(mac_upper.startswith(prefix) for prefix in CAME_MAC_PREFIXES)
-
-# Example: filter discovered devices on the network
-discovered_mac = "00:1C:B2:71:1B:82"
-if is_came_mac(discovered_mac):
-    print(f"{discovered_mac} looks like a CAME device")
-```
-
-#### Verifying the CAME API endpoint
-
-A matching MAC prefix alone does not guarantee the device is a CAME Domotic
-server. To confirm, use [`async_is_came_endpoint()`](#aiocamedomotic.utils.async_is_came_endpoint)
-to check whether the host exposes the CAME API endpoint. This check does
-**not** require credentials, making it suitable for autodiscovery:
-
-```python
-from aiocamedomotic import CAME_MAC_PREFIXES, async_is_came_endpoint
-
-async def async_discover_came_server(host: str, mac_address: str) -> bool:
-    """Check if a network device is a CAME Domotic server.
-
-    No credentials are needed: the function only verifies that the
-    MAC address belongs to a known CAME/BPT manufacturer and that
-    the host exposes the expected API endpoint.
-    """
-    # Step 1: Quick MAC prefix check
-    mac_upper = mac_address.upper()
-    if not any(mac_upper.startswith(prefix) for prefix in CAME_MAC_PREFIXES):
-        return False
-
-    # Step 2: Verify the device exposes a valid CAME API endpoint
-    return await async_is_came_endpoint(host)
-```
+##### NOTE
+`CameDomoticServerTimeoutError` is a subclass of `CameDomoticServerError`
+and signals a **transient** failure. Catching it separately lets you distinguish
+retryable timeouts from permanent errors.
 
 ### Initializing the API client
 
@@ -686,6 +640,34 @@ Name: Indoor Humidity, Value: 55, Unit: %
 Name: Barometric Pressure, Value: 1013, Unit: hPa
 ```
 
+### Entity unique IDs
+
+Every device entity exposes a `unique_id` property that returns a stable,
+globally unique string identifier suitable for use as a persistent key (e.g.
+as an entity ID in Home Assistant):
+
+```python
+lights = await api.async_get_lights()
+
+for light in lights:
+    print(f"unique_id: {light.unique_id}, name: {light.name}")
+```
+
+Example output:
+
+```text
+unique_id: 0000FFFF9999AAAA_light_1, name: Living Room Chandelier
+unique_id: 0000FFFF9999AAAA_light_2, name: Hallway Night Light
+```
+
+The `unique_id` follows the pattern `{server_keycode}_{entity_type}_{device_id}`
+and is available on all device entities: `Light`, `Opening`, `Scenario`,
+`ThermoZone`, and `AnalogSensor`.
+
+##### NOTE
+`unique_id` returns `None` if server info could not be retrieved during
+the entity list fetch. Guard against `None` when using it as a persistent key.
+
 ### Real-time updates
 
 The CAME Domotic server supports **long polling** for real-time status updates.
@@ -701,6 +683,8 @@ A typical polling loop continuously calls `async_get_updates()` and processes
 each batch of updates as it arrives:
 
 ```python
+import asyncio
+
 async with await CameDomoticAPI.async_create(
     "192.168.x.x", "username", "password"
 ) as api:
@@ -709,12 +693,16 @@ async with await CameDomoticAPI.async_create(
 
         for update in updates.get_typed_updates():
             print(f"[{update.device_type}] {update.name} (ID: {update.device_id})")
+
+        # Throttle: avoid flooding the server on fast/error returns
+        await asyncio.sleep(1)
 ```
 
 ##### NOTE
-Because `async_get_updates()` blocks until the server has new updates,
-you do **not** need to add `asyncio.sleep()` between calls. If you need
-to run the polling loop alongside other logic, wrap it in
+Although `async_get_updates()` blocks until the server has new updates,
+the `asyncio.sleep(1)` acts as a safety throttle in case the server
+returns immediately (e.g. errors or rapid update bursts). If you need to
+run the polling loop alongside other logic, wrap it in
 `asyncio.create_task()`.
 
 #### Configuring timeouts
@@ -849,12 +837,65 @@ if updates.has_plant_update:
     openings = await api.async_get_openings()
     scenarios = await api.async_get_scenarios()
     thermo_zones = await api.async_get_thermo_zones()
+    sensors = await api.async_get_analog_sensors()
 ```
 
 ##### NOTE
 Plant updates are relatively rare. They typically occur when an installer
 modifies the system configuration. Failing to handle them may result in
 stale device data or missing newly added devices.
+
+### Device autodiscovery
+
+The library exposes known MAC address OUI (Organizationally Unique Identifier)
+prefixes for CAME Domotic devices via the `CAME_MAC_PREFIXES` constant. This
+can be used as a first step to identify potential CAME ETI/Domo servers on the
+local network.
+
+#### Checking the MAC address prefix
+
+Use `CAME_MAC_PREFIXES` to quickly filter network devices that may be CAME
+Domotic servers:
+
+```python
+from aiocamedomotic import CAME_MAC_PREFIXES
+
+def is_came_mac(mac_address: str) -> bool:
+    """Check if a MAC address belongs to a known CAME/BPT manufacturer."""
+    mac_upper = mac_address.upper()
+    return any(mac_upper.startswith(prefix) for prefix in CAME_MAC_PREFIXES)
+
+# Example: filter discovered devices on the network
+discovered_mac = "00:1C:B2:71:1B:82"
+if is_came_mac(discovered_mac):
+    print(f"{discovered_mac} looks like a CAME device")
+```
+
+#### Verifying the CAME API endpoint
+
+A matching MAC prefix alone does not guarantee the device is a CAME Domotic
+server. To confirm, use [`async_is_came_endpoint()`](#aiocamedomotic.utils.async_is_came_endpoint)
+to check whether the host exposes the CAME API endpoint. This check does
+**not** require credentials, making it suitable for autodiscovery:
+
+```python
+from aiocamedomotic import CAME_MAC_PREFIXES, async_is_came_endpoint
+
+async def async_discover_came_server(host: str, mac_address: str) -> bool:
+    """Check if a network device is a CAME Domotic server.
+
+    No credentials are needed: the function only verifies that the
+    MAC address belongs to a known CAME/BPT manufacturer and that
+    the host exposes the expected API endpoint.
+    """
+    # Step 1: Quick MAC prefix check
+    mac_upper = mac_address.upper()
+    if not any(mac_upper.startswith(prefix) for prefix in CAME_MAC_PREFIXES):
+        return False
+
+    # Step 2: Verify the device exposes a valid CAME API endpoint
+    return await async_is_came_endpoint(host)
+```
 
 ### Checking Authentication Status
 
@@ -936,7 +977,7 @@ readings from the thermoregulation list response.
 * **Returns:**
   List of analog sensors found in the response.
 * **Return type:**
-  list[[AnalogSensor](#aiocamedomotic.models.AnalogSensor)]
+  list[[AnalogSensor](#aiocamedomotic.models.thermo_zone.AnalogSensor)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
@@ -948,7 +989,7 @@ Get the list of all the floors defined on the server.
 * **Returns:**
   List of floors.
 * **Return type:**
-  list[[Floor](#aiocamedomotic.models.Floor)]
+  list[[Floor](#aiocamedomotic.models.base.Floor)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
@@ -960,7 +1001,7 @@ Get the list of all the light devices defined on the server.
 * **Returns:**
   List of lights.
 * **Return type:**
-  list[[Light](#aiocamedomotic.models.Light)]
+  list[[Light](#aiocamedomotic.models.light.Light)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
@@ -972,7 +1013,7 @@ Get the list of all opening devices defined on the server.
 * **Returns:**
   List of openings.
 * **Return type:**
-  list[[Opening](#aiocamedomotic.models.Opening)]
+  list[[Opening](#aiocamedomotic.models.opening.Opening)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
@@ -984,7 +1025,7 @@ Get the list of all the rooms defined on the server.
 * **Returns:**
   List of rooms.
 * **Return type:**
-  list[[Room](#aiocamedomotic.models.Room)]
+  list[[Room](#aiocamedomotic.models.base.Room)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
@@ -996,7 +1037,7 @@ Get the list of all scenarios defined on the server.
 * **Returns:**
   List of scenarios.
 * **Return type:**
-  list[[Scenario](#aiocamedomotic.models.Scenario)]
+  list[[Scenario](#aiocamedomotic.models.scenario.Scenario)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
@@ -1008,10 +1049,13 @@ Get the server information.
 Provides info about the server (keycode, software version, etc.) and the list of
 features supported by the CAME Domotic server.
 
+If `server_info` is already cached, returns it immediately without making an
+API call.
+
 * **Returns:**
   Server information.
 * **Return type:**
-  [ServerInfo](#aiocamedomotic.models.ServerInfo)
+  [ServerInfo](#aiocamedomotic.models.base.ServerInfo)
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
@@ -1023,7 +1067,7 @@ Get the list of all thermoregulation zones defined on the server.
 * **Returns:**
   List of thermoregulation zones.
 * **Return type:**
-  list[[ThermoZone](#aiocamedomotic.models.ThermoZone)]
+  list[[ThermoZone](#aiocamedomotic.models.thermo_zone.ThermoZone)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
@@ -1045,7 +1089,7 @@ scenario activated), then returns them all at once.
 * **Returns:**
   List of status updates received from the server.
 * **Return type:**
-  [UpdateList](#aiocamedomotic.models.UpdateList)
+  [UpdateList](#aiocamedomotic.models.update.UpdateList)
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
@@ -1058,17 +1102,25 @@ Get the list of users defined on the server.
   List of users. Returns an empty list if no users are defined
   or if the server response doesn’t contain the users list.
 * **Return type:**
-  list[[User](#aiocamedomotic.models.User)]
+  list[[User](#aiocamedomotic.models.base.User)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *property* server_info *: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None*
+
+Cached server information, or `None` if not yet fetched.
+
+This property makes no API call. Call [`async_get_server_info()`](#aiocamedomotic.came_domotic_api.CameDomoticAPI.async_get_server_info) to
+populate it. All `async_get_*()` device list methods populate it
+automatically before returning entities.
 
 ### Entity models
 
 This module defines the Python representation of each of the entity types used by the
 CAME Domotic API.
 
-#### *class* aiocamedomotic.models.AnalogSensor(raw_data: dict[str, Any])
+#### *class* aiocamedomotic.models.AnalogSensor(raw_data: dict[str, Any], server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
 
 Analog sensor from the CAME Domotic thermoregulation system.
 
@@ -1092,6 +1144,10 @@ ID of the analog sensor.
 
 Name of the analog sensor.
 
+##### *property* unique_id *: str | None*
+
+Stable unique identifier for this analog sensor entity.
+
 ##### *property* unit *: str*
 
 Unit of measurement (e.g., ‘°C’, ‘%’, ‘hPa’).
@@ -1103,6 +1159,15 @@ Sensor reading in the unit reported by `unit`.
 #### *class* aiocamedomotic.models.CameEntity
 
 Base class for all the CAME entities.
+
+##### *property* unique_id *: str | None*
+
+Stable unique identifier for this entity, suitable for use as a
+Home Assistant entity unique ID. Returns `None` if `server_info`
+has not been set (e.g. if `async_get_server_info()` was never called
+or failed). When using this library via `CameDomoticAPI`,
+`server_info` is automatically populated by all `async_get_*()`
+device list methods.
 
 #### *class* aiocamedomotic.models.DeviceType(\*values)
 
@@ -1200,7 +1265,7 @@ ID of the floor.
 
 Name of the floor.
 
-#### *class* aiocamedomotic.models.Light(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+#### *class* aiocamedomotic.models.Light(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth), server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
 
 Light entity in the CameDomotic API.
 
@@ -1218,7 +1283,7 @@ ID of the light.
 Control the light.
 
 * **Parameters:**
-  * **status** ([*LightStatus*](#aiocamedomotic.models.LightStatus)) – Status of the light.
+  * **status** ([*LightStatus*](#aiocamedomotic.models.light.LightStatus)) – Status of the light.
   * **brightness** (*Optional* *[**int* *]*) – Brightness percentage of the light (range
     0-100). If the brightness is not provided, it will stay unchanged.
     This argument is ignored for STEP_STEP lights.
@@ -1262,6 +1327,10 @@ Light type. Allowed values are “STEP_STEP” (normal lights),
 
 * **Raises:**
   **ValueError** – If the light type is not recognized.
+
+##### *property* unique_id *: str | None*
+
+Stable unique identifier for this light entity.
 
 #### *class* aiocamedomotic.models.LightStatus(\*values)
 
@@ -1314,7 +1383,7 @@ Room index.
 
 Light status (OFF, ON, AUTO).
 
-#### *class* aiocamedomotic.models.Opening(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+#### *class* aiocamedomotic.models.Opening(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth), server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
 
 Opening entity in the CameDomotic API.
 
@@ -1327,7 +1396,7 @@ Opening entity in the CameDomotic API.
 Control the opening (open, close, stop, slat open, slat close).
 
 * **Parameters:**
-  **status** ([*OpeningStatus*](#aiocamedomotic.models.OpeningStatus)) – Status to set for the opening.
+  **status** ([*OpeningStatus*](#aiocamedomotic.models.opening.OpeningStatus)) – Status to set for the opening.
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
@@ -1370,6 +1439,10 @@ Opening type.
 
 * **Raises:**
   **ValueError** – If the opening type is not recognized.
+
+##### *property* unique_id *: str | None*
+
+Stable unique identifier for this opening entity.
 
 #### *class* aiocamedomotic.models.OpeningStatus(\*values)
 
@@ -1448,7 +1521,7 @@ ID of the room.
 
 Name of the room.
 
-#### *class* aiocamedomotic.models.Scenario(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+#### *class* aiocamedomotic.models.Scenario(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth), server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
 
 Scenario entity in the CameDomotic API.
 
@@ -1491,6 +1564,10 @@ OFF (0), TRIGGERED (1), or ACTIVE (2).
 ##### *property* status *: int*
 
 General status of the scenario.
+
+##### *property* unique_id *: str | None*
+
+Stable unique identifier for this scenario entity.
 
 ##### *property* user_defined *: int*
 
@@ -1559,7 +1636,7 @@ Software version of the server.
 
 Type of the server.
 
-#### *class* aiocamedomotic.models.ThermoZone(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+#### *class* aiocamedomotic.models.ThermoZone(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth), server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
 
 Thermoregulation zone entity in the CameDomotic API.
 
@@ -1625,6 +1702,10 @@ Current temperature in degrees Celsius.
 
 Handles both `temp` (from list responses) and `temp_dec`
 (from status indications) field names.
+
+##### *property* unique_id *: str | None*
+
+Stable unique identifier for this thermoregulation zone entity.
 
 #### *class* aiocamedomotic.models.ThermoZoneMode(\*values)
 
@@ -1746,15 +1827,15 @@ Parse and filter updates by device type.
   **device_type** – The [`DeviceType`](#aiocamedomotic.const.DeviceType) to
   filter by.
 * **Returns:**
-  Typed [`DeviceUpdate`](#aiocamedomotic.models.DeviceUpdate) instances whose
-  [`device_type`](#aiocamedomotic.models.DeviceUpdate.device_type) matches *device_type*.
+  Typed `DeviceUpdate` instances whose
+  `device_type` matches *device_type*.
 
 ##### get_typed_updates() → list[[DeviceUpdate](#aiocamedomotic.models.update.DeviceUpdate)]
 
-Parse all updates into typed [`DeviceUpdate`](#aiocamedomotic.models.DeviceUpdate) objects.
+Parse all updates into typed `DeviceUpdate` objects.
 
 * **Returns:**
-  A list of [`DeviceUpdate`](#aiocamedomotic.models.DeviceUpdate) subclass instances, one per raw
+  A list of `DeviceUpdate` subclass instances, one per raw
   update dict.
 
 ##### *property* has_plant_update *: bool*
@@ -1803,14 +1884,14 @@ Return the device type for a status update dict, or None if unknown.
 #### aiocamedomotic.models.parse_update(raw: dict[str, Any]) → [DeviceUpdate](#aiocamedomotic.models.update.DeviceUpdate)
 
 Parse a raw update dict into the appropriate typed
-[`DeviceUpdate`](#aiocamedomotic.models.DeviceUpdate) subclass.
+`DeviceUpdate` subclass.
 
 * **Parameters:**
   **raw** – A single update dict from the `status_update_resp` result
   array.
 * **Returns:**
-  A typed [`DeviceUpdate`](#aiocamedomotic.models.DeviceUpdate) subclass instance. If the `cmd_name`
-  is not recognized, a generic [`DeviceUpdate`](#aiocamedomotic.models.DeviceUpdate) is returned so
+  A typed `DeviceUpdate` subclass instance. If the `cmd_name`
+  is not recognized, a generic `DeviceUpdate` is returned so
   that the consumer can still access `raw_data`.
 
 Base classes for the CAME Domotic API entity model system.
@@ -1822,6 +1903,15 @@ such as User and ServerInfo that are common across the API functionality.
 #### *class* aiocamedomotic.models.base.CameEntity
 
 Base class for all the CAME entities.
+
+##### *property* unique_id *: str | None*
+
+Stable unique identifier for this entity, suitable for use as a
+Home Assistant entity unique ID. Returns `None` if `server_info`
+has not been set (e.g. if `async_get_server_info()` was never called
+or failed). When using this library via `CameDomoticAPI`,
+`server_info` is automatically populated by all `async_get_*()`
+device list methods.
 
 #### *class* aiocamedomotic.models.base.Floor(raw_data: dict[str, Any])
 
@@ -1926,7 +2016,7 @@ system, supporting standard on/off lights (STEP_STEP type), dimmable lights
 access light attributes and methods to control light state, including on/off
 functionality, brightness control, and RGB color control.
 
-#### *class* aiocamedomotic.models.light.Light(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+#### *class* aiocamedomotic.models.light.Light(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth), server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
 
 Light entity in the CameDomotic API.
 
@@ -1989,6 +2079,10 @@ Light type. Allowed values are “STEP_STEP” (normal lights),
 * **Raises:**
   **ValueError** – If the light type is not recognized.
 
+##### *property* unique_id *: str | None*
+
+Stable unique identifier for this light entity.
+
 #### *class* aiocamedomotic.models.light.LightStatus(\*values)
 
 Status of a light.
@@ -2014,7 +2108,7 @@ system, supporting various types of openings like shutters, awnings, and gates.
 It provides properties to access opening attributes and methods to control
 opening state, including open, close, and stop functionality.
 
-#### *class* aiocamedomotic.models.opening.Opening(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+#### *class* aiocamedomotic.models.opening.Opening(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth), server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
 
 Opening entity in the CameDomotic API.
 
@@ -2071,6 +2165,10 @@ Opening type.
 * **Raises:**
   **ValueError** – If the opening type is not recognized.
 
+##### *property* unique_id *: str | None*
+
+Stable unique identifier for this opening entity.
+
 #### *class* aiocamedomotic.models.opening.OpeningStatus(\*values)
 
 Status of an opening.
@@ -2096,7 +2194,7 @@ system. Scenarios represent pre-configured automation sequences that can be
 activated to control multiple devices at once. It provides properties to access
 scenario attributes and a method to activate a scenario.
 
-#### *class* aiocamedomotic.models.scenario.Scenario(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+#### *class* aiocamedomotic.models.scenario.Scenario(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth), server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
 
 Scenario entity in the CameDomotic API.
 
@@ -2140,6 +2238,10 @@ OFF (0), TRIGGERED (1), or ACTIVE (2).
 
 General status of the scenario.
 
+##### *property* unique_id *: str | None*
+
+Stable unique identifier for this scenario entity.
+
 ##### *property* user_defined *: int*
 
 Whether the scenario is user-defined (1) or system-defined (0).
@@ -2160,7 +2262,7 @@ and analog sensors in a CAME Domotic system. It provides read-only access
 to zone state (temperature, setpoint, mode, season) and analog sensor
 readings (temperature, humidity, pressure).
 
-#### *class* aiocamedomotic.models.thermo_zone.AnalogSensor(raw_data: dict[str, Any])
+#### *class* aiocamedomotic.models.thermo_zone.AnalogSensor(raw_data: dict[str, Any], server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
 
 Analog sensor from the CAME Domotic thermoregulation system.
 
@@ -2184,6 +2286,10 @@ ID of the analog sensor.
 
 Name of the analog sensor.
 
+##### *property* unique_id *: str | None*
+
+Stable unique identifier for this analog sensor entity.
+
 ##### *property* unit *: str*
 
 Unit of measurement (e.g., ‘°C’, ‘%’, ‘hPa’).
@@ -2192,7 +2298,7 @@ Unit of measurement (e.g., ‘°C’, ‘%’, ‘hPa’).
 
 Sensor reading in the unit reported by `unit`.
 
-#### *class* aiocamedomotic.models.thermo_zone.ThermoZone(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+#### *class* aiocamedomotic.models.thermo_zone.ThermoZone(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth), server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
 
 Thermoregulation zone entity in the CameDomotic API.
 
@@ -2258,6 +2364,10 @@ Current temperature in degrees Celsius.
 
 Handles both `temp` (from list responses) and `temp_dec`
 (from status indications) field names.
+
+##### *property* unique_id *: str | None*
+
+Stable unique identifier for this thermoregulation zone entity.
 
 #### *class* aiocamedomotic.models.thermo_zone.ThermoZoneMode(\*values)
 
@@ -2631,6 +2741,16 @@ autodiscovery alongside `CAME_MAC_PREFIXES`.
 
 This module contains the exceptions that can be raised by the CAME Domotic API.
 
+Exception hierarchy and suggested Home Assistant mapping:
+
+- [`CameDomoticServerNotFoundError`](#aiocamedomotic.errors.CameDomoticServerNotFoundError) → `ConfigEntryNotReady`
+  (host unreachable, transient)
+- [`CameDomoticAuthError`](#aiocamedomotic.errors.CameDomoticAuthError) → `ConfigEntryAuthFailed`
+  (bad credentials, permanent — triggers reauth flow)
+- [`CameDomoticServerTimeoutError`](#aiocamedomotic.errors.CameDomoticServerTimeoutError) → `ConfigEntryNotReady`
+  (request timeout, transient)
+- [`CameDomoticServerError`](#aiocamedomotic.errors.CameDomoticServerError) (other ACK codes) → log and re-raise
+
 #### *exception* aiocamedomotic.errors.CameDomoticAuthError
 
 Raised when there is an authentication error with the remote server.
@@ -2668,6 +2788,24 @@ Formats the ack code in a human-readable format.
 #### *exception* aiocamedomotic.errors.CameDomoticServerNotFoundError
 
 Raised when the specified host is not available.
+
+#### *exception* aiocamedomotic.errors.CameDomoticServerTimeoutError
+
+Raised when a request to the CAME Domotic server times out.
+
+This exception indicates a transient failure. When using this library with
+Home Assistant, it should be mapped to `ConfigEntryNotReady` to allow the
+integration to retry with exponential backoff.
+
+See also the exception hierarchy mapping for Home Assistant integrations:
+
+- [`CameDomoticServerNotFoundError`](#aiocamedomotic.errors.CameDomoticServerNotFoundError) → `ConfigEntryNotReady`
+  (host unreachable, transient)
+- [`CameDomoticAuthError`](#aiocamedomotic.errors.CameDomoticAuthError) → `ConfigEntryAuthFailed`
+  (bad credentials, permanent — triggers reauth flow)
+- [`CameDomoticServerTimeoutError`](#aiocamedomotic.errors.CameDomoticServerTimeoutError) → `ConfigEntryNotReady`
+  (request timeout, transient)
+- [`CameDomoticServerError`](#aiocamedomotic.errors.CameDomoticServerError) (other ACK codes) → log and re-raise
 
 ### Auth module
 
