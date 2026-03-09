@@ -302,6 +302,70 @@ from aiocamedomotic.errors import (
 )
 ```
 
+### Device autodiscovery
+
+The library exposes known MAC address OUI (Organizationally Unique Identifier)
+prefixes for CAME Domotic devices via the `CAME_MAC_PREFIXES` constant. This
+can be used as a first step to identify potential CAME ETI/Domo servers on the
+local network.
+
+#### Checking the MAC address prefix
+
+Use `CAME_MAC_PREFIXES` to quickly filter network devices that may be CAME
+Domotic servers:
+
+```python
+from aiocamedomotic import CAME_MAC_PREFIXES
+
+def is_came_mac(mac_address: str) -> bool:
+    """Check if a MAC address belongs to a known CAME/BPT manufacturer."""
+    mac_upper = mac_address.upper()
+    return any(mac_upper.startswith(prefix) for prefix in CAME_MAC_PREFIXES)
+
+# Example: filter discovered devices on the network
+discovered_mac = "00:1C:B2:71:1B:82"
+if is_came_mac(discovered_mac):
+    print(f"{discovered_mac} looks like a CAME device")
+```
+
+#### Verifying the CAME API endpoint
+
+A matching MAC prefix alone does not guarantee the device is a CAME Domotic
+server. To confirm, attempt to connect and retrieve the server information:
+
+```python
+from aiocamedomotic import CameDomoticAPI, CAME_MAC_PREFIXES
+from aiocamedomotic.errors import CameDomoticError
+
+async def async_verify_came_server(
+    host: str, mac_address: str, username: str, password: str
+) -> bool:
+    """Verify that a device is a CAME Domotic server.
+
+    First checks the MAC prefix, then confirms by retrieving
+    server information from the CAME API.
+    """
+    # Step 1: Quick MAC prefix check
+    mac_upper = mac_address.upper()
+    if not any(mac_upper.startswith(prefix) for prefix in CAME_MAC_PREFIXES):
+        return False
+
+    # Step 2: Verify the device exposes a valid CAME API endpoint
+    try:
+        async with await CameDomoticAPI.async_create(
+            host, username, password
+        ) as api:
+            server_info = await api.async_get_server_info()
+            print(
+                f"Confirmed CAME server at {host}: "
+                f"keycode={server_info.keycode}, "
+                f"version={server_info.swver}"
+            )
+            return True
+    except CameDomoticError:
+        return False
+```
+
 ### Initializing the API client
 
 Initialize a `CameDomoticAPI` instance to connect to your CAME Domotic server. This
