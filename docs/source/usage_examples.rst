@@ -119,20 +119,20 @@ Verifying the CAME API endpoint
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A matching MAC prefix alone does not guarantee the device is a CAME Domotic
-server. To confirm, attempt to connect and retrieve the server information:
+server. To confirm, use :func:`~aiocamedomotic.utils.async_is_came_endpoint`
+to check whether the host exposes the CAME API endpoint. This check does
+**not** require credentials, making it suitable for autodiscovery:
 
 .. code-block:: python
 
-    from aiocamedomotic import CameDomoticAPI, CAME_MAC_PREFIXES
-    from aiocamedomotic.errors import CameDomoticError
+    from aiocamedomotic import CAME_MAC_PREFIXES, async_is_came_endpoint
 
-    async def async_verify_came_server(
-        host: str, mac_address: str, username: str, password: str
-    ) -> bool:
-        """Verify that a device is a CAME Domotic server.
+    async def async_discover_came_server(host: str, mac_address: str) -> bool:
+        """Check if a network device is a CAME Domotic server.
 
-        First checks the MAC prefix, then confirms by retrieving
-        server information from the CAME API.
+        No credentials are needed: the function only verifies that the
+        MAC address belongs to a known CAME/BPT manufacturer and that
+        the host exposes the expected API endpoint.
         """
         # Step 1: Quick MAC prefix check
         mac_upper = mac_address.upper()
@@ -140,19 +140,7 @@ server. To confirm, attempt to connect and retrieve the server information:
             return False
 
         # Step 2: Verify the device exposes a valid CAME API endpoint
-        try:
-            async with await CameDomoticAPI.async_create(
-                host, username, password
-            ) as api:
-                server_info = await api.async_get_server_info()
-                print(
-                    f"Confirmed CAME server at {host}: "
-                    f"keycode={server_info.keycode}, "
-                    f"version={server_info.swver}"
-                )
-                return True
-        except CameDomoticError:
-            return False
+        return await async_is_came_endpoint(host)
 
 
 Initializing the API client
