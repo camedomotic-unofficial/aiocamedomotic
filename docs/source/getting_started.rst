@@ -36,7 +36,7 @@ Here's a simple example to demonstrate how to use the library to turn on or off 
 
             # Get the server info
             server_info = await api.async_get_server_info()
-            print(f"Keycode (i.e. MAC address): {server_info.keycode}")
+            print(f"Keycode: {server_info.keycode}")
 
             # Get the list of all the lights configured on the CAME Domotic server
             lights = await api.async_get_lights()
@@ -111,7 +111,7 @@ Let's go step by step:
 
         # Get the server info
         server_info = await api.async_get_server_info()
-        print(f"Keycode (i.e. MAC address): {server_info.keycode}")
+        print(f"Keycode: {server_info.keycode}")
 
 #. **Fetching the list of available lights**:
 

@@ -128,7 +128,7 @@ Server information
 
 You can access the CAME Domotic server properties using the ``async_get_server_info()``
 method. Should you need a **unique ID** for the server, you can use the ``keycode``
-property (i.e. the MAC address of the server).
+property, a CAME proprietary unique identifier for the server.
 
 .. code-block:: python
 

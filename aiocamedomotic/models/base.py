@@ -106,7 +106,7 @@ class ServerInfo(CameEntity):
     """Server information of a CAME Domotic server."""
 
     keycode: str
-    """Keycode of the server (i.e. MAC address in the form 001122AABBCC)."""
+    """Keycode of the server (CAME proprietary unique identifier)."""
 
     serial: str
     """Serial number of the server."""
