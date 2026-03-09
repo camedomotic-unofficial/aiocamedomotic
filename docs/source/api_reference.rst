@@ -57,7 +57,7 @@ Constants
 ---------
 
 .. automodule:: aiocamedomotic.const
-   :members: DeviceType, UpdateIndicator
+   :members: CAME_MAC_PREFIXES, DeviceType, UpdateIndicator
 
 
 Errors

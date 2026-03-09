@@ -37,6 +37,10 @@ ACK_ERROR_CODES = {
 # Authentication-related error codes that should raise CameDomoticAuthError
 AUTH_ERROR_CODES = {1, 3}
 
+# Known MAC address OUI prefixes for CAME Domotic devices (BPT S.p.A.)
+# These can be used for network autodiscovery of CAME ETI/Domo servers.
+CAME_MAC_PREFIXES: tuple[str, ...] = ("00:1C:B2",)
+
 # Default timeout in seconds for commands sent to the CAME server.
 _DEFAULT_COMMAND_TIMEOUT: int = 30
 

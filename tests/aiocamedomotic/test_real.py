@@ -27,7 +27,8 @@ import asyncio
 
 import pytest
 
-from aiocamedomotic import CameDomoticAPI
+from aiocamedomotic import CAME_MAC_PREFIXES, CameDomoticAPI
+from aiocamedomotic.errors import CameDomoticError
 from aiocamedomotic.models import (
     DigitalInputUpdate,
     LightStatus,
@@ -407,3 +408,41 @@ async def test_listen_for_updates(api_instance_real: CameDomoticAPI):
         f"\nDone — collected {total_updates} update(s) "
         f"across {max_api_calls} API call(s)."
     )
+
+
+async def test_autodiscovery(real_server_config):
+    """Tests the two-step autodiscovery: MAC prefix check + API verification."""
+    mac_address = real_server_config["came_server"].get("mac_address", "")
+    if not mac_address:
+        pytest.skip(
+            "mac_address not configured in test_config.ini, "
+            "skipping autodiscovery test."
+        )
+        return
+
+    host = real_server_config["came_server"]["host"]
+    username = real_server_config["came_server"]["username"]
+    password = real_server_config["came_server"]["password"]
+
+    # Step 1: Check the MAC prefix
+    mac_upper = mac_address.upper()
+    mac_matches = any(mac_upper.startswith(prefix) for prefix in CAME_MAC_PREFIXES)
+    print(f"\nMAC address: {mac_address}")
+    print(f"Matches CAME prefix: {mac_matches}")
+    assert mac_matches, (
+        f"MAC address {mac_address} does not match any known CAME prefix "
+        f"({', '.join(CAME_MAC_PREFIXES)})"
+    )
+
+    # Step 2: Verify the device exposes a valid CAME API endpoint
+    try:
+        async with await CameDomoticAPI.async_create(host, username, password) as api:
+            server_info = await api.async_get_server_info()
+            print(
+                f"Confirmed CAME server at {host}: "
+                f"keycode={server_info.keycode}, "
+                f"version={server_info.swver}"
+            )
+            assert server_info.keycode, "Server keycode should not be empty"
+    except CameDomoticError as err:
+        pytest.fail(f"CAME API verification failed: {err}")

@@ -142,3 +142,39 @@ def test_all_auth_codes_in_ack_codes():
 
     for auth_code in AUTH_ERROR_CODES:
         assert auth_code in ACK_ERROR_CODES
+
+
+def test_came_mac_prefixes_type():
+    """Test that CAME_MAC_PREFIXES is a tuple of strings."""
+    from aiocamedomotic.const import CAME_MAC_PREFIXES
+
+    assert isinstance(CAME_MAC_PREFIXES, tuple)
+    assert len(CAME_MAC_PREFIXES) > 0
+    for prefix in CAME_MAC_PREFIXES:
+        assert isinstance(prefix, str)
+
+
+def test_came_mac_prefixes_format():
+    """Test that each prefix matches the XX:XX:XX OUI format."""
+    import re
+
+    from aiocamedomotic.const import CAME_MAC_PREFIXES
+
+    oui_pattern = re.compile(r"^[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}$")
+    for prefix in CAME_MAC_PREFIXES:
+        assert oui_pattern.match(prefix), f"Invalid OUI format: {prefix}"
+
+
+def test_came_mac_prefixes_contains_bpt():
+    """Test that the known BPT S.p.A. OUI prefix is present."""
+    from aiocamedomotic.const import CAME_MAC_PREFIXES
+
+    assert "00:1C:B2" in CAME_MAC_PREFIXES
+
+
+def test_came_mac_prefixes_importable_from_package():
+    """Test that CAME_MAC_PREFIXES is importable from the top-level package."""
+    from aiocamedomotic import CAME_MAC_PREFIXES
+
+    assert isinstance(CAME_MAC_PREFIXES, tuple)
+    assert "00:1C:B2" in CAME_MAC_PREFIXES
