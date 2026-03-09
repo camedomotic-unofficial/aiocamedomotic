@@ -2,7 +2,7 @@
   "name": "aiocamedomotic library development",
   "context": "..",
   "dockerFile": "../Dockerfile.dev",
-  "postCreateCommand": "pre-commit install && pre-commit install --hook-type pre-push",
+  "postCreateCommand": "pip install -e /workspaces/aiocamedomotic && pre-commit install && pre-commit install --hook-type pre-push",
   "customizations": {
     "vscode": {
       "extensions": [
