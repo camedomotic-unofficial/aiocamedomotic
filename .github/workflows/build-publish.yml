@@ -139,6 +139,11 @@ jobs:
           echo "::error::Timed out waiting for PR to be merged"
           exit 1
 
+      - name: Delete update-version branch
+        if: steps.create_pr.outcome == 'success'
+        run: |
+          git push origin --delete update-version || echo "Branch already deleted"
+
       - name: Checkout and push to main
         run: |
           git checkout main
