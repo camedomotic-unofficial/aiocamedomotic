@@ -406,36 +406,6 @@ Example output:
     Name: Indoor Humidity, Value: 55, Unit: %
     Name: Barometric Pressure, Value: 1013, Unit: hPa
 
-Entity unique IDs
-^^^^^^^^^^^^^^^^^
-
-Every device entity exposes a ``unique_id`` property that returns a stable,
-globally unique string suitable as a persistent key (e.g. as an entity ID
-in Home Assistant):
-
-.. code-block:: python
-
-    lights = await api.async_get_lights()
-
-    for light in lights:
-        print(f"unique_id: {light.unique_id}, name: {light.name}")
-
-Example output:
-
-.. code-block:: text
-
-    unique_id: 0000FFFF9999AAAA_light_1, name: Living Room Chandelier
-    unique_id: 0000FFFF9999AAAA_light_2, name: Hallway Night Light
-
-The ``unique_id`` follows the pattern ``{server_keycode}_{entity_type}_{device_id}``
-and is available on all device entities: ``Light``, ``Opening``, ``Scenario``,
-``ThermoZone``, and ``AnalogSensor``.
-
-.. note::
-    ``unique_id`` returns ``None`` if server info could not be retrieved during
-    the entity list fetch. Guard against ``None`` when using it as a persistent key.
-
-
 Monitoring real-time updates
 ----------------------------
 
