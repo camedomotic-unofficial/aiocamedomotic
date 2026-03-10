@@ -34,6 +34,9 @@ from aiocamedomotic.errors import CameDomoticAuthError
 from aiocamedomotic.models import (
     AnalogSensor,
     DeviceUpdate,
+    DigitalInput,
+    DigitalInputStatus,
+    DigitalInputType,
     DigitalInputUpdate,
     Floor,
     Light,
@@ -2064,3 +2067,61 @@ class TestAnalogSensor:
         assert sensor.act_id == 200
         assert sensor.value == 0.0
         assert sensor.unit == ""
+
+
+class TestDigitalInput:
+    def test_init_with_status(self, auth_instance, digital_input_data_with_status):
+        di = DigitalInput(digital_input_data_with_status, auth_instance)
+        assert di.act_id == 1
+        assert di.name == "digitalin_BuTbB"
+        assert di.status == DigitalInputStatus.IDLE
+        assert di.type == DigitalInputType.STATUS
+        assert di.addr == 201
+        assert di.utc_time == 1708366780
+
+    def test_init_without_status(
+        self, auth_instance, digital_input_data_without_status
+    ):
+        di = DigitalInput(digital_input_data_without_status, auth_instance)
+        assert di.act_id == 0
+        assert di.name == "digitalin_PvGCT"
+        assert di.status == DigitalInputStatus.UNKNOWN
+        assert di.addr == 200
+        assert di.utc_time == 0
+
+    def test_status_active(self, auth_instance, digital_input_data_with_status):
+        digital_input_data_with_status["status"] = 0
+        di = DigitalInput(digital_input_data_with_status, auth_instance)
+        assert di.status == DigitalInputStatus.ACTIVE
+
+    def test_unknown_status_value(self, auth_instance, digital_input_data_with_status):
+        digital_input_data_with_status["status"] = 99
+        di = DigitalInput(digital_input_data_with_status, auth_instance)
+        assert di.status == DigitalInputStatus.UNKNOWN
+
+    def test_unknown_type_value(self, auth_instance, digital_input_data_with_status):
+        digital_input_data_with_status["type"] = 99
+        di = DigitalInput(digital_input_data_with_status, auth_instance)
+        assert di.type == DigitalInputType.UNKNOWN
+
+    def test_missing_name_raises(self, auth_instance):
+        data = {"act_id": 0, "type": 1}
+        with pytest.raises(ValueError, match="Data is missing required keys: name"):
+            DigitalInput(data, auth_instance)
+
+    def test_missing_act_id_raises(self, auth_instance):
+        data = {"name": "test", "type": 1}
+        with pytest.raises(ValueError, match="Data is missing required keys: act_id"):
+            DigitalInput(data, auth_instance)
+
+    def test_invalid_auth_raises(self, digital_input_data_with_status):
+        with pytest.raises(ValueError, match="'auth' must be an instance of Auth"):
+            DigitalInput(digital_input_data_with_status, "not_an_auth")
+
+    def test_optional_fields_defaults(self, auth_instance):
+        data = {"act_id": 5, "name": "Minimal Input"}
+        di = DigitalInput(data, auth_instance)
+        assert di.addr == 0
+        assert di.utc_time == 0
+        assert di.status == DigitalInputStatus.UNKNOWN
+        assert di.type == DigitalInputType.UNKNOWN

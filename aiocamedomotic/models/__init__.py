@@ -21,6 +21,11 @@ from __future__ import annotations
 
 from ..const import DeviceType, UpdateIndicator  # noqa: F401
 from .base import CameEntity, Floor, Room, ServerInfo, User  # noqa: F401
+from .digital_input import (  # noqa: F401
+    DigitalInput,
+    DigitalInputStatus,
+    DigitalInputType,
+)
 from .light import Light, LightStatus, LightType  # noqa: F401
 from .opening import Opening, OpeningStatus, OpeningType  # noqa: F401
 from .scenario import Scenario, ScenarioStatus  # noqa: F401
@@ -49,6 +54,9 @@ __all__ = [
     "CameEntity",
     "DeviceType",
     "DeviceUpdate",
+    "DigitalInput",
+    "DigitalInputStatus",
+    "DigitalInputType",
     "DigitalInputUpdate",
     "Floor",
     "Light",
@@ -76,5 +84,3 @@ __all__ = [
     "get_update_device_type",
     "parse_update",
 ]
-
-# Digital inputs

@@ -29,6 +29,7 @@ from aiocamedomotic.errors import (
 )
 from aiocamedomotic.models import (
     AnalogSensor,
+    DigitalInput,
     Floor,
     Light,
     Opening,
@@ -40,6 +41,7 @@ from aiocamedomotic.models import (
     User,
 )
 from tests.aiocamedomotic.mocked_responses import (
+    DIGITALIN_LIST_RESP,
     FEATURE_LIST_RESP,
     LIGHT_LIST_RESP,
     SCENARIOS_LIST_RESP,
@@ -1152,3 +1154,103 @@ class TestAPIAnalogSensors:
 
         with pytest.raises(ValueError, match="Data is missing required keys: name"):
             await api.async_get_analog_sensors()
+
+
+class TestAPIDigitalInputs:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_digital_inputs(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = DIGITALIN_LIST_RESP
+
+        digital_inputs = await api.async_get_digital_inputs()
+        assert len(digital_inputs) == len(DIGITALIN_LIST_RESP["array"])
+        assert isinstance(digital_inputs[0], DigitalInput)
+        assert isinstance(digital_inputs[1], DigitalInput)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_digital_inputs_empty_array(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [],
+            "cmd_name": "digitalin_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        digital_inputs = await api.async_get_digital_inputs()
+        assert len(digital_inputs) == 0
+        assert isinstance(digital_inputs, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_digital_inputs_missing_array_key(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "cmd_name": "digitalin_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        digital_inputs = await api.async_get_digital_inputs()
+        assert len(digital_inputs) == 0
+        assert isinstance(digital_inputs, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_digital_inputs_null_array(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": None,
+            "cmd_name": "digitalin_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        digital_inputs = await api.async_get_digital_inputs()
+        assert digital_inputs == []
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_digital_inputs_missing_act_id(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [
+                {
+                    "name": "digitalin_test",
+                    "type": 1,
+                    "addr": 200,
+                }
+            ],
+            "cmd_name": "digitalin_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: act_id"):
+            await api.async_get_digital_inputs()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_digital_inputs_missing_name(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [
+                {
+                    "act_id": 0,
+                    "type": 1,
+                    "addr": 200,
+                }
+            ],
+            "cmd_name": "digitalin_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: name"):
+            await api.async_get_digital_inputs()
