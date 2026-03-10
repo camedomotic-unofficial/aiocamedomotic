@@ -962,9 +962,6 @@ Get the server information.
 Provides info about the server (keycode, software version, etc.) and the list of
 features supported by the CAME Domotic server.
 
-If `server_info` is already cached, returns it immediately without making an
-API call.
-
 * **Returns:**
   Server information.
 * **Return type:**
@@ -1020,20 +1017,12 @@ Get the list of users defined on the server.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *property* server_info *: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None*
-
-Cached server information, or `None` if not yet fetched.
-
-This property makes no API call. Call [`async_get_server_info()`](#aiocamedomotic.came_domotic_api.CameDomoticAPI.async_get_server_info) to
-populate it. All `async_get_*()` device list methods populate it
-automatically before returning entities.
-
 ### Entity models
 
 This module defines the Python representation of each of the entity types used by the
 CAME Domotic API.
 
-#### *class* aiocamedomotic.models.AnalogSensor(raw_data: dict[str, Any], server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
+#### *class* aiocamedomotic.models.AnalogSensor(raw_data: dict[str, Any])
 
 Analog sensor from the CAME Domotic thermoregulation system.
 
@@ -1057,10 +1046,6 @@ ID of the analog sensor.
 
 Name of the analog sensor.
 
-##### *property* unique_id *: str | None*
-
-Stable unique identifier for this analog sensor entity.
-
 ##### *property* unit *: str*
 
 Unit of measurement (e.g., ‘°C’, ‘%’, ‘hPa’).
@@ -1072,15 +1057,6 @@ Sensor reading in the unit reported by `unit`.
 #### *class* aiocamedomotic.models.CameEntity
 
 Base class for all the CAME entities.
-
-##### *property* unique_id *: str | None*
-
-Stable unique identifier for this entity, suitable for use as a
-Home Assistant entity unique ID. Returns `None` if `server_info`
-has not been set (e.g. if `async_get_server_info()` was never called
-or failed). When using this library via `CameDomoticAPI`,
-`server_info` is automatically populated by all `async_get_*()`
-device list methods.
 
 #### *class* aiocamedomotic.models.DeviceType(\*values)
 
@@ -1178,7 +1154,7 @@ ID of the floor.
 
 Name of the floor.
 
-#### *class* aiocamedomotic.models.Light(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth), server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
+#### *class* aiocamedomotic.models.Light(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
 
 Light entity in the CameDomotic API.
 
@@ -1241,10 +1217,6 @@ Light type. Allowed values are “STEP_STEP” (normal lights),
 * **Raises:**
   **ValueError** – If the light type is not recognized.
 
-##### *property* unique_id *: str | None*
-
-Stable unique identifier for this light entity.
-
 #### *class* aiocamedomotic.models.LightStatus(\*values)
 
 Status of a light.
@@ -1296,7 +1268,7 @@ Room index.
 
 Light status (OFF, ON, AUTO).
 
-#### *class* aiocamedomotic.models.Opening(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth), server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
+#### *class* aiocamedomotic.models.Opening(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
 
 Opening entity in the CameDomotic API.
 
@@ -1352,10 +1324,6 @@ Opening type.
 
 * **Raises:**
   **ValueError** – If the opening type is not recognized.
-
-##### *property* unique_id *: str | None*
-
-Stable unique identifier for this opening entity.
 
 #### *class* aiocamedomotic.models.OpeningStatus(\*values)
 
@@ -1434,7 +1402,7 @@ ID of the room.
 
 Name of the room.
 
-#### *class* aiocamedomotic.models.Scenario(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth), server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
+#### *class* aiocamedomotic.models.Scenario(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
 
 Scenario entity in the CameDomotic API.
 
@@ -1477,10 +1445,6 @@ OFF (0), TRIGGERED (1), or ACTIVE (2).
 ##### *property* status *: int*
 
 General status of the scenario.
-
-##### *property* unique_id *: str | None*
-
-Stable unique identifier for this scenario entity.
 
 ##### *property* user_defined *: int*
 
@@ -1549,7 +1513,7 @@ Software version of the server.
 
 Type of the server.
 
-#### *class* aiocamedomotic.models.ThermoZone(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth), server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
+#### *class* aiocamedomotic.models.ThermoZone(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
 
 Thermoregulation zone entity in the CameDomotic API.
 
@@ -1615,10 +1579,6 @@ Current temperature in degrees Celsius.
 
 Handles both `temp` (from list responses) and `temp_dec`
 (from status indications) field names.
-
-##### *property* unique_id *: str | None*
-
-Stable unique identifier for this thermoregulation zone entity.
 
 #### *class* aiocamedomotic.models.ThermoZoneMode(\*values)
 
@@ -1817,15 +1777,6 @@ such as User and ServerInfo that are common across the API functionality.
 
 Base class for all the CAME entities.
 
-##### *property* unique_id *: str | None*
-
-Stable unique identifier for this entity, suitable for use as a
-Home Assistant entity unique ID. Returns `None` if `server_info`
-has not been set (e.g. if `async_get_server_info()` was never called
-or failed). When using this library via `CameDomoticAPI`,
-`server_info` is automatically populated by all `async_get_*()`
-device list methods.
-
 #### *class* aiocamedomotic.models.base.Floor(raw_data: dict[str, Any])
 
 Floor entity in the CAME Domotic API.
@@ -1929,7 +1880,7 @@ system, supporting standard on/off lights (STEP_STEP type), dimmable lights
 access light attributes and methods to control light state, including on/off
 functionality, brightness control, and RGB color control.
 
-#### *class* aiocamedomotic.models.light.Light(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth), server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
+#### *class* aiocamedomotic.models.light.Light(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
 
 Light entity in the CameDomotic API.
 
@@ -1992,10 +1943,6 @@ Light type. Allowed values are “STEP_STEP” (normal lights),
 * **Raises:**
   **ValueError** – If the light type is not recognized.
 
-##### *property* unique_id *: str | None*
-
-Stable unique identifier for this light entity.
-
 #### *class* aiocamedomotic.models.light.LightStatus(\*values)
 
 Status of a light.
@@ -2021,7 +1968,7 @@ system, supporting various types of openings like shutters, awnings, and gates.
 It provides properties to access opening attributes and methods to control
 opening state, including open, close, and stop functionality.
 
-#### *class* aiocamedomotic.models.opening.Opening(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth), server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
+#### *class* aiocamedomotic.models.opening.Opening(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
 
 Opening entity in the CameDomotic API.
 
@@ -2078,10 +2025,6 @@ Opening type.
 * **Raises:**
   **ValueError** – If the opening type is not recognized.
 
-##### *property* unique_id *: str | None*
-
-Stable unique identifier for this opening entity.
-
 #### *class* aiocamedomotic.models.opening.OpeningStatus(\*values)
 
 Status of an opening.
@@ -2107,7 +2050,7 @@ system. Scenarios represent pre-configured automation sequences that can be
 activated to control multiple devices at once. It provides properties to access
 scenario attributes and a method to activate a scenario.
 
-#### *class* aiocamedomotic.models.scenario.Scenario(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth), server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
+#### *class* aiocamedomotic.models.scenario.Scenario(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
 
 Scenario entity in the CameDomotic API.
 
@@ -2151,10 +2094,6 @@ OFF (0), TRIGGERED (1), or ACTIVE (2).
 
 General status of the scenario.
 
-##### *property* unique_id *: str | None*
-
-Stable unique identifier for this scenario entity.
-
 ##### *property* user_defined *: int*
 
 Whether the scenario is user-defined (1) or system-defined (0).
@@ -2175,7 +2114,7 @@ and analog sensors in a CAME Domotic system. It provides read-only access
 to zone state (temperature, setpoint, mode, season) and analog sensor
 readings (temperature, humidity, pressure).
 
-#### *class* aiocamedomotic.models.thermo_zone.AnalogSensor(raw_data: dict[str, Any], server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
+#### *class* aiocamedomotic.models.thermo_zone.AnalogSensor(raw_data: dict[str, Any])
 
 Analog sensor from the CAME Domotic thermoregulation system.
 
@@ -2199,10 +2138,6 @@ ID of the analog sensor.
 
 Name of the analog sensor.
 
-##### *property* unique_id *: str | None*
-
-Stable unique identifier for this analog sensor entity.
-
 ##### *property* unit *: str*
 
 Unit of measurement (e.g., ‘°C’, ‘%’, ‘hPa’).
@@ -2211,7 +2146,7 @@ Unit of measurement (e.g., ‘°C’, ‘%’, ‘hPa’).
 
 Sensor reading in the unit reported by `unit`.
 
-#### *class* aiocamedomotic.models.thermo_zone.ThermoZone(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth), server_info: [ServerInfo](#aiocamedomotic.models.base.ServerInfo) | None = None)
+#### *class* aiocamedomotic.models.thermo_zone.ThermoZone(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
 
 Thermoregulation zone entity in the CameDomotic API.
 
@@ -2277,10 +2212,6 @@ Current temperature in degrees Celsius.
 
 Handles both `temp` (from list responses) and `temp_dec`
 (from status indications) field names.
-
-##### *property* unique_id *: str | None*
-
-Stable unique identifier for this thermoregulation zone entity.
 
 #### *class* aiocamedomotic.models.thermo_zone.ThermoZoneMode(\*values)
 
