@@ -45,7 +45,6 @@ except PackageNotFoundError:
 
 _formatter = logging.Formatter(
     fmt="%(asctime)s %(levelname)s (%(threadName)s) [%(name)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
 )
 _formatter.default_msec_format = "%s.%03d"
 _console_handler = logging.StreamHandler(sys.stdout)
