@@ -91,8 +91,26 @@ pass it via the ``websession`` parameter:
     async with await CameDomoticAPI.async_create(
         "192.168.x.x", "username", "password",
         websession=my_existing_session,
+        close_websession_on_disposal=False,
     ) as api:
         ...
+
+.. important:: **Session ownership — read this carefully if you pass a** ``websession``.
+
+    The ``close_websession_on_disposal`` parameter controls whether the HTTP session is
+    closed when the ``CameDomoticAPI`` object is disposed (i.e. on exit from the
+    ``async with`` block).
+
+    - ``False`` **(default — use this when passing a shared session)**: the session is
+      preserved on disposal. This is almost always what you want in Home Assistant and
+      similar frameworks, where a single long-lived ``aiohttp.ClientSession`` is shared
+      across many integrations. Closing it here would silently break every other
+      component that depends on it.
+    - ``True``: the session is closed on disposal. Only use this if you explicitly
+      want this object to take ownership of the provided session.
+
+    When **no** ``websession`` is provided, this flag is irrelevant: the internally
+    created session is always closed on disposal.
 
 Handling connection errors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

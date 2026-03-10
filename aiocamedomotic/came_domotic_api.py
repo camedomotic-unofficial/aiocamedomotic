@@ -467,10 +467,22 @@ class CameDomoticAPI:
             password (str): The password to use for the API.
             websession (aiohttp.ClientSession, optional): The aiohttp session to use for
                 the API. If not provided, a new aiohttp.ClientSession will be created.
-            close_websession_on_disposal (bool, default False): If True, the aiohttp
-                session will be closed when the CameDomoticAPI object is disposed. If
-                the websession is not provided, this argument is ignored and the session
-                will always be closed.
+            close_websession_on_disposal (bool, default False): Controls whether the
+                aiohttp session is closed when this object is disposed.
+
+                - ``False`` (default): the session is **preserved** on disposal. Use
+                  this when the caller owns the session and reuses it elsewhere — which
+                  is the typical case in Home Assistant and other frameworks that
+                  maintain a single long-lived ``aiohttp.ClientSession`` shared across
+                  multiple integrations. Closing it here would break every other
+                  component that relies on it.
+                - ``True``: the session is closed on disposal. Use this only when you
+                  explicitly want this object to take ownership of the provided session
+                  and close it when done.
+
+                .. note::
+                    When no ``websession`` is provided, this argument is ignored: the
+                    internally created session is always closed on disposal.
             command_timeout (int, optional): the default timeout in seconds
                 for all commands sent to the server (default: 30s).
 
