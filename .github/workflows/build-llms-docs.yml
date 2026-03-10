@@ -86,4 +86,4 @@ jobs:
             --head "$BRANCH_NAME")
           gh pr merge "$PR_URL" --auto --squash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.WORKFLOW_MERGE_PR_PAT }}
