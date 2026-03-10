@@ -251,11 +251,11 @@ import asyncio
 
 from aiocamedomotic import CameDomoticAPI
 from aiocamedomotic.models import (
-    DeviceType, LightStatus, LightType, OpeningStatus,
-    ScenarioStatus, ThermoZoneMode, ThermoZoneSeason,
-    ThermoZoneStatus, DeviceUpdate, LightUpdate,
-    OpeningUpdate, ThermoZoneUpdate, ScenarioUpdate,
-    DigitalInputUpdate, PlantUpdate,
+    DeviceType, DigitalInputStatus, LightStatus, LightType,
+    OpeningStatus, ScenarioStatus, ThermoZoneMode,
+    ThermoZoneSeason, ThermoZoneStatus, DeviceUpdate,
+    LightUpdate, OpeningUpdate, ThermoZoneUpdate,
+    ScenarioUpdate, DigitalInputUpdate, PlantUpdate,
 )
 from aiocamedomotic.errors import (
     CameDomoticError,
@@ -434,6 +434,9 @@ if "thermoregulation" in server_info.features:
 
 if "scenarios" in server_info.features:
     scenarios = await api.async_get_scenarios()
+
+if "digitalin" in server_info.features:
+    digital_inputs = await api.async_get_digital_inputs()
 ```
 
 #### Floors and rooms
@@ -612,6 +615,46 @@ Name: Indoor Humidity, Value: 55, Unit: %
 Name: Barometric Pressure, Value: 1013, Unit: hPa
 ```
 
+#### Digital inputs (binary sensors)
+
+Digital inputs are read-only binary sensors such as physical buttons or
+contact sensors. They report their state (ACTIVE/IDLE) but cannot be
+controlled remotely. `ACTIVE` means the input is triggered (e.g. a button
+is being pressed); `IDLE` means the input is in its normal resting state.
+
+```python
+from aiocamedomotic.models import DigitalInputStatus
+
+digital_inputs = await api.async_get_digital_inputs()
+
+for di in digital_inputs:
+    print(
+        f"ID: {di.act_id}, Name: {di.name}, "
+        f"Status: {di.status}, Address: {di.addr}"
+    )
+```
+
+Example output:
+
+```text
+ID: 0, Name: digitalin_PvGCT, Status: DigitalInputStatus.UNKNOWN, Address: 200
+ID: 1, Name: digitalin_BuTbB, Status: DigitalInputStatus.IDLE, Address: 201
+```
+
+**Finding a specific digital input:**
+
+```python
+# By ID
+button = next((di for di in digital_inputs if di.act_id == 1), None)
+
+# By name
+sensor = next((di for di in digital_inputs if di.name == "Front Door"), None)
+```
+
+##### NOTE
+Some digital inputs do not report a `status` until their first state
+change. In that case, `status` returns `DigitalInputStatus.UNKNOWN`.
+
 ### Monitoring real-time updates
 
 The CAME Domotic server supports **long polling** for real-time status updates.
@@ -734,6 +777,7 @@ if updates.has_plant_update:
     scenarios = await api.async_get_scenarios()
     thermo_zones = await api.async_get_thermo_zones()
     sensors = await api.async_get_analog_sensors()
+    digital_inputs = await api.async_get_digital_inputs()
 ```
 
 ##### NOTE
@@ -863,6 +907,21 @@ readings from the thermoregulation list response.
   List of analog sensors found in the response.
 * **Return type:**
   list[[AnalogSensor](#aiocamedomotic.models.thermo_zone.AnalogSensor)]
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_get_digital_inputs() → list[[DigitalInput](#aiocamedomotic.models.digital_input.DigitalInput)]
+
+Get the list of all digital input devices defined on the server.
+
+Digital inputs are read-only binary sensors (e.g. physical buttons,
+contact sensors). They report their state but cannot be controlled.
+
+* **Returns:**
+  List of digital inputs.
+* **Return type:**
+  list[[DigitalInput](#aiocamedomotic.models.digital_input.DigitalInput)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
@@ -1090,6 +1149,72 @@ Device name from the update.
 
 The [`UpdateIndicator`](#aiocamedomotic.const.UpdateIndicator) for this update,
 or `None` if the `cmd_name` is not recognized.
+
+#### *class* aiocamedomotic.models.DigitalInput(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+
+Digital input (binary sensor) entity in the CameDomotic API.
+
+Digital inputs are read-only devices that report their binary state
+(ACTIVE/IDLE). They cannot be controlled remotely.
+
+* **Raises:**
+  **ValueError** – If `name` or `act_id` keys are missing from the
+      input data or the auth argument is not an instance of the
+      expected `Auth` class.
+
+##### *property* act_id *: int*
+
+ID of the digital input.
+
+##### *property* addr *: int*
+
+Address of the digital input.
+
+##### *property* name *: str*
+
+Name of the digital input.
+
+##### *property* status *: [DigitalInputStatus](#aiocamedomotic.models.digital_input.DigitalInputStatus)*
+
+ACTIVE (0) or IDLE (1).
+
+`ACTIVE` means the input is triggered (e.g. a button is being
+pressed). `IDLE` means the input is in its normal resting state.
+
+Returns `DigitalInputStatus.UNKNOWN` when the status field is
+absent from the server response (some digital inputs do not
+report a status until their first state change).
+
+* **Type:**
+  Status of the digital input
+
+##### *property* type *: [DigitalInputType](#aiocamedomotic.models.digital_input.DigitalInputType)*
+
+Type of the digital input.
+
+Returns `DigitalInputType.UNKNOWN` when the type value is not
+recognized.
+
+##### *property* utc_time *: int*
+
+UTC timestamp of the last event (Unix epoch seconds).
+
+Returns `0` if the digital input has never been triggered.
+
+#### *class* aiocamedomotic.models.DigitalInputStatus(\*values)
+
+Status of a digital input.
+
+Allowed values are:
+: - ACTIVE (0): the input is active (e.g. a button is pressed)
+  - IDLE (1): the input is idle (e.g. a button is not pressed)
+
+#### *class* aiocamedomotic.models.DigitalInputType(\*values)
+
+Type of a digital input.
+
+Allowed values are:
+: - STATUS (1): standard status input
 
 #### *class* aiocamedomotic.models.DigitalInputUpdate(raw_data: dict[str, Any])
 
@@ -2211,6 +2336,79 @@ Status of a thermoregulation zone.
 Allowed values are:
 : - OFF (0)
   - ON (1)
+
+CAME Domotic digital input (binary sensor) entity models.
+
+This module implements the classes for working with digital inputs in a CAME
+Domotic system. Digital inputs represent read-only binary sensors such as
+physical buttons, contact sensors, and similar devices. They provide properties
+to access device attributes but do not support control commands.
+
+#### *class* aiocamedomotic.models.digital_input.DigitalInput(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+
+Digital input (binary sensor) entity in the CameDomotic API.
+
+Digital inputs are read-only devices that report their binary state
+(ACTIVE/IDLE). They cannot be controlled remotely.
+
+* **Raises:**
+  **ValueError** – If `name` or `act_id` keys are missing from the
+      input data or the auth argument is not an instance of the
+      expected `Auth` class.
+
+##### *property* act_id *: int*
+
+ID of the digital input.
+
+##### *property* addr *: int*
+
+Address of the digital input.
+
+##### *property* name *: str*
+
+Name of the digital input.
+
+##### *property* status *: [DigitalInputStatus](#aiocamedomotic.models.digital_input.DigitalInputStatus)*
+
+ACTIVE (0) or IDLE (1).
+
+`ACTIVE` means the input is triggered (e.g. a button is being
+pressed). `IDLE` means the input is in its normal resting state.
+
+Returns `DigitalInputStatus.UNKNOWN` when the status field is
+absent from the server response (some digital inputs do not
+report a status until their first state change).
+
+* **Type:**
+  Status of the digital input
+
+##### *property* type *: [DigitalInputType](#aiocamedomotic.models.digital_input.DigitalInputType)*
+
+Type of the digital input.
+
+Returns `DigitalInputType.UNKNOWN` when the type value is not
+recognized.
+
+##### *property* utc_time *: int*
+
+UTC timestamp of the last event (Unix epoch seconds).
+
+Returns `0` if the digital input has never been triggered.
+
+#### *class* aiocamedomotic.models.digital_input.DigitalInputStatus(\*values)
+
+Status of a digital input.
+
+Allowed values are:
+: - ACTIVE (0): the input is active (e.g. a button is pressed)
+  - IDLE (1): the input is idle (e.g. a button is not pressed)
+
+#### *class* aiocamedomotic.models.digital_input.DigitalInputType(\*values)
+
+Type of a digital input.
+
+Allowed values are:
+: - STATUS (1): standard status input
 
 CAME Domotic status update handling.
 
