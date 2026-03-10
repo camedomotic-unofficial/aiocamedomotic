@@ -45,6 +45,11 @@ and controlling devices, and monitoring real-time changes. For a minimal
             CameDomoticServerError,
         )
 
+        async with await CameDomoticAPI.async_create(
+            "192.168.x.x", "username", "password"
+        ) as api:
+            ...
+
 
 Connecting to the server
 ------------------------
