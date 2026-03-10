@@ -36,17 +36,6 @@ from ..utils import (
 class CameEntity:
     """Base class for all the CAME entities."""
 
-    @property
-    def unique_id(self) -> str | None:
-        """Stable unique identifier for this entity, suitable for use as a
-        Home Assistant entity unique ID. Returns ``None`` if ``server_info``
-        has not been set (e.g. if ``async_get_server_info()`` was never called
-        or failed). When using this library via ``CameDomoticAPI``,
-        ``server_info`` is automatically populated by all ``async_get_*()``
-        device list methods.
-        """
-        return None
-
 
 @dataclass
 class User(CameEntity):
