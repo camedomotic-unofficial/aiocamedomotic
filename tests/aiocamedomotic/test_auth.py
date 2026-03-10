@@ -138,7 +138,7 @@ class TestAuthInit:
         assert auth.client_id == ""
         assert auth.keep_alive_timeout_sec == 0
         assert auth.cseq == 0
-        assert auth.close_websession_on_disposal is True
+        assert auth.close_websession_on_disposal is False
         assert isinstance(auth._lock, asyncio.Lock)  # pylint: disable=protected-access
         assert isinstance(auth.cipher_suite, Fernet)
 
@@ -1041,6 +1041,7 @@ class TestAuthDispose:
     async def test_valid_session_successful_logout(
         self, mock_logout, mock_is_session_valid, mock_close, auth_instance
     ):
+        auth_instance.close_websession_on_disposal = True
         await auth_instance.async_dispose()
         mock_is_session_valid.assert_called_once()
         mock_logout.assert_called_once()
@@ -1054,6 +1055,7 @@ class TestAuthDispose:
     async def test_valid_session_unsuccessful_logout(
         self, mock_logout, mock_is_session_valid, mock_close, auth_instance
     ):
+        auth_instance.close_websession_on_disposal = True
         await auth_instance.async_dispose()
         mock_is_session_valid.assert_called_once()
         mock_logout.assert_called_once()
@@ -1065,6 +1067,7 @@ class TestAuthDispose:
     async def test_invalid_session(
         self, mock_logout, mock_is_session_valid, mock_close, auth_instance
     ):
+        auth_instance.close_websession_on_disposal = True
         await auth_instance.async_dispose()
         mock_is_session_valid.assert_called_once()
         mock_logout.assert_not_called()
