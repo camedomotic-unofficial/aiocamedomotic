@@ -427,10 +427,10 @@ async def test_autodiscovery(real_server_config):
     # Step 1: Check the MAC prefix
     mac_upper = mac_address.upper()
     mac_matches = any(mac_upper.startswith(prefix) for prefix in CAME_MAC_PREFIXES)
-    print(f"\nMAC address: {mac_address}")
+    print(f"\nMAC address: {mac_upper[:8]}:**:**:**")
     print(f"Matches CAME prefix: {mac_matches}")
     assert mac_matches, (
-        f"MAC address {mac_address} does not match any known CAME prefix "
+        f"MAC address {mac_upper[:8]}:**:**:** does not match any known CAME prefix "
         f"({', '.join(CAME_MAC_PREFIXES)})"
     )
 
