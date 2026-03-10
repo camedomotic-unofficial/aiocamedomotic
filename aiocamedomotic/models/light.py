@@ -34,7 +34,7 @@ from ..utils import (
     LOGGER,
     EntityValidator,
 )
-from .base import CameEntity, ServerInfo
+from .base import CameEntity
 
 
 class LightStatus(Enum):
@@ -80,7 +80,6 @@ class Light(CameEntity):
 
     raw_data: dict[str, Any]
     auth: Auth
-    server_info: ServerInfo | None = None
 
     def __post_init__(self) -> None:
         EntityValidator.validate_data(
@@ -93,13 +92,6 @@ class Light(CameEntity):
             raise ValueError(
                 f"'auth' must be an instance of Auth, got {type(self.auth).__name__}"
             )
-
-    @property
-    def unique_id(self) -> str | None:
-        """Stable unique identifier for this light entity."""
-        if self.server_info is None:
-            return None
-        return f"{self.server_info.keycode}_light_{self.act_id}"
 
     @property
     def act_id(self) -> int:
