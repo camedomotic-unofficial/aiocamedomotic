@@ -172,6 +172,10 @@ Let’s go step by step:
    server_info = await api.async_get_server_info()
    print(f"Keycode: {server_info.keycode}")
    ```
+
+   Since this is the first actual call to the server, the library will now authenticate:
+   if the provided credentials are not valid, a `CameDomoticAuthError` exception will
+   be raised.
 3. **Fetching the list of available lights**:
 
    You can retrieve a list of all the lights configured on the CAME Domotic server
@@ -180,10 +184,6 @@ Let’s go step by step:
    # Get the list of all the lights configured on the CAME Domotic server
    lights = await api.async_get_lights()
    ```
-
-   Since this is the first actual call to the server, the library will now authenticate:
-   if the provided credentials are not valid, a `CameDomoticAuthError` exception will
-   be raised.
 4. **Selecting a specific light**:
 
    You can select a specific light, for example, by ID (`act_id` attribute) or display
@@ -236,130 +236,131 @@ Thank you for choosing the CAME Domotic Unofficial library. Happy automating!
 
 ## Usage examples
 
-This section provides **practical examples** to help you get started with the
-CAME Domotic Unofficial library.
+This page walks you through the typical workflow for integrating with a
+CAME Domotic server: connecting, discovering what the server offers, fetching
+and controlling devices, and monitoring real-time changes. For a minimal
+“hello world” example, see [Getting started](#getting-started).
 
 ##### NOTE
-The examples assume you have already installed the library (`pip
-install aiocamedomotic`) and are familiar with the basics of Python
-programming.
-
-### Essential imports for working with this library
-
-To interact with and control your CAME Domotic environment using this
-library, you need the following imports at the beginning of your file.
-
-#### Basic imports
-
-To communicate with the CAME Domotic server using this asynchronous library,
-you need to import the following:
+The examples below assume the library is installed (`pip install
+aiocamedomotic`). Unless otherwise noted, all code runs inside an
+`async with` block:
 
 ```python
 import asyncio
 
 from aiocamedomotic import CameDomoticAPI
-```
-
-#### Working with entities
-
-To work with CAME devices, you may need one or more of the following imports:
-
-```python
 from aiocamedomotic.models import (
-    DeviceType, LightStatus, OpeningStatus, ScenarioStatus,
-    ThermoZoneMode, ThermoZoneSeason, ThermoZoneStatus,
+    DeviceType, LightStatus, LightType, OpeningStatus,
+    ScenarioStatus, ThermoZoneMode, ThermoZoneSeason,
+    ThermoZoneStatus, DeviceUpdate, LightUpdate,
+    OpeningUpdate, ThermoZoneUpdate, ScenarioUpdate,
+    DigitalInputUpdate, PlantUpdate,
 )
-```
-
-#### Working with real-time updates
-
-To receive and process real-time status updates from the CAME Domotic server,
-you will also need the following typed update classes:
-
-```python
-from aiocamedomotic.models import (
-    DeviceType,
-    DeviceUpdate,
-    LightUpdate,
-    OpeningUpdate,
-    ThermoZoneUpdate,
-    ScenarioUpdate,
-    DigitalInputUpdate,
-    PlantUpdate,
-)
-```
-
-#### Handling Exceptions
-
-To properly handle potential errors, you can add these imports:
-
-```python
 from aiocamedomotic.errors import (
-    CameDomoticError,                # Base error raised by the library
-    CameDomoticServerNotFoundError,  # Server not reachable (wrong IP/hostname?)
-    CameDomoticAuthError,            # Authentication failure (wrong credentials?)
-    CameDomoticServerTimeoutError,   # Request timed out (transient, retry later)
-    CameDomoticServerError,          # Other server-side error
+    CameDomoticError,
+    CameDomoticServerNotFoundError,
+    CameDomoticAuthError,
+    CameDomoticServerTimeoutError,
+    CameDomoticServerError,
 )
 ```
 
-##### NOTE
-`CameDomoticServerTimeoutError` is a subclass of `CameDomoticServerError`
-and signals a **transient** failure. Catching it separately lets you distinguish
-retryable timeouts from permanent errors.
+### Connecting to the server
 
-### Initializing the API client
+#### Creating the API client
 
-Initialize a `CameDomoticAPI` instance to connect to your CAME Domotic server. This
-step verifies that the server is **reachable** but **does not** immediately **validate
-credentials** or **establish a session**, since sessions are **created on demand**,
-which optimizes resource usage and security.
+Create a `CameDomoticAPI` instance with the async factory method. The
+`async with` statement ensures resources are cleaned up automatically:
 
 ```python
 import asyncio
-from aiohttp import ClientSession
+from aiocamedomotic import CameDomoticAPI
 
-from aiocamedomotic import Auth, CameDomoticAPI
-
-async def async_my_usage_example():
+async def main():
     async with await CameDomoticAPI.async_create(
         "192.168.x.x", "username", "password"
     ) as api:
+        server_info = await api.async_get_server_info()
+        print(f"Connected to server: {server_info.keycode}")
+
+asyncio.run(main())
 ```
 
 ##### NOTE
-If you want to reuse an existing `aiohttp.ClientSession` instead of letting the
-library create and manage one for you, you can pass it as the value of the
-`websession` parameter of the `CameDomoticAPI.async_create` method. The
-HTTP requests will then be made using that session.
+The session is **not** authenticated at creation time. The library
+authenticates lazily on the first real API call, like `async_get_server_info()`.
+If the credentials are invalid, a `CameDomoticAuthError` will be raised at that
+point.
+
+#### Using an existing HTTP session
+
+If you already have an `aiohttp.ClientSession` (e.g. in Home Assistant),
+pass it via the `websession` parameter:
 
 ```python
-async def async_my_usage_example():
-    async with await CameDomoticAPI.async_create(
-        "192.168.x.x",
-        "username",
-        "password",
-        websession=my_existing_session,
-    ) as api:
+async with await CameDomoticAPI.async_create(
+    "192.168.x.x", "username", "password",
+    websession=my_existing_session,
+) as api:
+    ...
 ```
 
-### Server information
+#### Handling connection errors
 
-You can access the CAME Domotic server properties using the `async_get_server_info()`
-method. Should you need a **unique ID** for the server, you can use the `keycode`
-property, a CAME proprietary unique identifier for the server.
+The library raises specific exceptions for different failure scenarios:
+
+```python
+from aiocamedomotic import CameDomoticAPI
+from aiocamedomotic.errors import (
+    CameDomoticServerNotFoundError,
+    CameDomoticAuthError,
+    CameDomoticServerTimeoutError,
+    CameDomoticServerError,
+)
+
+async def main():
+    try:
+        async with await CameDomoticAPI.async_create(
+            "192.168.x.x", "username", "password"
+        ) as api:
+            lights = await api.async_get_lights()
+    except CameDomoticServerNotFoundError:
+        print("Server not reachable. Check the IP address.")
+    except CameDomoticAuthError:
+        print("Authentication failed. Check your credentials.")
+    except CameDomoticServerTimeoutError:
+        print("Request timed out. The server may be busy, retry later.")
+    except CameDomoticServerError as err:
+        print(f"Server error: {err}")
+```
+
+The exception hierarchy is:
+
+- `CameDomoticError` — base class
+  : - `CameDomoticServerNotFoundError` — host unreachable (transient)
+    - `CameDomoticAuthError` — bad credentials or too many sessions
+    - `CameDomoticServerError` — other server errors
+      : - `CameDomoticServerTimeoutError` — request timeout (transient, retryable)
+
+### Server configuration
+
+#### Server information
+
+Retrieve the server properties with `async_get_server_info()`. The
+`keycode` property serves as a unique identifier for the server:
 
 ```python
 server_info = await api.async_get_server_info()
 
 print(f"Keycode: {server_info.keycode}")
-print(f"Software version: {server_info.software_version}")
-print(f"Server type: {server_info.server_type}")
+print(f"Software version: {server_info.swver}")
+print(f"Server type: {server_info.type}")
 print(f"Board type: {server_info.board}")
-print(f"Serial number: {server_info.serial_number}")
+print(f"Serial number: {server_info.serial}")
 ```
 
-On success, the output looks like this:
+Example output:
 
 ```text
 Keycode: 0000FFFF9999AAAA
@@ -369,23 +370,20 @@ Board type: 3
 Serial number: 0011ffee
 ```
 
-### Server features
+#### Available features
 
-To find out which capabilities your CAME Domotic system offers, you can fetch
-a list of all the features configured on the server using the
-`async_get_features()` method. These features represent the functional blocks you
-would see in the official CAME Domotic mobile app’s homepage, such as lights, openings,
-or scenarios.
+The `features` property on `ServerInfo` lists the capabilities configured
+on the server. These are the functional blocks you would see in the official
+CAME Domotic mobile app (lights, openings, scenarios, etc.):
 
 ```python
-features = await api.async_get_features()
+server_info = await api.async_get_server_info()
 
-for feature in features:
-    print(f"Feature: {feature.name}")
+for feature in server_info.features:
+    print(f"Feature: {feature}")
 ```
 
-Below is example output showing the server’s available features. Note that each
-server installation is unique and may support a different set of features.
+Example output:
 
 ```text
 Feature: lights
@@ -397,201 +395,153 @@ Feature: energy
 Feature: loadsctrl
 ```
 
-### Server users
-
-To list the users configured on the CAME Domotic server, just run the
-`async_get_users()` method:
+You can use the features list to decide which device APIs to call:
 
 ```python
-users = await api.async_get_users()
+if "lights" in server_info.features:
+    lights = await api.async_get_lights()
 
-for user in users:
-    print(f"Username: {user.name}")
+if "openings" in server_info.features:
+    openings = await api.async_get_openings()
+
+if "thermoregulation" in server_info.features:
+    zones = await api.async_get_thermo_zones()
+    sensors = await api.async_get_analog_sensors()
+
+if "scenarios" in server_info.features:
+    scenarios = await api.async_get_scenarios()
 ```
 
-The output will look similar to this:
+#### Floors and rooms
+
+Retrieve the building topology to understand how devices are organized:
+
+```python
+floors = await api.async_get_floors()
+rooms = await api.async_get_rooms()
+
+for floor in floors:
+    print(f"Floor {floor.id}: {floor.name}")
+    floor_rooms = [r for r in rooms if r.floor_id == floor.id]
+    for room in floor_rooms:
+        print(f"  Room {room.id}: {room.name}")
+```
+
+Example output:
 
 ```text
-Username: alex
-Username: sam
-Username: jordan
+Floor 0: Ground Floor
+  Room 1: Living Room
+  Room 2: Kitchen
+Floor 1: First Floor
+  Room 3: Bedroom
+  Room 4: Bathroom
 ```
 
-### Lights
+### Working with devices
 
-#### List of available lights
+All device types follow the same pattern: fetch the list, find a specific
+device, and control it. Lights are shown in full detail below; the other
+device types use the same approach with their own properties and methods.
 
-You can get the list of all the available lights with the `async_get_lights()`
-method:
+#### Lights
+
+**Fetching and inspecting lights:**
 
 ```python
 lights = await api.async_get_lights()
 
 for light in lights:
-    print(f"ID: {light.act_id}, Name: {light.name}, Status: {light.status}")
+    print(
+        f"ID: {light.act_id}, Name: {light.name}, "
+        f"Status: {light.status}, Type: {light.type}"
+    )
 ```
 
-Example output for lights:
+Example output:
 
 ```text
-ID: 1, Name: Living Room Chandelier, Status: LightStatus.ON
-ID: 2, Name: Hallway Night Light, Status: LightStatus.OFF
+ID: 1, Name: Living Room Chandelier, Status: LightStatus.ON, Type: LightType.STEP_STEP
+ID: 2, Name: Hallway Night Light, Status: LightStatus.OFF, Type: LightType.DIMMER
+ID: 3, Name: RGB Strip, Status: LightStatus.ON, Type: LightType.RGB
 ```
 
-#### Change light status
-
-You can turn a light on or off with the `async_set_status` method. For dimmable
-lights, the method also supports setting the brightness level (this setting is ignored
-for non-dimmable lights).
-
-The following example shows different ways to interact with a light device:
+**Finding a specific light:**
 
 ```python
-# Get the list of all the lights configured on the CAME server
-lights = await api.async_get_lights()
+# By ID
+chandelier = next((l for l in lights if l.act_id == 1), None)
 
-# Get a specific light by ID
-living_room_chandelier = next((l for l in lights if l.act_id == 1), None)
-
-# Get a specific light by name
-hallway_night_light = next(
-    (l for l in lights if l.name == "Hallway Night Light"), None
-)
-
-# Control a dimmable light if found
-if living_room_chandelier:
-    # Turn the light on, setting the brightness to 50%
-    await living_room_chandelier.async_set_status(LightStatus.ON, brightness=50)
-
-    # Turn the light off
-    await living_room_chandelier.async_set_status(LightStatus.OFF)
-
-    # Turn the light on, leaving the brightness unchanged
-    await living_room_chandelier.async_set_status(LightStatus.ON)
-
-# Control a non-dimmable light if found
-if hallway_night_light:
-    # Turn the light on
-    await hallway_night_light.async_set_status(LightStatus.ON)
-
-    # Turn the light off
-    await hallway_night_light.async_set_status(LightStatus.OFF)
+# By name
+hallway = next((l for l in lights if l.name == "Hallway Night Light"), None)
 ```
 
-### Openings
-
-#### List of available openings
-
-You can get the list of all the available openings with the `async_get_openings()`
-method:
+**Controlling lights:**
 
 ```python
+from aiocamedomotic.models import LightStatus
+
+# Simple on/off (STEP_STEP lights)
+if chandelier:
+    await chandelier.async_set_status(LightStatus.ON)
+    await chandelier.async_set_status(LightStatus.OFF)
+
+# Dimmable lights: set brightness (0-100)
+if hallway:
+    await hallway.async_set_status(LightStatus.ON, brightness=50)
+    await hallway.async_set_status(LightStatus.ON, brightness=100)
+
+# RGB lights: set color as [R, G, B] (each 0-255)
+rgb_strip = next((l for l in lights if l.type == LightType.RGB), None)
+if rgb_strip:
+    await rgb_strip.async_set_status(LightStatus.ON, rgb=[255, 0, 0])
+    await rgb_strip.async_set_status(LightStatus.ON, brightness=75, rgb=[0, 128, 255])
+```
+
+##### NOTE
+The `brightness` parameter is silently ignored for non-dimmable
+(STEP_STEP) lights. The `rgb` parameter is silently ignored for
+non-RGB lights.
+
+#### Openings
+
+Openings represent shutters, awnings, and similar motorized covers. They use
+a three-state control model: opening, closing, or stopped.
+
+```python
+from aiocamedomotic.models import OpeningStatus
+
 openings = await api.async_get_openings()
 
 for opening in openings:
-    print(f"ID: {opening.id}, Name: {opening.name}, Status: {opening.status}, Type: {opening.type}")
+    print(f"ID: {opening.open_act_id}, Name: {opening.name}, Status: {opening.status}")
+
+# Control an opening
+shutter = next((o for o in openings if o.open_act_id == 10), None)
+if shutter:
+    await shutter.async_set_status(OpeningStatus.OPENING)
+    await shutter.async_set_status(OpeningStatus.STOPPED)
+    await shutter.async_set_status(OpeningStatus.CLOSING)
 ```
 
-Example output for openings:
+#### Scenarios
 
-```text
-ID: 10, Name: Living Room Shutter, Status: OpeningStatus.STOPPED, Type: OpeningType.SHUTTER
-ID: 20, Name: Patio Awning, Status: OpeningStatus.OPENING, Type: OpeningType.SHUTTER
-```
-
-#### Change opening status
-
-You can control an opening with the `async_set_status` method, allowing you to open, close,
-or stop an opening.
-
-The following example shows different ways to interact with opening devices:
-
-```python
-# Get the list of all the openings configured on the CAME server
-openings = await api.async_get_openings()
-
-# Get a specific opening by ID
-living_room_shutter = next((o for o in openings if o.open_act_id == 10), None)
-
-# Get a specific opening by name
-patio_awning = next(
-    (o for o in openings if o.name == "Patio Awning"), None
-)
-
-# Control the shutter if found
-if living_room_shutter:
-    # Open the shutter
-    await living_room_shutter.async_set_status(OpeningStatus.OPENING)
-
-    # Stop the shutter movement
-    await living_room_shutter.async_set_status(OpeningStatus.STOPPED)
-
-    # Close the shutter
-    await living_room_shutter.async_set_status(OpeningStatus.CLOSING)
-
-# Control the awning if found
-if patio_awning:
-    # Open the awning
-    await patio_awning.async_set_status(OpeningStatus.OPENING)
-
-    # Close the awning
-    await patio_awning.async_set_status(OpeningStatus.CLOSING)
-```
-
-### Scenarios
-
-#### List of available scenarios
-
-You can get the list of all the available scenarios with the `async_get_scenarios()`
-method:
+Scenarios are pre-configured automation sequences. They can only be
+activated (fire-and-forget); there is no bidirectional status control.
 
 ```python
 scenarios = await api.async_get_scenarios()
 
 for scenario in scenarios:
     print(f"ID: {scenario.id}, Name: {scenario.name}, Status: {scenario.scenario_status}")
-```
 
-Example output for scenarios:
-
-```text
-ID: 1, Name: Good Morning, Status: ScenarioStatus.OFF
-ID: 2, Name: Good Night, Status: ScenarioStatus.OFF
-```
-
-#### Activate a scenario
-
-You can activate a scenario with the `async_activate` method. Scenarios represent
-pre-configured automation sequences that control multiple devices at once.
-
-The following example shows how to activate a scenario:
-
-```python
-# Get the list of all the scenarios configured on the CAME server
-scenarios = await api.async_get_scenarios()
-
-# Get a specific scenario by ID
-good_morning = next((s for s in scenarios if s.id == 1), None)
-
-# Get a specific scenario by name
-good_night = next(
-    (s for s in scenarios if s.name == "Good Night"), None
-)
-
-# Activate the scenario if found
+# Activate a scenario
+good_morning = next((s for s in scenarios if s.name == "Good Morning"), None)
 if good_morning:
     await good_morning.async_activate()
-
-if good_night:
-    await good_night.async_activate()
 ```
 
-### Thermoregulation zones
-
-#### List of available thermoregulation zones
-
-You can get the list of all the available thermoregulation zones with the
-`async_get_thermo_zones()` method:
+#### Thermoregulation zones
 
 ```python
 zones = await api.async_get_thermo_zones()
@@ -605,7 +555,7 @@ for zone in zones:
     )
 ```
 
-Example output for thermoregulation zones:
+Example output:
 
 ```text
 ID: 1, Name: Living Room, Temperature: 20.0°C, Setpoint: 21.5°C, Mode: ThermoZoneMode.AUTO, Season: ThermoZoneSeason.WINTER
@@ -613,17 +563,15 @@ ID: 52, Name: Bedroom, Temperature: 19.5°C, Setpoint: 20.0°C, Mode: ThermoZone
 ```
 
 ##### NOTE
-Temperature values are returned as float values in degrees Celsius.
-The API internally stores them as integers multiplied by 10
-(e.g., 215 = 21.5°C), but this conversion is handled automatically.
+Thermoregulation zones are currently **read-only**. The library does not
+yet support setting temperature, mode, or season. Temperature values are
+returned as floats in degrees Celsius (the internal integer-times-10
+representation is converted automatically).
 
-### Analog sensors
+#### Analog sensors
 
-#### List of available analog sensors
-
-Analog sensors provide top-level temperature, humidity, and pressure readings
-from the thermoregulation system. You can retrieve them with the
-`async_get_analog_sensors()` method:
+Analog sensors provide top-level readings (temperature, humidity, pressure)
+from the thermoregulation system:
 
 ```python
 sensors = await api.async_get_analog_sensors()
@@ -632,7 +580,7 @@ for sensor in sensors:
     print(f"Name: {sensor.name}, Value: {sensor.value}, Unit: {sensor.unit}")
 ```
 
-Example output for analog sensors:
+Example output:
 
 ```text
 Name: Outdoor Temperature, Value: 21.5, Unit: °C
@@ -640,11 +588,11 @@ Name: Indoor Humidity, Value: 55, Unit: %
 Name: Barometric Pressure, Value: 1013, Unit: hPa
 ```
 
-### Entity unique IDs
+#### Entity unique IDs
 
 Every device entity exposes a `unique_id` property that returns a stable,
-globally unique string identifier suitable for use as a persistent key (e.g.
-as an entity ID in Home Assistant):
+globally unique string suitable as a persistent key (e.g. as an entity ID
+in Home Assistant):
 
 ```python
 lights = await api.async_get_lights()
@@ -668,7 +616,7 @@ and is available on all device entities: `Light`, `Opening`, `Scenario`,
 `unique_id` returns `None` if server info could not be retrieved during
 the entity list fetch. Guard against `None` when using it as a persistent key.
 
-### Real-time updates
+### Monitoring real-time updates
 
 The CAME Domotic server supports **long polling** for real-time status updates.
 When you call `async_get_updates()`, the request **blocks on the server**
@@ -679,53 +627,52 @@ without repeatedly fetching full device lists.
 
 #### Basic polling loop
 
-A typical polling loop continuously calls `async_get_updates()` and processes
-each batch of updates as it arrives:
+A typical polling loop continuously calls `async_get_updates()` and
+processes each batch of updates as it arrives:
 
 ```python
 import asyncio
+from aiocamedomotic.errors import CameDomoticServerTimeoutError
 
 async with await CameDomoticAPI.async_create(
     "192.168.x.x", "username", "password"
 ) as api:
     while True:
-        updates = await api.async_get_updates()
+        try:
+            updates = await api.async_get_updates(timeout=120)
+        except CameDomoticServerTimeoutError:
+            # Long poll timed out with no updates; simply retry
+            continue
 
         for update in updates.get_typed_updates():
             print(f"[{update.device_type}] {update.name} (ID: {update.device_id})")
 
-        # Throttle: avoid flooding the server on fast/error returns
+        # Brief pause to avoid tight looping on rapid server responses
         await asyncio.sleep(1)
 ```
 
 ##### NOTE
-Although `async_get_updates()` blocks until the server has new updates,
-the `asyncio.sleep(1)` acts as a safety throttle in case the server
+The `asyncio.sleep(1)` acts as a safety throttle in case the server
 returns immediately (e.g. errors or rapid update bursts). If you need to
 run the polling loop alongside other logic, wrap it in
 `asyncio.create_task()`.
 
 #### Configuring timeouts
 
-All commands sent to the CAME server use a default timeout of **30 seconds**,
-configurable via the `command_timeout` parameter when creating the API
-instance:
+All commands use a default timeout of **30 seconds**, configurable via
+`command_timeout` when creating the API instance:
 
 ```python
-# Set a custom timeout of 15 seconds for all commands
 async with await CameDomoticAPI.async_create(
     "192.168.x.x", "username", "password", command_timeout=15
 ) as api:
     lights = await api.async_get_lights()  # uses 15s timeout
 ```
 
-By default, `async_get_updates()` also uses `command_timeout`. However,
-since this method uses **long polling** (the server holds the connection open
-until updates are available), a longer timeout is **strongly recommended** to
-avoid premature disconnections:
+For `async_get_updates()`, a longer timeout is **strongly recommended**
+since the server holds the connection open until updates are available:
 
 ```python
-# Recommended: set a longer timeout for long-polling requests
 updates = await api.async_get_updates(timeout=120)
 ```
 
@@ -734,68 +681,25 @@ If no `timeout` is passed to `async_get_updates()`, the instance-level
 `command_timeout` is used (default: 30s). For most real-time monitoring
 use cases, a timeout of **60–120 seconds** is recommended.
 
-#### Getting typed updates
+#### Typed updates and filtering
 
-The `UpdateList` returned by `async_get_updates()` supports iteration over
-raw dicts for backward compatibility. To get **typed** update objects with
-convenient properties, use the `get_typed_updates()` method:
-
-```python
-updates = await api.async_get_updates()
-
-for update in updates.get_typed_updates():
-    print(
-        f"Type: {update.device_type}, "
-        f"ID: {update.device_id}, "
-        f"Name: {update.name}"
-    )
-```
-
-Example output:
-
-```text
-Type: DeviceType.LIGHT, ID: 15, Name: Living Room Spotlights
-Type: DeviceType.THERMOSTAT, ID: 76, Name: Bathroom
-```
-
-Each typed update is an instance of a [`DeviceUpdate`](#aiocamedomotic.models.update.DeviceUpdate)
-subclass (e.g. [`LightUpdate`](#aiocamedomotic.models.update.LightUpdate),
-[`ThermoZoneUpdate`](#aiocamedomotic.models.update.ThermoZoneUpdate)) and exposes
-device-specific properties.
-
-#### Filtering updates by device type
-
-To process only updates for a specific device type, use
+The `UpdateList` supports iteration over raw dicts for backward
+compatibility. For **typed** update objects with convenient properties, use
+`get_typed_updates()` or filter by device type with
 `get_typed_by_device_type()`:
 
 ```python
 updates = await api.async_get_updates()
 
-# Get only light updates, already typed as LightUpdate
+# Filter by device type
 light_updates = updates.get_typed_by_device_type(DeviceType.LIGHT)
-
 for light in light_updates:
     print(
         f"Light '{light.name}': status={light.status}, "
         f"type={light.light_type}, brightness={light.perc}%"
     )
-```
 
-Example output:
-
-```text
-Light 'Living Room Spotlights': status=LightStatus.ON, type=LightType.STEP_STEP, brightness=100%
-Light 'Bedroom Dimmer': status=LightStatus.ON, type=LightType.DIMMER, brightness=50%
-```
-
-#### Dispatching by update type
-
-For more granular control, use `isinstance` to dispatch each update to
-device-specific handling logic:
-
-```python
-updates = await api.async_get_updates()
-
+# Dispatch by update type using isinstance
 for update in updates.get_typed_updates():
     if isinstance(update, LightUpdate):
         print(f"Light '{update.name}': {update.status.name}, brightness={update.perc}%")
@@ -821,18 +725,14 @@ for update in updates.get_typed_updates():
 
 #### Handling plant updates
 
-A special `plant_update_ind` indication signals that the **device
-configuration on the server has changed** (e.g. devices were added, removed, or
-reconfigured). When this happens, all locally cached device lists must be
-discarded and re-fetched.
-
-You can check for this using the `has_plant_update` property:
+A `plant_update_ind` signals that the **device configuration on the server
+has changed** (e.g. devices were added, removed, or reconfigured). When this
+happens, all locally cached device lists must be discarded and re-fetched:
 
 ```python
 updates = await api.async_get_updates()
 
 if updates.has_plant_update:
-    # Device configuration changed: refresh all cached device lists
     lights = await api.async_get_lights()
     openings = await api.async_get_openings()
     scenarios = await api.async_get_scenarios()
@@ -845,38 +745,31 @@ Plant updates are relatively rare. They typically occur when an installer
 modifies the system configuration. Failing to handle them may result in
 stale device data or missing newly added devices.
 
-### Device autodiscovery
+### Advanced topics
 
-The library exposes known MAC address OUI (Organizationally Unique Identifier)
-prefixes for CAME Domotic devices via the `CAME_MAC_PREFIXES` constant. This
-can be used as a first step to identify potential CAME ETI/Domo servers on the
-local network.
+#### Checking authentication status
 
-#### Checking the MAC address prefix
-
-Use `CAME_MAC_PREFIXES` to quickly filter network devices that may be CAME
-Domotic servers:
+Session management is automatic and transparent. If you need to inspect the
+session status for any reason, use `is_session_valid()` on the `auth`
+attribute:
 
 ```python
-from aiocamedomotic import CAME_MAC_PREFIXES
-
-def is_came_mac(mac_address: str) -> bool:
-    """Check if a MAC address belongs to a known CAME/BPT manufacturer."""
-    mac_upper = mac_address.upper()
-    return any(mac_upper.startswith(prefix) for prefix in CAME_MAC_PREFIXES)
-
-# Example: filter discovered devices on the network
-discovered_mac = "00:1C:B2:71:1B:82"
-if is_came_mac(discovered_mac):
-    print(f"{discovered_mac} looks like a CAME device")
+if api.auth.is_session_valid():
+    print("Session is authenticated and valid.")
+else:
+    print("No valid session — it will be renewed automatically on the next call.")
 ```
 
-#### Verifying the CAME API endpoint
+##### NOTE
+You rarely need to call this. The library handles reauthentication
+automatically whenever the session expires.
 
-A matching MAC prefix alone does not guarantee the device is a CAME Domotic
-server. To confirm, use [`async_is_came_endpoint()`](#aiocamedomotic.utils.async_is_came_endpoint)
-to check whether the host exposes the CAME API endpoint. This check does
-**not** require credentials, making it suitable for autodiscovery:
+#### Device autodiscovery
+
+The library exposes known MAC address OUI prefixes for CAME Domotic devices
+via `CAME_MAC_PREFIXES`. Combined with `async_is_came_endpoint()`, this
+allows identifying CAME ETI/Domo servers on the local network without
+credentials:
 
 ```python
 from aiocamedomotic import CAME_MAC_PREFIXES, async_is_came_endpoint
@@ -884,11 +777,12 @@ from aiocamedomotic import CAME_MAC_PREFIXES, async_is_came_endpoint
 async def async_discover_came_server(host: str, mac_address: str) -> bool:
     """Check if a network device is a CAME Domotic server.
 
-    No credentials are needed: the function only verifies that the
-    MAC address belongs to a known CAME/BPT manufacturer and that
-    the host exposes the expected API endpoint.
+    Args:
+        host: IP address or hostname of the device.
+        mac_address: MAC address in colon-separated uppercase hex
+            format, e.g. "00:1C:B2:AA:BB:CC".
     """
-    # Step 1: Quick MAC prefix check
+    # Step 1: Quick MAC prefix check (prefixes use "AA:BB:CC" format)
     mac_upper = mac_address.upper()
     if not any(mac_upper.startswith(prefix) for prefix in CAME_MAC_PREFIXES):
         return False
@@ -897,34 +791,16 @@ async def async_discover_came_server(host: str, mac_address: str) -> bool:
     return await async_is_came_endpoint(host)
 ```
 
-### Checking Authentication Status
-
-**Session management** is automatic and **transparent to the user**. However, if you
-need to check the server session status for any reason, you can use the
-`is_session_valid()` method on the `auth` attribute of the `CameDomoticAPI`
-instance.
-
-```python
-async def async_my_usage_example():
-    async with await CameDomoticAPI.async_create(
-        "192.168.x.x", "username", "password"
-    ) as api:
-
-        # ...other code above
-
-        if api.auth.is_session_valid():
-            print("Server session is authenticated and valid.")
-        else:
-            print("No valid session, but don't worry: it'll be renewed automatically.")
-```
-
 ##### NOTE
-In general, you don’t need to check whether the session is authenticated,
-as the library handles this for you and reauthenticates as needed.
+`CAME_MAC_PREFIXES` contains prefixes in **colon-separated uppercase hex**
+format (e.g. `"00:1C:B2"`). Make sure the MAC address you pass uses the
+same format (`"00:1C:B2:AA:BB:CC"`) before comparing. Other common
+representations such as `001cb2aabbcc`, `00-1C-B2-AA-BB-CC`, or
+lowercase `00:1c:b2:aa:bb:cc` will **not** match directly — normalize
+to uppercase colon-separated format first, as shown in the example above.
 
-### Exploring further
-
-For technical details, see the [API Reference](#api-reference).
+##### SEE ALSO
+For full API details, see the [API Reference](#api-reference).
 
 ## API Reference
 
