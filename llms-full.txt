@@ -307,9 +307,28 @@ pass it via the `websession` parameter:
 async with await CameDomoticAPI.async_create(
     "192.168.x.x", "username", "password",
     websession=my_existing_session,
+    close_websession_on_disposal=False,
 ) as api:
     ...
 ```
+
+##### IMPORTANT
+**Session ownership — read this carefully if you pass a** `websession`.
+
+The `close_websession_on_disposal` parameter controls whether the HTTP session is
+closed when the `CameDomoticAPI` object is disposed (i.e. on exit from the
+`async with` block).
+
+- `False` **(default — use this when passing a shared session)**: the session is
+  preserved on disposal. This is almost always what you want in Home Assistant and
+  similar frameworks, where a single long-lived `aiohttp.ClientSession` is shared
+  across many integrations. Closing it here would silently break every other
+  component that depends on it.
+- `True`: the session is closed on disposal. Only use this if you explicitly
+  want this object to take ownership of the provided session.
+
+When **no** `websession` is provided, this flag is irrelevant: the internally
+created session is always closed on disposal.
 
 #### Handling connection errors
 
@@ -827,10 +846,23 @@ Create a CameDomoticAPI object.
   * **password** (*str*) – The password to use for the API.
   * **websession** (*aiohttp.ClientSession* *,* *optional*) – The aiohttp session to use for
     the API. If not provided, a new aiohttp.ClientSession will be created.
-  * **close_websession_on_disposal** (*bool* *,* *default False*) – If True, the aiohttp
-    session will be closed when the CameDomoticAPI object is disposed. If
-    the websession is not provided, this argument is ignored and the session
-    will always be closed.
+  * **close_websession_on_disposal** (*bool* *,* *default False*) – 
+
+    Controls whether the
+    aiohttp session is closed when this object is disposed.
+    - `False` (default): the session is **preserved** on disposal. Use
+      this when the caller owns the session and reuses it elsewhere — which
+      is the typical case in Home Assistant and other frameworks that
+      maintain a single long-lived `aiohttp.ClientSession` shared across
+      multiple integrations. Closing it here would break every other
+      component that relies on it.
+    - `True`: the session is closed on disposal. Use this only when you
+      explicitly want this object to take ownership of the provided session
+      and close it when done.
+
+    #### NOTE
+    When no `websession` is provided, this argument is ignored: the
+    internally created session is always closed on disposal.
   * **command_timeout** (*int* *,* *optional*) – the default timeout in seconds
     for all commands sent to the server (default: 30s).
 * **Returns:**
