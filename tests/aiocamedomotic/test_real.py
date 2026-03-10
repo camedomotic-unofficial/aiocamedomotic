@@ -271,6 +271,27 @@ async def test_async_get_analog_sensors(api_instance_real: CameDomoticAPI):
     assert sensors is not None, "Failed to get analog sensors"
 
 
+async def test_async_get_digital_inputs(api_instance_real: CameDomoticAPI):
+    """Tests fetching all digital inputs from the server."""
+    print("\nFetching all digital inputs...")
+    digital_inputs = await api_instance_real.async_get_digital_inputs()
+    if not digital_inputs:
+        print("No digital inputs found on the server.")
+        return
+
+    print(f"Found {len(digital_inputs)} digital input(s):")
+    for di in digital_inputs:
+        print(
+            f"  ID: {di.act_id}"
+            f" - Name: {di.name}"
+            f" - Status: {di.status.name}"
+            f" - Type: {di.type.name}"
+            f" - Address: {di.addr}"
+            f" - UTC time: {di.utc_time}"
+        )
+    assert digital_inputs is not None, "Failed to get digital inputs"
+
+
 async def test_async_dimmable_light(api_instance_real: CameDomoticAPI):
     light_name = "Led porta finestra sala"
     lights = await api_instance_real.async_get_lights()

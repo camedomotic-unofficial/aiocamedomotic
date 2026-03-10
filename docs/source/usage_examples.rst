@@ -31,11 +31,11 @@ and controlling devices, and monitoring real-time changes. For a minimal
 
         from aiocamedomotic import CameDomoticAPI
         from aiocamedomotic.models import (
-            DeviceType, LightStatus, LightType, OpeningStatus,
-            ScenarioStatus, ThermoZoneMode, ThermoZoneSeason,
-            ThermoZoneStatus, DeviceUpdate, LightUpdate,
-            OpeningUpdate, ThermoZoneUpdate, ScenarioUpdate,
-            DigitalInputUpdate, PlantUpdate,
+            DeviceType, DigitalInputStatus, LightStatus, LightType,
+            OpeningStatus, ScenarioStatus, ThermoZoneMode,
+            ThermoZoneSeason, ThermoZoneStatus, DeviceUpdate,
+            LightUpdate, OpeningUpdate, ThermoZoneUpdate,
+            ScenarioUpdate, DigitalInputUpdate, PlantUpdate,
         )
         from aiocamedomotic.errors import (
             CameDomoticError,
@@ -223,6 +223,9 @@ You can use the features list to decide which device APIs to call:
     if "scenarios" in server_info.features:
         scenarios = await api.async_get_scenarios()
 
+    if "digitalin" in server_info.features:
+        digital_inputs = await api.async_get_digital_inputs()
+
 Floors and rooms
 ^^^^^^^^^^^^^^^^
 
@@ -406,6 +409,48 @@ Example output:
     Name: Indoor Humidity, Value: 55, Unit: %
     Name: Barometric Pressure, Value: 1013, Unit: hPa
 
+Digital inputs (binary sensors)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Digital inputs are read-only binary sensors such as physical buttons or
+contact sensors. They report their state (ACTIVE/IDLE) but cannot be
+controlled remotely. ``ACTIVE`` means the input is triggered (e.g. a button
+is being pressed); ``IDLE`` means the input is in its normal resting state.
+
+.. code-block:: python
+
+    from aiocamedomotic.models import DigitalInputStatus
+
+    digital_inputs = await api.async_get_digital_inputs()
+
+    for di in digital_inputs:
+        print(
+            f"ID: {di.act_id}, Name: {di.name}, "
+            f"Status: {di.status}, Address: {di.addr}"
+        )
+
+Example output:
+
+.. code-block:: text
+
+    ID: 0, Name: digitalin_PvGCT, Status: DigitalInputStatus.UNKNOWN, Address: 200
+    ID: 1, Name: digitalin_BuTbB, Status: DigitalInputStatus.IDLE, Address: 201
+
+**Finding a specific digital input:**
+
+.. code-block:: python
+
+    # By ID
+    button = next((di for di in digital_inputs if di.act_id == 1), None)
+
+    # By name
+    sensor = next((di for di in digital_inputs if di.name == "Front Door"), None)
+
+.. note::
+    Some digital inputs do not report a ``status`` until their first state
+    change. In that case, ``status`` returns ``DigitalInputStatus.UNKNOWN``.
+
+
 Monitoring real-time updates
 ----------------------------
 
@@ -534,6 +579,7 @@ happens, all locally cached device lists must be discarded and re-fetched:
         scenarios = await api.async_get_scenarios()
         thermo_zones = await api.async_get_thermo_zones()
         sensors = await api.async_get_analog_sensors()
+        digital_inputs = await api.async_get_digital_inputs()
 
 .. note::
     Plant updates are relatively rare. They typically occur when an installer

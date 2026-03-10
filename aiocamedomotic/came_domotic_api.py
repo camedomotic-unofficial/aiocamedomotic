@@ -32,6 +32,7 @@ from .const import (
 )
 from .models import (
     AnalogSensor,
+    DigitalInput,
     Floor,
     Light,
     Opening,
@@ -318,6 +319,36 @@ class CameDomoticAPI:
             " (includes plant update)" if updates.has_plant_update else "",
         )
         return updates
+
+    async def async_get_digital_inputs(self) -> list[DigitalInput]:
+        """Get the list of all digital input devices defined on the server.
+
+        Digital inputs are read-only binary sensors (e.g. physical buttons,
+        contact sensors). They report their state but cannot be controlled.
+
+        Returns:
+            list[DigitalInput]: List of digital inputs.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Fetching digital inputs list")
+        payload = {
+            "cmd_name": _CommandName.DIGITALIN_LIST.value,
+            "topologic_scope": _TopologicScope.PLANT.value,
+        }
+
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.DIGITALIN_LIST.value
+        )
+
+        # Defaults to an empty list if the key is missing from the response JSON
+        digitalin_list = json_response.get("array", []) or []
+        LOGGER.info("Retrieved %d digital input(s)", len(digitalin_list))
+        return [
+            DigitalInput(digitalin_data, self.auth) for digitalin_data in digitalin_list
+        ]
 
     async def async_get_openings(self) -> list[Opening]:
         """Get the list of all opening devices defined on the server.

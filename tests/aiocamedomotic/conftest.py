@@ -281,4 +281,35 @@ def analog_sensor_data_humidity():
     }
 
 
+@pytest.fixture
+def digital_input_data_with_status():
+    """Mock data for a digital input that reports a status."""
+    return {
+        "ack": 0,
+        "act_id": 1,
+        "addr": 201,
+        "name": "digitalin_BuTbB",
+        "radio_node_id": "00000000",
+        "rf_radio_link_quality": 0,
+        "status": 1,
+        "type": 1,
+        "utc_time": 1708366780,
+    }
+
+
+@pytest.fixture
+def digital_input_data_without_status():
+    """Mock data for a digital input that does not report a status."""
+    return {
+        "ack": 1,
+        "act_id": 0,
+        "addr": 200,
+        "name": "digitalin_PvGCT",
+        "radio_node_id": "00000000",
+        "rf_radio_link_quality": 0,
+        "type": 1,
+        "utc_time": 0,
+    }
+
+
 # endregion

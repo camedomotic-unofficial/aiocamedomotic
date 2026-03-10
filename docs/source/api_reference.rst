@@ -50,6 +50,9 @@ Entity models
 .. automodule:: aiocamedomotic.models.thermo_zone
    :members:
 
+.. automodule:: aiocamedomotic.models.digital_input
+   :members:
+
 .. automodule:: aiocamedomotic.models.update
    :members:
 
