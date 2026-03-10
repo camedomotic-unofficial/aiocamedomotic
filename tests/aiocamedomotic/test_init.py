@@ -97,7 +97,7 @@ def test_logger_formatter():
     assert "%(message)s" in format_string
 
     # Check date format includes milliseconds with dot separator
-    assert formatter.datefmt == "%Y-%m-%d %H:%M:%S"
+    assert formatter.datefmt is None
     assert formatter.default_msec_format == "%s.%03d"
 
     # Check thread name is included in the format
