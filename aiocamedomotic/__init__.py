@@ -41,10 +41,13 @@ except PackageNotFoundError:
 # region Logging
 
 # Configure the package logger
+
+
 _formatter = logging.Formatter(
-    "%(asctime)s - %(name)s - %(levelname)s - %(message)s - "
-    "%(module)s:%(lineno)d (%(funcName)s)"
+    fmt="%(asctime)s %(levelname)s (%(threadName)s) [%(name)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
+_formatter.default_msec_format = "%s.%03d"
 _console_handler = logging.StreamHandler(sys.stdout)
 _console_handler.setFormatter(_formatter)
 LOGGER.addHandler(_console_handler)
