@@ -113,6 +113,10 @@ Let's go step by step:
         server_info = await api.async_get_server_info()
         print(f"Keycode: {server_info.keycode}")
 
+   Since this is the first actual call to the server, the library will now authenticate:
+   if the provided credentials are not valid, a ``CameDomoticAuthError`` exception will
+   be raised.
+
 #. **Fetching the list of available lights**:
 
    You can retrieve a list of all the lights configured on the CAME Domotic server
@@ -122,10 +126,6 @@ Let's go step by step:
 
         # Get the list of all the lights configured on the CAME Domotic server
         lights = await api.async_get_lights()
-
-   Since this is the first actual call to the server, the library will now authenticate:
-   if the provided credentials are not valid, a ``CameDomoticAuthError`` exception will
-   be raised.
 
 #. **Selecting a specific light**:
 
