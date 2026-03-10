@@ -72,7 +72,7 @@ jobs:
           git add llms.txt llms-full.txt
           git commit -m "docs: update llms.txt and llms-full.txt"
           git push origin "$BRANCH_NAME"
-          gh pr create \
+          PR_URL=$(gh pr create \
             --title "docs: update LLM documentation files" \
             --body "$(cat <<'EOF'
           Automated update of `llms.txt` and `llms-full.txt` triggered by changes
@@ -83,6 +83,7 @@ jobs:
           EOF
           )" \
             --base main \
-            --head "$BRANCH_NAME"
+            --head "$BRANCH_NAME")
+          gh pr merge "$PR_URL" --auto --squash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
