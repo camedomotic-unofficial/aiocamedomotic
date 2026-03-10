@@ -143,7 +143,7 @@ class Auth:
         username: str,
         password: str,
         *,
-        close_websession_on_disposal: bool = True,
+        close_websession_on_disposal: bool = False,
         command_timeout: int = _DEFAULT_COMMAND_TIMEOUT,
     ) -> Auth:
         """Create an Auth instance.
@@ -154,7 +154,7 @@ class Auth:
             username (str): the username to use for the authentication.
             password (str): the password to use for the authentication.
             close_websession_on_disposal (bool, optional): whether to close the
-                websession when disposing the Auth instance (default: True).
+                websession when disposing the Auth instance (default: False).
             command_timeout (int, optional): the default timeout in seconds
                 for commands sent to the server (default: 30s).
 
@@ -207,7 +207,7 @@ class Auth:
         username: str,
         password: str,
         *,
-        close_websession_on_disposal: bool = True,
+        close_websession_on_disposal: bool = False,
     ) -> None:
         """Initialize the Auth instance.
 
@@ -216,8 +216,8 @@ class Auth:
             host (str): the host of the CAME Domotic server.
             username (str): the username to use for the authentication.
             password (str): the password to use for the authentication.
-            close_websession_on_disposal (bool, optional, default True): whether to
-                close the websession when disposing the Auth instance (default: True).
+            close_websession_on_disposal (bool, optional, default False): whether to
+                close the websession when disposing the Auth instance (default: False).
 
         Note:
             The session is not logged in until the first request is made.
