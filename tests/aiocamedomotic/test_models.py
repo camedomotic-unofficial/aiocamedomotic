@@ -2257,7 +2257,7 @@ class TestThermoZone:
 
     @pytest.mark.asyncio
     @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
-    async def test_async_set_config_with_season_and_fan_speed(
+    async def test_async_set_config_with_fan_speed(
         self,
         mock_send_command,
         thermo_zone_data_winter_auto,
@@ -2267,14 +2267,12 @@ class TestThermoZone:
         await zone.async_set_config(
             mode=ThermoZoneMode.AUTO,
             set_point=21.0,
-            season=ThermoZoneSeason.SUMMER,
             fan_speed=ThermoZoneFanSpeed.FAST,
         )
         call_payload = mock_send_command.call_args[0][0]
         assert call_payload["extended_infos"] == 1
-        assert call_payload["season"] == "summer"
+        assert "season" not in call_payload
         assert call_payload["fan_speed"] == 3
-        assert zone.raw_data["season"] == "summer"
         assert zone.raw_data["fan_speed"] == 3
 
     @pytest.mark.asyncio
@@ -2300,17 +2298,6 @@ class TestThermoZone:
         zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
         with pytest.raises(ValueError, match="Cannot set mode to UNKNOWN"):
             await zone.async_set_config(mode=ThermoZoneMode.UNKNOWN, set_point=20.0)
-
-    async def test_async_set_config_unknown_season_raises(
-        self, thermo_zone_data_winter_auto, auth_instance
-    ):
-        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
-        with pytest.raises(ValueError, match="Cannot set season to UNKNOWN"):
-            await zone.async_set_config(
-                mode=ThermoZoneMode.AUTO,
-                set_point=20.0,
-                season=ThermoZoneSeason.UNKNOWN,
-            )
 
     async def test_async_set_config_unknown_fan_speed_raises(
         self, thermo_zone_data_winter_auto, auth_instance

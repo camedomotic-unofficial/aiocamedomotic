@@ -356,6 +356,15 @@ class CameDomoticAPI:
         This is a plant-level command that changes the season for the
         entire thermoregulation system.
 
+        .. warning::
+            Setting ``season`` to ``PLANT_OFF`` causes the CAME server to
+            automatically switch **all** thermoregulation zones to
+            ``ThermoZoneMode.OFF``. Reverting the season back to ``WINTER``
+            or ``SUMMER`` does **not** restore the previous zone modes —
+            each zone stays ``OFF`` until its mode is changed explicitly via
+            :meth:`~aiocamedomotic.models.ThermoZone.async_set_mode` or
+            :meth:`~aiocamedomotic.models.ThermoZone.async_set_config`.
+
         Args:
             season: The season to set. Valid values are ``WINTER``,
                 ``SUMMER``, and ``PLANT_OFF``.

@@ -388,32 +388,52 @@ Example output:
 
     from aiocamedomotic.models import ThermoZoneFanSpeed, ThermoZoneMode, ThermoZoneSeason
 
-    # Set target temperature (keeps current mode)
+    # Set target temperature (keeps current mode).
+    # Only effective when the zone is in MANUAL mode; in AUTO or other modes
+    # the server silently discards the new setpoint without returning an error.
     zone = zones[0]
     await zone.async_set_temperature(22.0)
+
+    # To guarantee a setpoint change regardless of the current mode, switch to
+    # MANUAL and set the temperature in a single call:
+    await zone.async_set_config(mode=ThermoZoneMode.MANUAL, set_point=22.0)
 
     # Change operating mode (keeps current temperature)
     await zone.async_set_mode(ThermoZoneMode.MANUAL)
 
-    # Full configuration with season and fan speed
+    # Full configuration with fan speed
     await zone.async_set_config(
         mode=ThermoZoneMode.AUTO,
         set_point=21.5,
-        season=ThermoZoneSeason.WINTER,
         fan_speed=ThermoZoneFanSpeed.MEDIUM,
     )
 
     # Set fan speed (keeps current mode and temperature)
     await zone.async_set_fan_speed(ThermoZoneFanSpeed.SLOW)
 
-    # Change global season for all zones (plant-level command)
+    # Change global season for all zones (plant-level command — season cannot
+    # be changed per zone)
     await api.async_set_thermo_season(ThermoZoneSeason.WINTER)
+
+.. warning::
+    **Setting the season to** ``PLANT_OFF`` **forces all zones to** ``OFF``.
+
+    When the season is set to ``PLANT_OFF``, the CAME server automatically
+    switches every thermoregulation zone to ``ThermoZoneMode.OFF``. Reverting
+    the season back to ``WINTER`` or ``SUMMER`` does **not** restore the
+    previous zone modes — each zone stays ``OFF`` until its mode is changed
+    manually (e.g. via ``async_set_mode()`` or ``async_set_config()``).
+
+    If your application needs to restore zone operation after re-enabling a
+    season, you must track each zone's previous mode yourself and re-apply it
+    after changing the season.
 
 .. note::
     Temperature values are returned as floats in degrees Celsius (the internal
     integer-times-10 representation is converted automatically). The
-    ``season`` and ``fan_speed`` parameters in ``async_set_config`` are
-    optional; when provided, the ``extended_infos`` flag is set automatically.
+    ``fan_speed`` parameter in ``async_set_config`` is optional; when
+    provided, the ``extended_infos`` flag is set automatically. Season can
+    only be changed at the plant level via ``async_set_thermo_season()``.
 
 Analog sensors
 ^^^^^^^^^^^^^^
