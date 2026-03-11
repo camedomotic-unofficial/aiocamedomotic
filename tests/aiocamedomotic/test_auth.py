@@ -1063,7 +1063,7 @@ class TestAuthDispose:
 
     @patch.object(ClientSession, "close", new_callable=AsyncMock)
     @patch.object(Auth, "async_logout", new_callable=AsyncMock)
-    async def test_no_websession_close(self, mock_logout, mock_close, auth_instance):
+    async def test_no_websession_close(self, _mock_logout, mock_close, auth_instance):
         auth_instance.close_websession_on_disposal = False
         await auth_instance.async_dispose()
         mock_close.assert_not_called()
