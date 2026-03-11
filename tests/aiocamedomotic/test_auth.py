@@ -42,25 +42,6 @@ from aiocamedomotic.errors import (
 )
 
 
-def _set_mock_response_json(mock_response: AsyncMock, data: dict) -> None:
-    """Configure a mock aiohttp response to return JSON data via content.read().
-
-    This sets up the ``content.read`` attribute so that ``Auth._safe_read_json``
-    can read the response body as raw bytes and parse it as JSON.
-    """
-    raw = json.dumps(data).encode()
-    mock_response.content = AsyncMock()
-    mock_response.content.read = AsyncMock(return_value=raw)
-    mock_response.content_type = "application/json"
-
-
-def _set_mock_response_read_error(mock_response: AsyncMock) -> None:
-    """Configure a mock response so that JSON parsing fails (invalid body)."""
-    mock_response.content = AsyncMock()
-    mock_response.content.read = AsyncMock(return_value=b"not valid json")
-    mock_response.content_type = "application/json"
-
-
 class TestHandleCameDomoticErrorsDecorator:
     """Tests for the handle_came_domotic_errors decorator."""
 
@@ -268,11 +249,10 @@ class TestAuthSendCommand:
 
     @freezegun.freeze_time("2020-01-01")
     async def test_success(self, auth_instance):
-        expected_data = {"sl_data_ack_reason": 0}
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.raise_for_status = Mock()
-        _set_mock_response_json(mock_response, expected_data)
+        mock_response.json.return_value = {"sl_data_ack_reason": 0}
 
         auth_instance.keep_alive_timeout_sec = 900
 
@@ -290,7 +270,7 @@ class TestAuthSendCommand:
 
                 response = await auth_instance.async_send_command(payload)
 
-                assert response == expected_data
+                assert response == mock_response.json.return_value
                 assert auth_instance.cseq == 1
                 assert (
                     auth_instance.session_expiration_timestamp
@@ -321,7 +301,7 @@ class TestAuthSendCommand:
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.raise_for_status = Mock()
-        _set_mock_response_json(mock_response, {"sl_data_ack_reason": 1})
+        mock_response.json.return_value = {"sl_data_ack_reason": 1}
 
         auth_instance.keep_alive_timeout_sec = 900
 
@@ -526,7 +506,7 @@ class TestAuthSendCommand:
             mock_response = AsyncMock()
             mock_response.status = 200
             mock_response.raise_for_status = Mock()
-            _set_mock_response_json(mock_response, {"sl_data_ack_reason": ack_code})
+            mock_response.json.return_value = {"sl_data_ack_reason": ack_code}
             mock_post.return_value = mock_response
 
             with pytest.raises(
@@ -556,7 +536,7 @@ class TestAuthSendCommand:
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.raise_for_status = Mock()
-        _set_mock_response_json(mock_response, {"sl_data_ack_reason": ack_code})
+        mock_response.json.return_value = {"sl_data_ack_reason": ack_code}
         mock_post.return_value = mock_response
 
         with pytest.raises(CameDomoticServerError):
@@ -581,7 +561,7 @@ class TestAuthSendCommand:
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.raise_for_status = Mock()
-        _set_mock_response_json(mock_response, {"sl_data_ack_reason": 3})
+        mock_response.json.return_value = {"sl_data_ack_reason": 3}
         mock_post.return_value = mock_response
 
         with pytest.raises(
@@ -594,10 +574,10 @@ class TestAuthSendCommand:
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.raise_for_status = Mock()
-        _set_mock_response_json(
-            mock_response,
-            {"sl_data_ack_reason": 0, "cmd_name": "wrong_cmd"},
-        )
+        mock_response.json.return_value = {
+            "sl_data_ack_reason": 0,
+            "cmd_name": "wrong_cmd",
+        }
 
         payload = {"command": "test_command"}
 
@@ -640,7 +620,7 @@ class TestAuthSendCommand:
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.raise_for_status = Mock()
-        _set_mock_response_read_error(mock_response)
+        mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
 
         with pytest.raises(CameDomoticServerError):
             await Auth.async_raise_for_status_and_ack(mock_response)
@@ -848,14 +828,11 @@ class TestAuthLogin:
         ):
             mock_response = AsyncMock()
             mock_response.status = 200
-            _set_mock_response_json(
-                mock_response,
-                {
-                    "sl_data_ack_reason": 1,
-                    "sl_client_id": "bad_client_id",
-                    "sl_keep_alive_timeout_sec": 900,
-                },
-            )
+            mock_response.json.return_value = {
+                "sl_data_ack_reason": 1,
+                "sl_client_id": "bad_client_id",
+                "sl_keep_alive_timeout_sec": 900,
+            }
             mock_send_command.return_value = mock_response
 
             mock_is_session_valid.assert_not_called()
@@ -870,7 +847,7 @@ class TestAuthLogin:
         ) as mock_send_command:
             mock_response = AsyncMock()
             mock_response.status = 200
-            _set_mock_response_read_error(mock_response)
+            mock_response.json.side_effect = json.JSONDecodeError("Error", "", 0)
             mock_send_command.return_value = mock_response
 
             with pytest.raises(CameDomoticAuthError):
@@ -888,14 +865,11 @@ class TestAuthLogin:
         ):
             mock_response = AsyncMock()
             mock_response.status = 200
-            _set_mock_response_json(
-                mock_response,
-                {
-                    "sl_data_ack_reason": 3,
-                    "sl_client_id": "client_id",
-                    "sl_keep_alive_timeout_sec": 900,
-                },
-            )
+            mock_response.json.return_value = {
+                "sl_data_ack_reason": 3,
+                "sl_client_id": "client_id",
+                "sl_keep_alive_timeout_sec": 900,
+            }
             mock_send_command.return_value = mock_response
 
             mock_is_session_valid.assert_not_called()
@@ -917,14 +891,11 @@ class TestAuthLogin:
         ):
             mock_response = AsyncMock()
             mock_response.status = 200
-            _set_mock_response_json(
-                mock_response,
-                {
-                    "sl_data_ack_reason": 4,  # "Error occurred in JSON Syntax."
-                    "sl_client_id": "client_id",
-                    "sl_keep_alive_timeout_sec": 900,
-                },
-            )
+            mock_response.json.return_value = {
+                "sl_data_ack_reason": 4,  # "Error occurred in JSON Syntax."
+                "sl_client_id": "client_id",
+                "sl_keep_alive_timeout_sec": 900,
+            }
             mock_send_command.return_value = mock_response
 
             mock_is_session_valid.assert_not_called()
@@ -1221,7 +1192,7 @@ class TestSessionRecovery:
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.raise_for_status = Mock()
-        _set_mock_response_json(mock_response, {"sl_data_ack_reason": 7})
+        mock_response.json.return_value = {"sl_data_ack_reason": 7}
 
         auth_instance.client_id = "old_client_id"
 
@@ -1244,7 +1215,7 @@ class TestSessionRecovery:
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.raise_for_status = Mock()
-        _set_mock_response_json(mock_response, {"sl_data_ack_reason": 8})
+        mock_response.json.return_value = {"sl_data_ack_reason": 8}
 
         auth_instance.client_id = "old_client_id"
 
@@ -1340,142 +1311,3 @@ class TestKeepAliveClamping:
                 auth_instance_not_logged_in.keep_alive_timeout_sec
                 == _KEEP_ALIVE_MAX_SEC
             )
-
-
-class TestSafeReadJson:
-    """Tests for the Auth._safe_read_json security helper."""
-
-    async def test_normal_json_response(self):
-        """A normal-sized JSON response with correct content type is parsed."""
-        payload = {"cmd_name": "test", "status": "ok"}
-        raw = json.dumps(payload).encode()
-
-        mock_response = AsyncMock(spec=aiohttp.ClientResponse)
-        mock_response.content_type = "application/json"
-        mock_response.content = AsyncMock()
-        mock_response.content.read = AsyncMock(return_value=raw)
-
-        result = await Auth._safe_read_json(mock_response)
-        assert result == payload
-
-    async def test_response_exceeds_max_size(self):
-        """A response exceeding _MAX_RESPONSE_SIZE_BYTES is rejected."""
-        oversized_body = b"x" * (Auth._MAX_RESPONSE_SIZE_BYTES + 1)
-
-        mock_response = AsyncMock(spec=aiohttp.ClientResponse)
-        mock_response.content = AsyncMock()
-        mock_response.content.read = AsyncMock(return_value=oversized_body)
-
-        with pytest.raises(CameDomoticServerError, match="maximum allowed size"):
-            await Auth._safe_read_json(mock_response)
-
-    async def test_response_at_exact_max_size(self):
-        """A response exactly at the size limit is accepted."""
-        payload = {"data": "a" * (Auth._MAX_RESPONSE_SIZE_BYTES - 20)}
-        raw = json.dumps(payload).encode()
-        # Ensure it fits within the limit
-        assert len(raw) <= Auth._MAX_RESPONSE_SIZE_BYTES
-
-        mock_response = AsyncMock(spec=aiohttp.ClientResponse)
-        mock_response.content_type = "application/json"
-        mock_response.content = AsyncMock()
-        mock_response.content.read = AsyncMock(return_value=raw)
-
-        result = await Auth._safe_read_json(mock_response)
-        assert result["data"] == payload["data"]
-
-    async def test_unexpected_content_type_falls_back(self):
-        """An unexpected Content-Type triggers a warning but still parses."""
-        payload = {"cmd_name": "test"}
-        raw = json.dumps(payload).encode()
-
-        mock_response = AsyncMock(spec=aiohttp.ClientResponse)
-        mock_response.content_type = "text/html"
-        mock_response.content = AsyncMock()
-        mock_response.content.read = AsyncMock(return_value=raw)
-
-        result = await Auth._safe_read_json(mock_response)
-        assert result == payload
-
-    async def test_unexpected_content_type_logs_warning(self, caplog):
-        """An unexpected Content-Type logs a warning."""
-        payload = {"cmd_name": "test"}
-        raw = json.dumps(payload).encode()
-
-        mock_response = AsyncMock(spec=aiohttp.ClientResponse)
-        mock_response.content_type = "text/plain"
-        mock_response.content = AsyncMock()
-        mock_response.content.read = AsyncMock(return_value=raw)
-
-        import logging
-
-        with caplog.at_level(logging.WARNING):
-            await Auth._safe_read_json(mock_response)
-
-        assert any("Unexpected Content-Type" in msg for msg in caplog.messages)
-
-    async def test_invalid_json_raises_error(self):
-        """Invalid JSON content raises CameDomoticServerError."""
-        mock_response = AsyncMock(spec=aiohttp.ClientResponse)
-        mock_response.content_type = "application/json"
-        mock_response.content = AsyncMock()
-        mock_response.content.read = AsyncMock(return_value=b"not valid json{{{")
-
-        with pytest.raises(CameDomoticServerError, match="decoding the response"):
-            await Auth._safe_read_json(mock_response)
-
-    async def test_empty_response_raises_error(self):
-        """An empty response body raises CameDomoticServerError."""
-        mock_response = AsyncMock(spec=aiohttp.ClientResponse)
-        mock_response.content_type = "application/json"
-        mock_response.content = AsyncMock()
-        mock_response.content.read = AsyncMock(return_value=b"")
-
-        with pytest.raises(CameDomoticServerError, match="decoding the response"):
-            await Auth._safe_read_json(mock_response)
-
-
-class TestAuthDel:
-    """Tests for the Auth.__del__ credential cleanup safety net."""
-
-    def test_del_clears_uncleaned_credentials(self):
-        """__del__ clears credentials that were not cleaned by async_dispose."""
-        session = Mock()
-        auth = Auth(session, "192.168.1.1", "user", "password")
-
-        # Verify credentials are set
-        assert auth.cipher_suite is not None
-        assert auth.username is not None
-        assert auth.password is not None
-
-        # Simulate garbage collection without prior disposal
-        auth.__del__()
-
-        assert auth.cipher_suite is None
-        assert auth.username is None
-        assert auth.password is None
-
-    def test_del_safe_after_dispose(self):
-        """__del__ is safe to call when credentials are already cleared."""
-        session = Mock()
-        auth = Auth(session, "192.168.1.1", "user", "password")
-
-        # Simulate prior disposal
-        auth.cipher_suite = None
-        auth.username = None
-        auth.password = None
-
-        # Should not raise
-        auth.__del__()
-
-        assert auth.cipher_suite is None
-        assert auth.username is None
-        assert auth.password is None
-
-    def test_del_safe_on_partial_init(self):
-        """__del__ handles partially-initialized instances gracefully."""
-        auth = object.__new__(Auth)
-        # Don't call __init__ — simulates a partial initialization failure
-
-        # Should not raise even without any attributes set
-        auth.__del__()
