@@ -243,6 +243,27 @@ LOADSCTRL_RELAY_SET_REQ = {
     "sl_cmd": "sl_data_req",
 }
 
+SL_ADD_USER_REQ = {
+    "sl_client_id": "my_session_id",
+    "sl_cmd": "sl_add_user_req",
+    "sl_login": "new_user",
+    "sl_pwd": "new_password",
+    "sl_group": "new_group",
+}
+
+SL_DELETE_USER_REQ = {
+    "sl_client_id": "my_session_id",
+    "sl_cmd": "sl_del_user_req",
+    "sl_login": "user_to_delete",
+}
+
+SL_CHANGE_USER_PASSWORD_REQ = {
+    "sl_cmd": "sl_user_pwd_change_req",
+    "sl_login": "existing_user",
+    "sl_pwd": "current_password",
+    "sl_new_pwd": "new_password",
+}
+
 TERMINALS_GROUPS_LIST_REQ = {
     "sl_appl_msg": {
         "client": "my_session_id",

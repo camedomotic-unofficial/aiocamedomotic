@@ -32,9 +32,9 @@ and controlling devices, and monitoring real-time changes. For a minimal
         from aiocamedomotic import CameDomoticAPI
         from aiocamedomotic.models import (
             DeviceType, DigitalInputStatus, LightStatus, LightType,
-            OpeningStatus, ScenarioStatus, ThermoZoneMode,
-            ThermoZoneSeason, ThermoZoneStatus, DeviceUpdate,
-            LightUpdate, OpeningUpdate, ThermoZoneUpdate,
+            OpeningStatus, ScenarioStatus, ThermoZoneFanSpeed,
+            ThermoZoneMode, ThermoZoneSeason, ThermoZoneStatus,
+            DeviceUpdate, LightUpdate, OpeningUpdate, ThermoZoneUpdate,
             ScenarioUpdate, DigitalInputUpdate, PlantUpdate,
         )
         from aiocamedomotic.errors import (
@@ -382,11 +382,38 @@ Example output:
     ID: 1, Name: Living Room, Temperature: 20.0°C, Setpoint: 21.5°C, Mode: ThermoZoneMode.AUTO, Season: ThermoZoneSeason.WINTER
     ID: 52, Name: Bedroom, Temperature: 19.5°C, Setpoint: 20.0°C, Mode: ThermoZoneMode.MANUAL, Season: ThermoZoneSeason.WINTER
 
+**Controlling thermoregulation zones:**
+
+.. code-block:: python
+
+    from aiocamedomotic.models import ThermoZoneFanSpeed, ThermoZoneMode, ThermoZoneSeason
+
+    # Set target temperature (keeps current mode)
+    zone = zones[0]
+    await zone.async_set_temperature(22.0)
+
+    # Change operating mode (keeps current temperature)
+    await zone.async_set_mode(ThermoZoneMode.MANUAL)
+
+    # Full configuration with season and fan speed
+    await zone.async_set_config(
+        mode=ThermoZoneMode.AUTO,
+        set_point=21.5,
+        season=ThermoZoneSeason.WINTER,
+        fan_speed=ThermoZoneFanSpeed.MEDIUM,
+    )
+
+    # Set fan speed (keeps current mode and temperature)
+    await zone.async_set_fan_speed(ThermoZoneFanSpeed.SLOW)
+
+    # Change global season for all zones (plant-level command)
+    await api.async_set_thermo_season(ThermoZoneSeason.WINTER)
+
 .. note::
-    Thermoregulation zones are currently **read-only**. The library does not
-    yet support setting temperature, mode, or season. Temperature values are
-    returned as floats in degrees Celsius (the internal integer-times-10
-    representation is converted automatically).
+    Temperature values are returned as floats in degrees Celsius (the internal
+    integer-times-10 representation is converted automatically). The
+    ``season`` and ``fan_speed`` parameters in ``async_set_config`` are
+    optional; when provided, the ``extended_infos`` flag is set automatically.
 
 Analog sensors
 ^^^^^^^^^^^^^^

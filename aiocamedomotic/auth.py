@@ -381,9 +381,14 @@ class Auth:
                 the remote CAME Domotic server.
         """
 
-        # For registration (login) requests, don't try to get a valid client_id
-        # as that would create a circular dependency/deadlock
-        if command_type == _CommandType.REGISTRATION_REQUEST.value:
+        # Registration and password-change requests don't require a valid session:
+        # registration would create a circular dependency, and password change
+        # authenticates via the current credentials directly (no session token
+        # is included in the real protocol payload for this command).
+        if command_type in (
+            _CommandType.REGISTRATION_REQUEST.value,
+            _CommandType.CHANGE_USER_PASSWORD_REQUEST.value,
+        ):
             client_id = ""
         else:
             client_id = await self.async_get_valid_client_id()
@@ -400,6 +405,11 @@ class Auth:
                 "sl_client_id": client_id,
                 "sl_cmd": command_type,
                 "sl_appl_msg_type": "domo",
+            }
+        elif command_type == _CommandType.CHANGE_USER_PASSWORD_REQUEST.value:
+            # Password-change requests must not include sl_client_id (real protocol).
+            request_payload = {
+                "sl_cmd": command_type,
             }
         else:
             request_payload = {
@@ -776,6 +786,46 @@ class Auth:
             self.cseq,
         ) = backup_state
         LOGGER.debug("Auth credentials restored from backup")
+
+    @property
+    def current_username(self) -> str | None:
+        """Return the decrypted username for the current session, or None.
+
+        Returns:
+            str | None: The plaintext username, or ``None`` if the cipher suite
+            has not been initialised (e.g. after ``async_dispose``).
+
+        Note:
+            Usernames are not secret — they appear in plaintext in all API
+            payloads. This property is intended for internal comparisons
+            (e.g. preventing deletion of the current user). Avoid logging
+            its return value unnecessarily.
+        """
+        if self.cipher_suite is None or self.username is None:
+            return None
+        return self.cipher_suite.decrypt(self.username).decode()
+
+    def _update_stored_password(self, new_password: str) -> None:
+        """Update only the stored password without invalidating the current session.
+
+        Unlike :meth:`update_auth_credentials`, this method does **not** reset
+        the session expiration or the client ID. It is intended for the specific
+        case where the currently authenticated user changes their own password:
+        the session remains valid and only the locally stored credential is
+        refreshed so that the next re-authentication uses the new password.
+
+        Args:
+            new_password (str): The new plaintext password to store.
+
+        Raises:
+            CameDomoticAuthError: If the cipher suite is not initialised.
+        """
+        if self.cipher_suite is None:
+            raise CameDomoticAuthError(
+                "Authentication credentials are not initialized."
+            )
+        self.password = self.cipher_suite.encrypt(new_password.encode())
+        LOGGER.debug("Stored password updated without session invalidation")
 
     def update_auth_credentials(self, username: str, password: str) -> None:
         """Update the authentication credentials.

@@ -53,14 +53,29 @@ Domotic plant and can be tested against a real server. Features that are only kn
 reverse-engineered sources (without real traffic verification) are listed separately
 under [Future considerations](#future-considerations).
 
-### Version 1.6 — Energy meters
+### Version 1.6 — User management & Thermoregulation (control)
+
+- **Add/Delete user APIs**: Create and remove users on the CAME server via
+  `user_create_req` and `user_delete_req`.
+- **Change-password support**: Update user passwords via `user_passwd_change_req`.
+- **Real-server lifecycle tests**: End-to-end create → change-password → delete
+  test verified against a real CAME Domotic plant.
+- **Zone configuration**: Set target temperature, operating mode (OFF, MANUAL, AUTO,
+  JOLLY), and fan speed (OFF, SLOW, MEDIUM, FAST, AUTO) for individual zones via
+  `thermo_zone_config_req`.
+- **Global season**: Switch between heating and cooling seasons (WINTER, SUMMER,
+  PLANT_OFF) for all zones via `thermo_season_req`.
+- **Extended zone properties**: Expose fan speed, dehumidifier state (enabled/setpoint),
+  and auxiliary temperature sensors (t1, t2, t3) on `ThermoZone` and `ThermoZoneUpdate`.
+
+### Version 1.7 — Energy meters
 
 - **Meter listing**: List all energy meters with their current readings.
 - **Instant power**: Expose real-time power consumption via `meter_instant_power_ind`.
 - **Energy statistics**: Query historical consumption data (`energy_stat_req`) for
   monitoring and dashboard integration.
 
-### Version 1.7 — Load control (read-only)
+### Version 1.8 — Load control (read-only)
 
 - **Load control meters**: List load control meters with their current state
   (`loadsctrl_meter_list_req`).
@@ -75,17 +90,12 @@ The following features are known from reverse-engineered sources (API_reference.
 API_MANUAL.md) but have not been verified with real traffic captures. They may be
 considered for future development once real-world testing is possible:
 
-- **Thermoregulation (control)**: Set target temperature for individual thermo zones,
-  switch between heating and cooling seasons (`thermo_season_req`), configure operating
-  mode, fan speed, and dehumidification, and get/set thermoregulation profiles with
-  extended info support.
 - **Load control (edit)**: Configure load control meter thresholds
   (`loadsctrl_meter_set_req`) and load control relay priorities
   (`loadsctrl_relay_set_req`).
 
 - **Relays (generic switches)**: List and control generic relay actuators. The API is
   documented but no real traffic has been observed.
-- **User management**: Add, delete, and change passwords for users on the CAME server.
 - **Scenario management**: Create and delete scenarios (beyond the current list/activate).
 - **Audio system**: Sound zone and source management (entirely unverified).
 - **Cameras (TVCC)**: Camera listing (entirely unverified).

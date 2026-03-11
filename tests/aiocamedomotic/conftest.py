@@ -273,6 +273,28 @@ def thermo_zone_data_summer_manual():
 
 
 @pytest.fixture
+def thermo_zone_data_with_fan_dehumidifier():
+    """Mock data for a thermoregulation zone with fan speed and dehumidifier."""
+    return {
+        "act_id": 77,
+        "name": "Office",
+        "floor_ind": 10,
+        "room_ind": 20,
+        "status": 1,
+        "temp": 230,
+        "mode": 1,
+        "set_point": 220,
+        "season": "summer",
+        "leaf": True,
+        "fan_speed": 2,
+        "dehumidifier": {"enabled": 1, "setpoint": 55},
+        "t1": 190,
+        "t2": 200,
+        "t3": 210,
+    }
+
+
+@pytest.fixture
 def analog_sensor_data_temperature():
     """Mock data for an analog temperature sensor."""
     return {

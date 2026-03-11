@@ -130,6 +130,9 @@ class _CommandType(Enum):
     KEEP_ALIVE_REQUEST = "sl_keep_alive_req"
     LOGOUT_REQUEST = "sl_logout_req"
     USERS_LIST_REQUEST = "sl_users_list_req"
+    ADD_USER_REQUEST = "sl_add_user_req"
+    DELETE_USER_REQUEST = "sl_del_user_req"
+    CHANGE_USER_PASSWORD_REQUEST = "sl_user_pwd_change_req"  # nosec B105
 
 
 class _CommandName(Enum):
@@ -152,6 +155,9 @@ class _CommandName(Enum):
     LIGHT_SWITCH = "light_switch_req"
     OPENING_MOVE = "opening_move_req"
     SCENARIO_ACTIVATION = "scenario_activation_req"
+    THERMO_ZONE_CONFIG = "thermo_zone_config_req"
+    THERMO_SEASON = "thermo_season_req"
+    TERMINALS_GROUPS_LIST = "terminals_groups_list_req"
 
 
 class _CommandNameResponse(Enum):
@@ -168,6 +174,7 @@ class _CommandNameResponse(Enum):
     THERMO_LIST = "thermo_list_resp"
     METERS_LIST = "meters_list_resp"
     DIGITALIN_LIST = "digitalin_list_resp"
+    TERMINALS_GROUPS_LIST = "terminals_groups_list_resp"
     # Status
     STATUS_UPDATE = "status_update_resp"
     # Actions

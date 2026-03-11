@@ -30,7 +30,7 @@ from aiocamedomotic.const import (
     UpdateIndicator,
     _ServerFeature,
 )
-from aiocamedomotic.errors import CameDomoticAuthError
+from aiocamedomotic.errors import CameDomoticAuthError, CameDomoticServerError
 from aiocamedomotic.models import (
     AnalogSensor,
     DeviceUpdate,
@@ -53,7 +53,9 @@ from aiocamedomotic.models import (
     ScenarioStatus,
     ScenarioUpdate,
     ServerInfo,
+    TerminalGroup,
     ThermoZone,
+    ThermoZoneFanSpeed,
     ThermoZoneMode,
     ThermoZoneSeason,
     ThermoZoneStatus,
@@ -320,6 +322,128 @@ class TestUser:
             "test_user", "test_password"
         )
 
+    @pytest.mark.asyncio
+    async def test_async_delete_sends_correct_command(self):
+        mock_auth = AsyncMock(spec=Auth)
+        mock_auth.current_username = "other_user"
+        user = User({"name": "user_to_delete"}, mock_auth)
+
+        await user.async_delete()
+
+        mock_auth.async_send_command.assert_called_once_with(
+            {},
+            command_type="sl_del_user_req",
+            additional_payload={"sl_login": "user_to_delete"},
+        )
+
+    @pytest.mark.asyncio
+    async def test_async_delete_raises_for_current_user(self):
+        mock_auth = AsyncMock(spec=Auth)
+        mock_auth.current_username = "current_user"
+        user = User({"name": "current_user"}, mock_auth)
+
+        with pytest.raises(ValueError, match="currently authenticated"):
+            await user.async_delete()
+
+        mock_auth.async_send_command.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_async_change_password_sends_correct_command(self):
+        mock_auth = AsyncMock(spec=Auth)
+        mock_auth.current_username = "other_user"
+        mock_auth.async_send_command.return_value = {
+            "sl_cmd": "sl_user_pwd_change_ack",
+            "sl_user_pwd_change_ack_reason": 0,
+            "sl_ack_reason": 0,
+            "sl_data_ack_reason": 0,
+        }
+        user = User({"name": "existing_user"}, mock_auth)
+
+        await user.async_change_password("current_password", "new_password")
+
+        mock_auth.async_send_command.assert_called_once_with(
+            {},
+            command_type="sl_user_pwd_change_req",
+            additional_payload={
+                "sl_login": "existing_user",
+                "sl_pwd": "current_password",
+                "sl_new_pwd": "new_password",
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_async_change_password_raises_on_ack_failure(self):
+        mock_auth = AsyncMock(spec=Auth)
+        mock_auth.current_username = "other_user"
+        mock_auth.async_send_command.return_value = {
+            "sl_cmd": "sl_user_pwd_change_ack",
+            "sl_user_pwd_change_ack_reason": 1,
+            "sl_ack_reason": 0,
+            "sl_data_ack_reason": 0,
+        }
+        user = User({"name": "existing_user"}, mock_auth)
+
+        with pytest.raises(
+            CameDomoticServerError, match="sl_user_pwd_change_ack_reason=1"
+        ):
+            await user.async_change_password("current_password", "new_password")
+
+    @pytest.mark.asyncio
+    async def test_async_change_password_updates_stored_password_for_current_user(self):
+        mock_auth = AsyncMock(spec=Auth)
+        mock_auth.current_username = "existing_user"
+        mock_auth.async_send_command.return_value = {
+            "sl_cmd": "sl_user_pwd_change_ack",
+            "sl_user_pwd_change_ack_reason": 0,
+            "sl_ack_reason": 0,
+            "sl_data_ack_reason": 0,
+        }
+        user = User({"name": "existing_user"}, mock_auth)
+
+        await user.async_change_password("current_password", "new_password")
+
+        mock_auth._update_stored_password.assert_called_once_with("new_password")
+
+    @pytest.mark.asyncio
+    async def test_async_change_password_does_not_update_stored_password_for_other_user(
+        self,
+    ):
+        mock_auth = AsyncMock(spec=Auth)
+        mock_auth.current_username = "other_user"
+        mock_auth.async_send_command.return_value = {
+            "sl_cmd": "sl_user_pwd_change_ack",
+            "sl_user_pwd_change_ack_reason": 0,
+            "sl_ack_reason": 0,
+            "sl_data_ack_reason": 0,
+        }
+        user = User({"name": "existing_user"}, mock_auth)
+
+        await user.async_change_password("current_password", "new_password")
+
+        mock_auth._update_stored_password.assert_not_called()
+
+
+class TestTerminalGroup:
+    def test_initialization(self):
+        raw_data = {"group_name": "ETI/Domo", "group_id": 1}
+        group = TerminalGroup(raw_data)
+
+        assert group.name == "ETI/Domo"
+        assert group.id == 1
+        assert group.raw_data == raw_data
+
+    def test_invalid_input_missing_group_name(self):
+        with pytest.raises(ValueError):
+            TerminalGroup({"group_id": 1})
+
+    def test_invalid_input_missing_group_id(self):
+        with pytest.raises(ValueError):
+            TerminalGroup({"group_name": "ETI/Domo"})
+
+    def test_invalid_input_none(self):
+        with pytest.raises(ValueError):
+            TerminalGroup(None)
+
 
 class TestUpdateList:
     def test_init_with_data(self):
@@ -493,6 +617,38 @@ class TestDeviceUpdate:
         assert update.device_type == DeviceType.THERMOSTAT
         assert update.device_id == 76
         assert update.update_indicator == UpdateIndicator.THERMOSTAT
+        assert update.t1 == 19.0
+        assert update.t2 == 20.0
+        assert update.t3 == 21.0
+
+    def test_parse_thermo_zone_update_fan_speed(self):
+        raw = {
+            "cmd_name": "thermo_zone_info_ind",
+            "act_id": 10,
+            "name": "Office",
+            "fan_speed": 3,
+            "dehumidifier": {"enabled": 1, "setpoint": 60},
+        }
+        update = parse_update(raw)
+        assert isinstance(update, ThermoZoneUpdate)
+        assert update.fan_speed == ThermoZoneFanSpeed.FAST
+        assert update.dehumidifier_enabled is True
+        assert update.dehumidifier_setpoint == 60.0
+
+    def test_parse_thermo_zone_update_missing_optional_fields(self):
+        raw = {
+            "cmd_name": "thermo_zone_info_ind",
+            "act_id": 10,
+            "name": "Minimal",
+        }
+        update = parse_update(raw)
+        assert isinstance(update, ThermoZoneUpdate)
+        assert update.fan_speed == ThermoZoneFanSpeed.UNKNOWN
+        assert update.dehumidifier_enabled is False
+        assert update.dehumidifier_setpoint is None
+        assert update.t1 is None
+        assert update.t2 is None
+        assert update.t3 is None
 
     def test_parse_scenario_update(self):
         raw = {
@@ -2029,6 +2185,197 @@ class TestThermoZone:
         }
         zone = ThermoZone(zone_data, auth_instance)
         assert zone.season == ThermoZoneSeason.PLANT_OFF
+
+    def test_fan_speed(self, thermo_zone_data_with_fan_dehumidifier, auth_instance):
+        zone = ThermoZone(thermo_zone_data_with_fan_dehumidifier, auth_instance)
+        assert zone.fan_speed == ThermoZoneFanSpeed.MEDIUM
+
+    def test_fan_speed_missing(self, auth_instance):
+        zone_data = {"act_id": 1, "name": "Minimal Zone"}
+        zone = ThermoZone(zone_data, auth_instance)
+        assert zone.fan_speed == ThermoZoneFanSpeed.UNKNOWN
+
+    def test_fan_speed_unknown_value(self, auth_instance):
+        zone_data = {"act_id": 1, "name": "Test Zone", "fan_speed": 99}
+        zone = ThermoZone(zone_data, auth_instance)
+        assert zone.fan_speed == ThermoZoneFanSpeed.UNKNOWN
+
+    def test_dehumidifier_enabled(
+        self, thermo_zone_data_with_fan_dehumidifier, auth_instance
+    ):
+        zone = ThermoZone(thermo_zone_data_with_fan_dehumidifier, auth_instance)
+        assert zone.dehumidifier_enabled is True
+
+    def test_dehumidifier_enabled_missing(self, auth_instance):
+        zone_data = {"act_id": 1, "name": "Minimal Zone"}
+        zone = ThermoZone(zone_data, auth_instance)
+        assert zone.dehumidifier_enabled is False
+
+    def test_dehumidifier_setpoint(
+        self, thermo_zone_data_with_fan_dehumidifier, auth_instance
+    ):
+        zone = ThermoZone(thermo_zone_data_with_fan_dehumidifier, auth_instance)
+        assert zone.dehumidifier_setpoint == 55.0
+
+    def test_dehumidifier_setpoint_missing(self, auth_instance):
+        zone_data = {"act_id": 1, "name": "Minimal Zone"}
+        zone = ThermoZone(zone_data, auth_instance)
+        assert zone.dehumidifier_setpoint is None
+
+    def test_t1_t2_t3(self, thermo_zone_data_with_fan_dehumidifier, auth_instance):
+        zone = ThermoZone(thermo_zone_data_with_fan_dehumidifier, auth_instance)
+        assert zone.t1 == 19.0
+        assert zone.t2 == 20.0
+        assert zone.t3 == 21.0
+
+    def test_t1_t2_t3_missing(self, auth_instance):
+        zone_data = {"act_id": 1, "name": "Minimal Zone"}
+        zone = ThermoZone(zone_data, auth_instance)
+        assert zone.t1 is None
+        assert zone.t2 is None
+        assert zone.t3 is None
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_config(
+        self,
+        mock_send_command,
+        thermo_zone_data_winter_auto,
+        auth_instance,
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        await zone.async_set_config(mode=ThermoZoneMode.MANUAL, set_point=22.5)
+        mock_send_command.assert_called_once()
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["cmd_name"] == "thermo_zone_config_req"
+        assert call_payload["act_id"] == 1
+        assert call_payload["mode"] == 1
+        assert call_payload["set_point"] == 225
+        assert call_payload["extended_infos"] == 0
+        assert zone.raw_data["mode"] == 1
+        assert zone.raw_data["set_point"] == 225
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_config_with_season_and_fan_speed(
+        self,
+        mock_send_command,
+        thermo_zone_data_winter_auto,
+        auth_instance,
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        await zone.async_set_config(
+            mode=ThermoZoneMode.AUTO,
+            set_point=21.0,
+            season=ThermoZoneSeason.SUMMER,
+            fan_speed=ThermoZoneFanSpeed.FAST,
+        )
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["extended_infos"] == 1
+        assert call_payload["season"] == "summer"
+        assert call_payload["fan_speed"] == 3
+        assert zone.raw_data["season"] == "summer"
+        assert zone.raw_data["fan_speed"] == 3
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_config_without_extended(
+        self,
+        mock_send_command,
+        thermo_zone_data_winter_auto,
+        auth_instance,
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        await zone.async_set_config(mode=ThermoZoneMode.OFF, set_point=20.0)
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["extended_infos"] == 0
+        assert "season" not in call_payload
+        assert "fan_speed" not in call_payload
+
+    async def test_async_set_config_unknown_mode_raises(
+        self,
+        thermo_zone_data_winter_auto,
+        auth_instance,
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        with pytest.raises(ValueError, match="Cannot set mode to UNKNOWN"):
+            await zone.async_set_config(mode=ThermoZoneMode.UNKNOWN, set_point=20.0)
+
+    async def test_async_set_config_unknown_season_raises(
+        self, thermo_zone_data_winter_auto, auth_instance
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        with pytest.raises(ValueError, match="Cannot set season to UNKNOWN"):
+            await zone.async_set_config(
+                mode=ThermoZoneMode.AUTO,
+                set_point=20.0,
+                season=ThermoZoneSeason.UNKNOWN,
+            )
+
+    async def test_async_set_config_unknown_fan_speed_raises(
+        self, thermo_zone_data_winter_auto, auth_instance
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        with pytest.raises(ValueError, match="Cannot set fan_speed to UNKNOWN"):
+            await zone.async_set_config(
+                mode=ThermoZoneMode.AUTO,
+                set_point=20.0,
+                fan_speed=ThermoZoneFanSpeed.UNKNOWN,
+            )
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_temperature(
+        self,
+        mock_send_command,
+        thermo_zone_data_winter_auto,
+        auth_instance,
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        await zone.async_set_temperature(22.0)
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["set_point"] == 220
+        assert call_payload["mode"] == 2  # preserves current AUTO mode
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_mode(
+        self,
+        mock_send_command,
+        thermo_zone_data_winter_auto,
+        auth_instance,
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        await zone.async_set_mode(ThermoZoneMode.MANUAL)
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["mode"] == 1
+        assert call_payload["set_point"] == 348  # preserves current setpoint
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_fan_speed_method(
+        self,
+        mock_send_command,
+        thermo_zone_data_winter_auto,
+        auth_instance,
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        await zone.async_set_fan_speed(ThermoZoneFanSpeed.SLOW)
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["fan_speed"] == 1
+        assert call_payload["extended_infos"] == 1
+        assert call_payload["mode"] == 2  # preserves current AUTO mode
+        assert call_payload["set_point"] == 348  # preserves current setpoint
+
+
+class TestThermoZoneFanSpeed:
+    def test_enum_values(self):
+        assert ThermoZoneFanSpeed.OFF.value == 0
+        assert ThermoZoneFanSpeed.SLOW.value == 1
+        assert ThermoZoneFanSpeed.MEDIUM.value == 2
+        assert ThermoZoneFanSpeed.FAST.value == 3
+        assert ThermoZoneFanSpeed.AUTO.value == 4
+        assert ThermoZoneFanSpeed.UNKNOWN.value == -1
 
 
 class TestAnalogSensor:

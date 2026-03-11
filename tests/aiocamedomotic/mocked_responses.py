@@ -464,6 +464,23 @@ TERMINALS_GROUPS_LIST_RESP = {
     "sl_data_ack_reason": 0,
 }
 
+SL_ADD_USER_RESP = {
+    "sl_cmd": "sl_add_user_ack",
+    "sl_data_ack_reason": 0,
+}
+
+SL_DELETE_USER_RESP = {
+    "sl_cmd": "sl_del_user_ack",
+    "sl_data_ack_reason": 0,
+}
+
+SL_CHANGE_USER_PASSWORD_RESP = {
+    "sl_cmd": "sl_user_pwd_change_ack",
+    "sl_user_pwd_change_ack_reason": 0,
+    "sl_ack_reason": 0,
+    "sl_data_ack_reason": 0,
+}
+
 GENERIC_REPLY = {
     "cseq": 4,
     "cmd_name": "generic_reply",

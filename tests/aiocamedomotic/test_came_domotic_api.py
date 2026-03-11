@@ -36,7 +36,9 @@ from aiocamedomotic.models import (
     Room,
     Scenario,
     ServerInfo,
+    TerminalGroup,
     ThermoZone,
+    ThermoZoneSeason,
     UpdateList,
     User,
 )
@@ -200,6 +202,105 @@ class TestAPIUsers:
         users = await api.async_get_users()
         assert len(users) == 0
         assert isinstance(users, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_terminal_groups(self, mock_send_command, auth_instance):
+        mock_send_command.return_value = {
+            "cseq": 1,
+            "cmd_name": "terminals_groups_list_resp",
+            "array": [
+                {"group_name": "ETI/Domo", "group_id": 1},
+                {"group_name": "group2", "group_id": 2},
+            ],
+            "sl_data_ack_reason": 0,
+        }
+        api = CameDomoticAPI(auth_instance)
+
+        groups = await api.async_get_terminal_groups()
+
+        assert len(groups) == 2
+        assert isinstance(groups[0], TerminalGroup)
+        assert groups[0].name == "ETI/Domo"
+        assert groups[0].id == 1
+        assert groups[1].name == "group2"
+        assert groups[1].id == 2
+        mock_send_command.assert_called_once_with(
+            {"cmd_name": "terminals_groups_list_req"},
+            response_command="terminals_groups_list_resp",
+        )
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_terminal_groups_empty_array(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.return_value = {
+            "cseq": 1,
+            "cmd_name": "terminals_groups_list_resp",
+            "array": [],
+            "sl_data_ack_reason": 0,
+        }
+        api = CameDomoticAPI(auth_instance)
+
+        groups = await api.async_get_terminal_groups()
+
+        assert groups == []
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_terminal_groups_missing_key(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.return_value = {
+            "cseq": 1,
+            "cmd_name": "terminals_groups_list_resp",
+            "sl_data_ack_reason": 0,
+        }
+        api = CameDomoticAPI(auth_instance)
+
+        groups = await api.async_get_terminal_groups()
+
+        assert groups == []
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_add_user(self, mock_send_command, auth_instance):
+        mock_send_command.return_value = {
+            "sl_cmd": "sl_add_user_ack",
+            "sl_data_ack_reason": 0,
+        }
+        api = CameDomoticAPI(auth_instance)
+
+        user = await api.async_add_user("new_user", "new_password", group="new_group")
+
+        assert isinstance(user, User)
+        assert user.name == "new_user"
+        mock_send_command.assert_called_once_with(
+            {},
+            command_type="sl_add_user_req",
+            additional_payload={
+                "sl_login": "new_user",
+                "sl_pwd": "new_password",
+                "sl_group": "new_group",
+            },
+        )
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_add_user_default_group(self, mock_send_command, auth_instance):
+        mock_send_command.return_value = {
+            "sl_cmd": "sl_add_user_ack",
+            "sl_data_ack_reason": 0,
+        }
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_add_user("new_user", "new_password")
+
+        mock_send_command.assert_called_once_with(
+            {},
+            command_type="sl_add_user_req",
+            additional_payload={
+                "sl_login": "new_user",
+                "sl_pwd": "new_password",
+                "sl_group": "*",
+            },
+        )
 
 
 class TestAPIServerInfo:
@@ -1254,3 +1355,38 @@ class TestAPIDigitalInputs:
 
         with pytest.raises(ValueError, match="Data is missing required keys: name"):
             await api.async_get_digital_inputs()
+
+
+class TestAPIThermoSeason:
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_thermo_season_winter(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        await api.async_set_thermo_season(ThermoZoneSeason.WINTER)
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["cmd_name"] == "thermo_season_req"
+        assert call_payload["season"] == "winter"
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_thermo_season_summer(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        await api.async_set_thermo_season(ThermoZoneSeason.SUMMER)
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["season"] == "summer"
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_thermo_season_plant_off(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        await api.async_set_thermo_season(ThermoZoneSeason.PLANT_OFF)
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["season"] == "plant_off"
+
+    async def test_async_set_thermo_season_unknown_raises(self, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        with pytest.raises(ValueError, match="Cannot set season to UNKNOWN"):
+            await api.async_set_thermo_season(ThermoZoneSeason.UNKNOWN)

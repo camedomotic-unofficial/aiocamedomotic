@@ -16,9 +16,11 @@
 CAME Domotic thermoregulation entity models.
 
 This module implements the classes for working with thermoregulation zones
-and analog sensors in a CAME Domotic system. It provides read-only access
-to zone state (temperature, setpoint, mode, season) and analog sensor
-readings (temperature, humidity, pressure).
+and analog sensors in a CAME Domotic system. It provides access to zone
+state (temperature, setpoint, mode, season, fan speed, dehumidifier) and
+analog sensor readings (temperature, humidity, pressure), as well as
+control methods to configure zone settings such as target temperature,
+operating mode, and fan speed.
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ from enum import Enum
 from typing import Any
 
 from ..auth import Auth
+from ..const import _CommandName
 from ..utils import (
     LOGGER,
     EntityValidator,
@@ -77,6 +80,25 @@ class ThermoZoneSeason(Enum):
     WINTER = "winter"
     SUMMER = "summer"
     UNKNOWN = "unknown"
+
+
+class ThermoZoneFanSpeed(Enum):
+    """Fan speed setting for a thermoregulation zone.
+
+    Allowed values are:
+        - OFF (0)
+        - SLOW (1)
+        - MEDIUM (2)
+        - FAST (3)
+        - AUTO (4)
+    """
+
+    OFF = 0
+    SLOW = 1
+    MEDIUM = 2
+    FAST = 3
+    AUTO = 4
+    UNKNOWN = -1
 
 
 @dataclass
@@ -211,6 +233,184 @@ class ThermoZone(CameEntity):
     def leaf(self) -> bool:
         """Whether this is an actual zone (leaf node) in the hierarchy."""
         return self.raw_data.get("leaf", True)
+
+    @property
+    def fan_speed(self) -> ThermoZoneFanSpeed:
+        """Fan speed setting for the thermoregulation zone.
+
+        Returns ``ThermoZoneFanSpeed.UNKNOWN`` for unrecognized values.
+        """
+        try:
+            return ThermoZoneFanSpeed(self.raw_data.get("fan_speed", -1))
+        except ValueError:
+            LOGGER.warning(
+                "Unknown thermo zone fan speed '%s' for zone '%s' (ID: %s). "
+                "Returning ThermoZoneFanSpeed.UNKNOWN. "
+                "Please report this to the library developers.",
+                self.raw_data.get("fan_speed"),
+                self.name,
+                self.act_id,
+            )
+            return ThermoZoneFanSpeed.UNKNOWN
+
+    @property
+    def dehumidifier_enabled(self) -> bool:
+        """Whether the dehumidifier is enabled for this zone."""
+        return bool(self.raw_data.get("dehumidifier", {}).get("enabled", 0))
+
+    @property
+    def dehumidifier_setpoint(self) -> float | None:
+        """Dehumidifier humidity setpoint in percent, or None if not set."""
+        val = self.raw_data.get("dehumidifier", {}).get("setpoint")
+        if val is None:
+            return None
+        return float(val)
+
+    @property
+    def t1(self) -> float | None:
+        """Temperature sensor 1 reading in degrees Celsius, or None."""
+        raw = self.raw_data.get("t1")
+        if raw is None:
+            return None
+        return raw / 10.0
+
+    @property
+    def t2(self) -> float | None:
+        """Temperature sensor 2 reading in degrees Celsius, or None."""
+        raw = self.raw_data.get("t2")
+        if raw is None:
+            return None
+        return raw / 10.0
+
+    @property
+    def t3(self) -> float | None:
+        """Temperature sensor 3 reading in degrees Celsius, or None."""
+        raw = self.raw_data.get("t3")
+        if raw is None:
+            return None
+        return raw / 10.0
+
+    async def async_set_config(
+        self,
+        mode: ThermoZoneMode,
+        set_point: float,
+        *,
+        season: ThermoZoneSeason | None = None,
+        fan_speed: ThermoZoneFanSpeed | None = None,
+    ) -> None:
+        """Configure the thermoregulation zone.
+
+        Args:
+            mode: Operating mode to set.
+            set_point: Target temperature in degrees Celsius.
+            season: Season setting (optional, requires extended info).
+            fan_speed: Fan speed setting (optional, requires extended info).
+
+        Raises:
+            ValueError: If ``mode``, ``season``, or ``fan_speed`` is
+                ``UNKNOWN``.
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        if mode == ThermoZoneMode.UNKNOWN:
+            raise ValueError("Cannot set mode to UNKNOWN")
+
+        if season is not None and season == ThermoZoneSeason.UNKNOWN:
+            raise ValueError("Cannot set season to UNKNOWN")
+
+        if fan_speed is not None and fan_speed == ThermoZoneFanSpeed.UNKNOWN:
+            raise ValueError("Cannot set fan_speed to UNKNOWN")
+
+        LOGGER.debug(
+            "Sending 'thermo_zone_config_req' command for zone '%s' (ID: %s)",
+            self.name,
+            self.act_id,
+        )
+        payload = self._prepare_thermo_config_payload(
+            mode, set_point, season, fan_speed
+        )
+        await self.auth.async_send_command(payload)
+
+        # Update the local state if the command succeeded
+        self.raw_data["mode"] = mode.value
+        self.raw_data["set_point"] = int(round(set_point * 10))
+        if season is not None:
+            self.raw_data["season"] = season.value
+        if fan_speed is not None:
+            self.raw_data["fan_speed"] = fan_speed.value
+
+        LOGGER.info(
+            "Zone '%s' (ID: %s) configured: mode=%s, set_point=%.1f°C%s%s",
+            self.name,
+            self.act_id,
+            mode.name,
+            set_point,
+            f", season={season.name}" if season is not None else "",
+            f", fan_speed={fan_speed.name}" if fan_speed is not None else "",
+        )
+
+    def _prepare_thermo_config_payload(
+        self,
+        mode: ThermoZoneMode,
+        set_point: float,
+        season: ThermoZoneSeason | None,
+        fan_speed: ThermoZoneFanSpeed | None,
+    ) -> dict[str, Any]:
+        """Prepare the payload for the zone config API call."""
+        payload: dict[str, Any] = {
+            "act_id": self.act_id,
+            "cmd_name": _CommandName.THERMO_ZONE_CONFIG.value,
+            "mode": mode.value,
+            "set_point": int(round(set_point * 10)),
+        }
+
+        needs_extended = season is not None or fan_speed is not None
+        payload["extended_infos"] = 1 if needs_extended else 0
+
+        if season is not None:
+            payload["season"] = season.value
+        if fan_speed is not None:
+            payload["fan_speed"] = fan_speed.value
+
+        return payload
+
+    async def async_set_temperature(self, temperature: float) -> None:
+        """Set the target temperature, keeping the current operating mode.
+
+        Args:
+            temperature: Target temperature in degrees Celsius.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        await self.async_set_config(mode=self.mode, set_point=temperature)
+
+    async def async_set_mode(self, mode: ThermoZoneMode) -> None:
+        """Set the operating mode, keeping the current target temperature.
+
+        Args:
+            mode: Operating mode to set.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        await self.async_set_config(mode=mode, set_point=self.set_point)
+
+    async def async_set_fan_speed(self, fan_speed: ThermoZoneFanSpeed) -> None:
+        """Set the fan speed, keeping the current mode and temperature.
+
+        Args:
+            fan_speed: Fan speed to set.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        await self.async_set_config(
+            mode=self.mode, set_point=self.set_point, fan_speed=fan_speed
+        )
 
 
 @dataclass
