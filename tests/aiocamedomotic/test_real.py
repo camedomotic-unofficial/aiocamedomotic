@@ -36,6 +36,9 @@ from aiocamedomotic.models import (
     OpeningUpdate,
     PlantUpdate,
     ScenarioUpdate,
+    ThermoZoneFanSpeed,
+    ThermoZoneMode,
+    ThermoZoneSeason,
     ThermoZoneUpdate,
 )
 from aiocamedomotic.models.opening import OpeningStatus
@@ -429,6 +432,306 @@ async def test_listen_for_updates(api_instance_real: CameDomoticAPI):
         f"\nDone — collected {total_updates} update(s) "
         f"across {max_api_calls} API call(s)."
     )
+
+
+def _get_thermo_zone_name(real_server_config) -> str:
+    """Return the thermo zone name from config or a default."""
+    if (
+        real_server_config
+        and "test_devices" in real_server_config
+        and "thermo_zone_name" in real_server_config["test_devices"]
+    ):
+        return real_server_config["test_devices"]["thermo_zone_name"]
+    return "Zona giorno"
+
+
+async def test_thermo_zone_extended_properties(api_instance_real: CameDomoticAPI):
+    """Reads all thermo zones and prints new extended properties."""
+    print("\nFetching all thermoregulation zones with extended properties...")
+    zones = await api_instance_real.async_get_thermo_zones()
+    if not zones:
+        pytest.skip("No thermoregulation zones found on the server.")
+        return
+
+    print(f"Found {len(zones)} zone(s):\n")
+    for zone in zones:
+        print(
+            f"  Zone '{zone.name}' (ID: {zone.act_id})\n"
+            f"    Temp: {zone.temperature}°C, Setpoint: {zone.set_point}°C\n"
+            f"    Mode: {zone.mode.name}, Season: {zone.season.name}, "
+            f"Status: {zone.status.name}\n"
+            f"    Fan speed: {zone.fan_speed.name}\n"
+            f"    Dehumidifier enabled: {zone.dehumidifier_enabled}, "
+            f"setpoint: {zone.dehumidifier_setpoint}\n"
+            f"    T1: {zone.t1}, T2: {zone.t2}, T3: {zone.t3}"
+        )
+
+        # Verify types are correct
+        assert isinstance(zone.fan_speed, ThermoZoneFanSpeed)
+        assert isinstance(zone.dehumidifier_enabled, bool)
+        assert zone.dehumidifier_setpoint is None or isinstance(
+            zone.dehumidifier_setpoint, float
+        )
+        assert zone.t1 is None or isinstance(zone.t1, float)
+        assert zone.t2 is None or isinstance(zone.t2, float)
+        assert zone.t3 is None or isinstance(zone.t3, float)
+
+
+@pytest.mark.timeout(60)
+async def test_thermo_zone_set_temperature(
+    api_instance_real: CameDomoticAPI, real_server_config
+):
+    """Changes zone setpoint, waits for visual check, then reverts."""
+    zone_name = _get_thermo_zone_name(real_server_config)
+    print(f"\nLooking for zone: '{zone_name}'...")
+
+    zones = await api_instance_real.async_get_thermo_zones()
+    zone = next((z for z in zones if z.name == zone_name), None)
+    if zone is None:
+        pytest.skip(f"Zone '{zone_name}' not found on server")
+        return
+
+    initial_set_point = zone.set_point
+    initial_mode = zone.mode
+    new_set_point = initial_set_point + 1.0
+
+    print(
+        f"Zone '{zone.name}' initial state: "
+        f"mode={initial_mode.name}, set_point={initial_set_point}°C"
+    )
+
+    try:
+        print(f"  Setting temperature to {new_set_point}°C...")
+        await zone.async_set_temperature(new_set_point)
+        assert zone.set_point == new_set_point
+        print(f"  Local state: set_point={zone.set_point}°C — check your app now")
+        await asyncio.sleep(10)
+
+        print(f"  Reverting temperature to {initial_set_point}°C...")
+        await zone.async_set_temperature(initial_set_point)
+        assert zone.set_point == initial_set_point
+        print(f"  Local state: set_point={zone.set_point}°C — check your app now")
+        await asyncio.sleep(5)
+    finally:
+        # Safety net: always try to restore
+        if zone.set_point != initial_set_point:
+            await zone.async_set_temperature(initial_set_point)
+            print(f"  (safety revert to {initial_set_point}°C)")
+
+
+@pytest.mark.timeout(80)
+async def test_thermo_zone_mode_cycle(
+    api_instance_real: CameDomoticAPI, real_server_config
+):
+    """Cycles through MANUAL -> AUTO -> JOLLY -> OFF, then restores."""
+    zone_name = _get_thermo_zone_name(real_server_config)
+    print(f"\nLooking for zone: '{zone_name}'...")
+
+    zones = await api_instance_real.async_get_thermo_zones()
+    zone = next((z for z in zones if z.name == zone_name), None)
+    if zone is None:
+        pytest.skip(f"Zone '{zone_name}' not found on server")
+        return
+
+    initial_mode = zone.mode
+    initial_set_point = zone.set_point
+    print(
+        f"Zone '{zone.name}' initial state: "
+        f"mode={initial_mode.name}, set_point={initial_set_point}°C"
+    )
+
+    modes_to_test = [
+        ThermoZoneMode.MANUAL,
+        ThermoZoneMode.AUTO,
+        ThermoZoneMode.JOLLY,
+        ThermoZoneMode.OFF,
+    ]
+
+    try:
+        for mode in modes_to_test:
+            print(f"  Setting mode to {mode.name}...")
+            await zone.async_set_mode(mode)
+            assert zone.mode == mode
+            print(f"  Local state: mode={zone.mode.name} — check your app now")
+            await asyncio.sleep(8)
+
+        print(f"  Restoring mode to {initial_mode.name}...")
+        await zone.async_set_mode(initial_mode)
+        assert zone.mode == initial_mode
+        print(f"  Local state: mode={zone.mode.name}")
+    finally:
+        if zone.mode != initial_mode:
+            await zone.async_set_config(mode=initial_mode, set_point=initial_set_point)
+            print(f"  (safety revert to mode={initial_mode.name})")
+
+
+@pytest.mark.timeout(60)
+async def test_thermo_zone_set_config_combined(
+    api_instance_real: CameDomoticAPI, real_server_config
+):
+    """Tests async_set_config with mode + set_point + season together."""
+    zone_name = _get_thermo_zone_name(real_server_config)
+    print(f"\nLooking for zone: '{zone_name}'...")
+
+    zones = await api_instance_real.async_get_thermo_zones()
+    zone = next((z for z in zones if z.name == zone_name), None)
+    if zone is None:
+        pytest.skip(f"Zone '{zone_name}' not found on server")
+        return
+
+    initial_mode = zone.mode
+    initial_set_point = zone.set_point
+    initial_season = zone.season
+    print(
+        f"Zone '{zone.name}' initial state: mode={initial_mode.name}, "
+        f"set_point={initial_set_point}°C, season={initial_season.name}"
+    )
+
+    try:
+        print("  Setting: MANUAL, 22.0°C, WINTER...")
+        await zone.async_set_config(
+            mode=ThermoZoneMode.MANUAL,
+            set_point=22.0,
+            season=ThermoZoneSeason.WINTER,
+        )
+        assert zone.mode == ThermoZoneMode.MANUAL
+        assert zone.set_point == 22.0
+        assert zone.season == ThermoZoneSeason.WINTER
+        print(
+            f"  Local state: mode={zone.mode.name}, set_point={zone.set_point}°C, "
+            f"season={zone.season.name} — check your app now"
+        )
+        await asyncio.sleep(10)
+
+        print("  Setting: MANUAL, 18.5°C, SUMMER...")
+        await zone.async_set_config(
+            mode=ThermoZoneMode.MANUAL,
+            set_point=18.5,
+            season=ThermoZoneSeason.SUMMER,
+        )
+        assert zone.mode == ThermoZoneMode.MANUAL
+        assert zone.set_point == 18.5
+        assert zone.season == ThermoZoneSeason.SUMMER
+        print(
+            f"  Local state: mode={zone.mode.name}, set_point={zone.set_point}°C, "
+            f"season={zone.season.name} — check your app now"
+        )
+        await asyncio.sleep(10)
+
+        print(
+            f"  Restoring: {initial_mode.name}, {initial_set_point}°C, "
+            f"{initial_season.name}..."
+        )
+        await zone.async_set_config(
+            mode=initial_mode,
+            set_point=initial_set_point,
+            season=initial_season,
+        )
+        print(
+            f"  Local state: mode={zone.mode.name}, set_point={zone.set_point}°C, "
+            f"season={zone.season.name}"
+        )
+    finally:
+        if (
+            zone.mode != initial_mode
+            or zone.set_point != initial_set_point
+            or zone.season != initial_season
+        ):
+            await zone.async_set_config(
+                mode=initial_mode,
+                set_point=initial_set_point,
+                season=initial_season,
+            )
+            print("  (safety revert applied)")
+
+
+@pytest.mark.timeout(40)
+async def test_async_set_thermo_season_global(
+    api_instance_real: CameDomoticAPI,
+):
+    """Tests global season switch at the plant level."""
+    print("\nFetching zones to determine current season...")
+    zones = await api_instance_real.async_get_thermo_zones()
+    if not zones:
+        pytest.skip("No thermoregulation zones found on the server.")
+        return
+
+    initial_season = zones[0].season
+    print(f"Current season (from first zone): {initial_season.name}")
+
+    try:
+        print("  Setting global season to WINTER...")
+        await api_instance_real.async_set_thermo_season(ThermoZoneSeason.WINTER)
+        print("  Done — check your app now")
+        await asyncio.sleep(8)
+
+        print("  Setting global season to SUMMER...")
+        await api_instance_real.async_set_thermo_season(ThermoZoneSeason.SUMMER)
+        print("  Done — check your app now")
+        await asyncio.sleep(8)
+
+        print(f"  Restoring global season to {initial_season.name}...")
+        await api_instance_real.async_set_thermo_season(initial_season)
+        print("  Done")
+    finally:
+        if initial_season not in (
+            ThermoZoneSeason.UNKNOWN,
+            ThermoZoneSeason.PLANT_OFF,
+        ):
+            await api_instance_real.async_set_thermo_season(initial_season)
+
+
+@pytest.mark.timeout(15)
+async def test_thermo_zone_updates_after_setpoint_change(
+    api_instance_real: CameDomoticAPI, real_server_config
+):
+    """Changes a zone setpoint, then listens for a ThermoZoneUpdate."""
+    zone_name = _get_thermo_zone_name(real_server_config)
+    print(f"\nLooking for zone: '{zone_name}'...")
+
+    zones = await api_instance_real.async_get_thermo_zones()
+    zone = next((z for z in zones if z.name == zone_name), None)
+    if zone is None:
+        pytest.skip(f"Zone '{zone_name}' not found on server")
+        return
+
+    initial_set_point = zone.set_point
+    new_set_point = initial_set_point + 0.5
+    print(
+        f"Zone '{zone.name}' set_point={initial_set_point}°C, "
+        f"changing to {new_set_point}°C to trigger update..."
+    )
+
+    try:
+        await zone.async_set_temperature(new_set_point)
+
+        print("  Listening for ThermoZoneUpdate...")
+        thermo_update_found = False
+        while not thermo_update_found:
+            updates = await api_instance_real.async_get_updates(timeout=10)
+            for update in updates.get_typed_updates():
+                if isinstance(update, ThermoZoneUpdate):
+                    thermo_update_found = True
+                    print(
+                        f"\n  Received ThermoZoneUpdate for '{update.name}' "
+                        f"(act_id={update.act_id}):\n"
+                        f"    Temp: {update.temperature}°C, "
+                        f"Setpoint: {update.set_point}°C\n"
+                        f"    Mode: {update.mode.name}, "
+                        f"Season: {update.season.name}, "
+                        f"Status: {update.status.name}\n"
+                        f"    Fan speed: {update.fan_speed.name}\n"
+                        f"    Dehumidifier enabled: "
+                        f"{update.dehumidifier_enabled}, "
+                        f"setpoint: {update.dehumidifier_setpoint}\n"
+                        f"    T1: {update.t1}, T2: {update.t2}, T3: {update.t3}"
+                    )
+                    break
+
+        assert thermo_update_found, "No ThermoZoneUpdate received"
+    finally:
+        await zone.async_set_temperature(initial_set_point)
+        print(f"  Reverted set_point to {initial_set_point}°C")
 
 
 async def test_autodiscovery(real_server_config):

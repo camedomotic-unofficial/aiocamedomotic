@@ -54,6 +54,7 @@ from aiocamedomotic.models import (
     ScenarioUpdate,
     ServerInfo,
     ThermoZone,
+    ThermoZoneFanSpeed,
     ThermoZoneMode,
     ThermoZoneSeason,
     ThermoZoneStatus,
@@ -493,6 +494,38 @@ class TestDeviceUpdate:
         assert update.device_type == DeviceType.THERMOSTAT
         assert update.device_id == 76
         assert update.update_indicator == UpdateIndicator.THERMOSTAT
+        assert update.t1 == 19.0
+        assert update.t2 == 20.0
+        assert update.t3 == 21.0
+
+    def test_parse_thermo_zone_update_fan_speed(self):
+        raw = {
+            "cmd_name": "thermo_zone_info_ind",
+            "act_id": 10,
+            "name": "Office",
+            "fan_speed": 3,
+            "dehumidifier": {"enabled": 1, "setpoint": 60},
+        }
+        update = parse_update(raw)
+        assert isinstance(update, ThermoZoneUpdate)
+        assert update.fan_speed == ThermoZoneFanSpeed.FAST
+        assert update.dehumidifier_enabled is True
+        assert update.dehumidifier_setpoint == 60.0
+
+    def test_parse_thermo_zone_update_missing_optional_fields(self):
+        raw = {
+            "cmd_name": "thermo_zone_info_ind",
+            "act_id": 10,
+            "name": "Minimal",
+        }
+        update = parse_update(raw)
+        assert isinstance(update, ThermoZoneUpdate)
+        assert update.fan_speed == ThermoZoneFanSpeed.UNKNOWN
+        assert update.dehumidifier_enabled is False
+        assert update.dehumidifier_setpoint is None
+        assert update.t1 is None
+        assert update.t2 is None
+        assert update.t3 is None
 
     def test_parse_scenario_update(self):
         raw = {
@@ -2029,6 +2062,197 @@ class TestThermoZone:
         }
         zone = ThermoZone(zone_data, auth_instance)
         assert zone.season == ThermoZoneSeason.PLANT_OFF
+
+    def test_fan_speed(self, thermo_zone_data_with_fan_dehumidifier, auth_instance):
+        zone = ThermoZone(thermo_zone_data_with_fan_dehumidifier, auth_instance)
+        assert zone.fan_speed == ThermoZoneFanSpeed.MEDIUM
+
+    def test_fan_speed_missing(self, auth_instance):
+        zone_data = {"act_id": 1, "name": "Minimal Zone"}
+        zone = ThermoZone(zone_data, auth_instance)
+        assert zone.fan_speed == ThermoZoneFanSpeed.UNKNOWN
+
+    def test_fan_speed_unknown_value(self, auth_instance):
+        zone_data = {"act_id": 1, "name": "Test Zone", "fan_speed": 99}
+        zone = ThermoZone(zone_data, auth_instance)
+        assert zone.fan_speed == ThermoZoneFanSpeed.UNKNOWN
+
+    def test_dehumidifier_enabled(
+        self, thermo_zone_data_with_fan_dehumidifier, auth_instance
+    ):
+        zone = ThermoZone(thermo_zone_data_with_fan_dehumidifier, auth_instance)
+        assert zone.dehumidifier_enabled is True
+
+    def test_dehumidifier_enabled_missing(self, auth_instance):
+        zone_data = {"act_id": 1, "name": "Minimal Zone"}
+        zone = ThermoZone(zone_data, auth_instance)
+        assert zone.dehumidifier_enabled is False
+
+    def test_dehumidifier_setpoint(
+        self, thermo_zone_data_with_fan_dehumidifier, auth_instance
+    ):
+        zone = ThermoZone(thermo_zone_data_with_fan_dehumidifier, auth_instance)
+        assert zone.dehumidifier_setpoint == 55.0
+
+    def test_dehumidifier_setpoint_missing(self, auth_instance):
+        zone_data = {"act_id": 1, "name": "Minimal Zone"}
+        zone = ThermoZone(zone_data, auth_instance)
+        assert zone.dehumidifier_setpoint is None
+
+    def test_t1_t2_t3(self, thermo_zone_data_with_fan_dehumidifier, auth_instance):
+        zone = ThermoZone(thermo_zone_data_with_fan_dehumidifier, auth_instance)
+        assert zone.t1 == 19.0
+        assert zone.t2 == 20.0
+        assert zone.t3 == 21.0
+
+    def test_t1_t2_t3_missing(self, auth_instance):
+        zone_data = {"act_id": 1, "name": "Minimal Zone"}
+        zone = ThermoZone(zone_data, auth_instance)
+        assert zone.t1 is None
+        assert zone.t2 is None
+        assert zone.t3 is None
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_config(
+        self,
+        mock_send_command,
+        thermo_zone_data_winter_auto,
+        auth_instance,
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        await zone.async_set_config(mode=ThermoZoneMode.MANUAL, set_point=22.5)
+        mock_send_command.assert_called_once()
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["cmd_name"] == "thermo_zone_config_req"
+        assert call_payload["act_id"] == 1
+        assert call_payload["mode"] == 1
+        assert call_payload["set_point"] == 225
+        assert call_payload["extended_infos"] == 0
+        assert zone.raw_data["mode"] == 1
+        assert zone.raw_data["set_point"] == 225
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_config_with_season_and_fan_speed(
+        self,
+        mock_send_command,
+        thermo_zone_data_winter_auto,
+        auth_instance,
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        await zone.async_set_config(
+            mode=ThermoZoneMode.AUTO,
+            set_point=21.0,
+            season=ThermoZoneSeason.SUMMER,
+            fan_speed=ThermoZoneFanSpeed.FAST,
+        )
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["extended_infos"] == 1
+        assert call_payload["season"] == "summer"
+        assert call_payload["fan_speed"] == 3
+        assert zone.raw_data["season"] == "summer"
+        assert zone.raw_data["fan_speed"] == 3
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_config_without_extended(
+        self,
+        mock_send_command,
+        thermo_zone_data_winter_auto,
+        auth_instance,
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        await zone.async_set_config(mode=ThermoZoneMode.OFF, set_point=20.0)
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["extended_infos"] == 0
+        assert "season" not in call_payload
+        assert "fan_speed" not in call_payload
+
+    async def test_async_set_config_unknown_mode_raises(
+        self,
+        thermo_zone_data_winter_auto,
+        auth_instance,
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        with pytest.raises(ValueError, match="Cannot set mode to UNKNOWN"):
+            await zone.async_set_config(mode=ThermoZoneMode.UNKNOWN, set_point=20.0)
+
+    async def test_async_set_config_unknown_season_raises(
+        self, thermo_zone_data_winter_auto, auth_instance
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        with pytest.raises(ValueError, match="Cannot set season to UNKNOWN"):
+            await zone.async_set_config(
+                mode=ThermoZoneMode.AUTO,
+                set_point=20.0,
+                season=ThermoZoneSeason.UNKNOWN,
+            )
+
+    async def test_async_set_config_unknown_fan_speed_raises(
+        self, thermo_zone_data_winter_auto, auth_instance
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        with pytest.raises(ValueError, match="Cannot set fan_speed to UNKNOWN"):
+            await zone.async_set_config(
+                mode=ThermoZoneMode.AUTO,
+                set_point=20.0,
+                fan_speed=ThermoZoneFanSpeed.UNKNOWN,
+            )
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_temperature(
+        self,
+        mock_send_command,
+        thermo_zone_data_winter_auto,
+        auth_instance,
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        await zone.async_set_temperature(22.0)
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["set_point"] == 220
+        assert call_payload["mode"] == 2  # preserves current AUTO mode
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_mode(
+        self,
+        mock_send_command,
+        thermo_zone_data_winter_auto,
+        auth_instance,
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        await zone.async_set_mode(ThermoZoneMode.MANUAL)
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["mode"] == 1
+        assert call_payload["set_point"] == 348  # preserves current setpoint
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_fan_speed_method(
+        self,
+        mock_send_command,
+        thermo_zone_data_winter_auto,
+        auth_instance,
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        await zone.async_set_fan_speed(ThermoZoneFanSpeed.SLOW)
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["fan_speed"] == 1
+        assert call_payload["extended_infos"] == 1
+        assert call_payload["mode"] == 2  # preserves current AUTO mode
+        assert call_payload["set_point"] == 348  # preserves current setpoint
+
+
+class TestThermoZoneFanSpeed:
+    def test_enum_values(self):
+        assert ThermoZoneFanSpeed.OFF.value == 0
+        assert ThermoZoneFanSpeed.SLOW.value == 1
+        assert ThermoZoneFanSpeed.MEDIUM.value == 2
+        assert ThermoZoneFanSpeed.FAST.value == 3
+        assert ThermoZoneFanSpeed.AUTO.value == 4
+        assert ThermoZoneFanSpeed.UNKNOWN.value == -1
 
 
 class TestAnalogSensor:

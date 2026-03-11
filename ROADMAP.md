@@ -53,14 +53,24 @@ Domotic plant and can be tested against a real server. Features that are only kn
 reverse-engineered sources (without real traffic verification) are listed separately
 under [Future considerations](#future-considerations).
 
-### Version 1.6 — Energy meters
+### Version 1.6 — Thermoregulation (control)
+
+- **Zone configuration**: Set target temperature, operating mode (OFF, MANUAL, AUTO,
+  JOLLY), and fan speed (OFF, SLOW, MEDIUM, FAST, AUTO) for individual zones via
+  `thermo_zone_config_req`.
+- **Global season**: Switch between heating and cooling seasons (WINTER, SUMMER,
+  PLANT_OFF) for all zones via `thermo_season_req`.
+- **Extended zone properties**: Expose fan speed, dehumidifier state (enabled/setpoint),
+  and auxiliary temperature sensors (t1, t2, t3) on `ThermoZone` and `ThermoZoneUpdate`.
+
+### Version 1.7 — Energy meters
 
 - **Meter listing**: List all energy meters with their current readings.
 - **Instant power**: Expose real-time power consumption via `meter_instant_power_ind`.
 - **Energy statistics**: Query historical consumption data (`energy_stat_req`) for
   monitoring and dashboard integration.
 
-### Version 1.7 — Load control (read-only)
+### Version 1.8 — Load control (read-only)
 
 - **Load control meters**: List load control meters with their current state
   (`loadsctrl_meter_list_req`).
@@ -75,10 +85,6 @@ The following features are known from reverse-engineered sources (API_reference.
 API_MANUAL.md) but have not been verified with real traffic captures. They may be
 considered for future development once real-world testing is possible:
 
-- **Thermoregulation (control)**: Set target temperature for individual thermo zones,
-  switch between heating and cooling seasons (`thermo_season_req`), configure operating
-  mode, fan speed, and dehumidification, and get/set thermoregulation profiles with
-  extended info support.
 - **Load control (edit)**: Configure load control meter thresholds
   (`loadsctrl_meter_set_req`) and load control relay priorities
   (`loadsctrl_relay_set_req`).

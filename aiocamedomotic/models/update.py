@@ -34,7 +34,12 @@ from .base import CameEntity
 from .light import LightStatus, LightType
 from .opening import OpeningStatus
 from .scenario import ScenarioStatus
-from .thermo_zone import ThermoZoneMode, ThermoZoneSeason, ThermoZoneStatus
+from .thermo_zone import (
+    ThermoZoneFanSpeed,
+    ThermoZoneMode,
+    ThermoZoneSeason,
+    ThermoZoneStatus,
+)
 
 
 def get_update_device_type(update: dict[str, Any]) -> DeviceType | None:
@@ -254,6 +259,45 @@ class ThermoZoneUpdate(DeviceUpdate):
             return ThermoZoneSeason(self.raw_data.get("season", "unknown"))
         except ValueError:
             return ThermoZoneSeason.UNKNOWN
+
+    @property
+    def fan_speed(self) -> ThermoZoneFanSpeed:
+        """Fan speed setting (OFF, SLOW, MEDIUM, FAST, AUTO)."""
+        try:
+            return ThermoZoneFanSpeed(self.raw_data.get("fan_speed", -1))
+        except ValueError:
+            return ThermoZoneFanSpeed.UNKNOWN
+
+    @property
+    def dehumidifier_enabled(self) -> bool:
+        """Whether the dehumidifier is enabled."""
+        return bool(self.raw_data.get("dehumidifier", {}).get("enabled", 0))
+
+    @property
+    def dehumidifier_setpoint(self) -> float | None:
+        """Dehumidifier humidity setpoint in percent, or None if not present."""
+        val = self.raw_data.get("dehumidifier", {}).get("setpoint")
+        if val is None:
+            return None
+        return float(val)
+
+    @property
+    def t1(self) -> float | None:
+        """Temperature sensor 1 reading in degrees Celsius."""
+        raw = self.raw_data.get("t1")
+        return raw / 10.0 if raw is not None else None
+
+    @property
+    def t2(self) -> float | None:
+        """Temperature sensor 2 reading in degrees Celsius."""
+        raw = self.raw_data.get("t2")
+        return raw / 10.0 if raw is not None else None
+
+    @property
+    def t3(self) -> float | None:
+        """Temperature sensor 3 reading in degrees Celsius."""
+        raw = self.raw_data.get("t3")
+        return raw / 10.0 if raw is not None else None
 
 
 @dataclass

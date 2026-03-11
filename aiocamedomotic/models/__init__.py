@@ -32,6 +32,7 @@ from .scenario import Scenario, ScenarioStatus  # noqa: F401
 from .thermo_zone import (  # noqa: F401
     AnalogSensor,
     ThermoZone,
+    ThermoZoneFanSpeed,
     ThermoZoneMode,
     ThermoZoneSeason,
     ThermoZoneStatus,
@@ -74,6 +75,7 @@ __all__ = [
     "ScenarioUpdate",
     "ServerInfo",
     "ThermoZone",
+    "ThermoZoneFanSpeed",
     "ThermoZoneMode",
     "ThermoZoneSeason",
     "ThermoZoneStatus",

@@ -11,3 +11,4 @@ dimmable_light_name = My dimmable light
 dimmable_light_id = 15
 on_off_light_name = Another Lamp Name
 shutter_name = My shutter
+thermo_zone_name = My thermo zone

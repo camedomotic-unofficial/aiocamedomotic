@@ -40,6 +40,7 @@ from .models import (
     Scenario,
     ServerInfo,
     ThermoZone,
+    ThermoZoneSeason,
     UpdateList,
     User,
 )
@@ -280,6 +281,32 @@ class CameDomoticAPI:
                 sensors.append(AnalogSensor(sensor_data))
         LOGGER.info("Retrieved %d analog sensor(s)", len(sensors))
         return sensors
+
+    async def async_set_thermo_season(self, season: ThermoZoneSeason) -> None:
+        """Set the global thermoregulation season for all zones.
+
+        This is a plant-level command that changes the season for the
+        entire thermoregulation system.
+
+        Args:
+            season: The season to set. Valid values are ``WINTER``,
+                ``SUMMER``, and ``PLANT_OFF``.
+
+        Raises:
+            ValueError: If ``season`` is ``ThermoZoneSeason.UNKNOWN``.
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        if season == ThermoZoneSeason.UNKNOWN:
+            raise ValueError("Cannot set season to UNKNOWN")
+
+        LOGGER.debug("Setting global thermo season to '%s'", season.value)
+        payload = {
+            "cmd_name": _CommandName.THERMO_SEASON.value,
+            "season": season.value,
+        }
+        await self.auth.async_send_command(payload)
+        LOGGER.info("Global thermo season set to '%s'", season.value)
 
     async def async_get_updates(self, timeout: int | None = None) -> UpdateList:
         """Get status updates from the server using long polling.

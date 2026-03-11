@@ -37,6 +37,7 @@ from aiocamedomotic.models import (
     Scenario,
     ServerInfo,
     ThermoZone,
+    ThermoZoneSeason,
     UpdateList,
     User,
 )
@@ -1254,3 +1255,38 @@ class TestAPIDigitalInputs:
 
         with pytest.raises(ValueError, match="Data is missing required keys: name"):
             await api.async_get_digital_inputs()
+
+
+class TestAPIThermoSeason:
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_thermo_season_winter(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        await api.async_set_thermo_season(ThermoZoneSeason.WINTER)
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["cmd_name"] == "thermo_season_req"
+        assert call_payload["season"] == "winter"
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_thermo_season_summer(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        await api.async_set_thermo_season(ThermoZoneSeason.SUMMER)
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["season"] == "summer"
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_thermo_season_plant_off(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        await api.async_set_thermo_season(ThermoZoneSeason.PLANT_OFF)
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["season"] == "plant_off"
+
+    async def test_async_set_thermo_season_unknown_raises(self, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        with pytest.raises(ValueError, match="Cannot set season to UNKNOWN"):
+            await api.async_set_thermo_season(ThermoZoneSeason.UNKNOWN)
