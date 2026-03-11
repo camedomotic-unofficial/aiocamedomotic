@@ -132,7 +132,7 @@ class _CommandType(Enum):
     USERS_LIST_REQUEST = "sl_users_list_req"
     ADD_USER_REQUEST = "sl_add_user_req"
     DELETE_USER_REQUEST = "sl_del_user_req"
-    CHANGE_USER_PASSWORD_REQUEST = "sl_user_pwd_change_req"
+    CHANGE_USER_PASSWORD_REQUEST = "sl_user_pwd_change_req"  # nosec B105
 
 
 class _CommandName(Enum):
