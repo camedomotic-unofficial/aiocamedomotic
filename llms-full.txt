@@ -2843,12 +2843,6 @@ Security features:
 - **Credential protection** — username and password are encrypted in memory
   using Fernet symmetric encryption with a runtime-generated key. Credentials
   are explicitly cleared on disposal and as a safety net on garbage collection.
-- **Response size limit** — server responses larger than
-  `_MAX_RESPONSE_SIZE_BYTES` (5 MB) are rejected to prevent memory
-  exhaustion from a compromised server.
-- **Content-Type validation** — JSON responses are validated against the
-  expected `application/json` Content-Type, with a fallback to permissive
-  parsing for backward compatibility.
 
 ##### NOTE
 This class is not meant to be used directly, but through the `CameDomoticAPI`
