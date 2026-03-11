@@ -22,19 +22,25 @@ reflects our commitment to making home automation more accessible and manageable
 This roadmap is subject to change based on community feedback and ongoing development
 insights. We look forward to growing this library together with our users and contributors.
 
-## Current Features (Version 1.5)
+## Current Features (Version 1.6)
 
 - **Session management**: Automated handling of login, logout, and keep-alive processes
   for the API, with automatic session recovery.
 - **Lights management**: List and control lights (on/off, dimmer brightness, RGB color).
 - **Openings management**: List and control shutters/blinds (open, close, stop).
 - **Scenarios management**: List available scenarios and trigger their activation.
-- **Thermoregulation (read-only)**: List thermoregulation zones with their current state,
-  retrieve temperature, setpoint, mode, and season for each zone. Expose top-level analog
-  sensor readings (temperature, humidity, pressure) from the thermo response.
+- **Thermoregulation (full control)**: List thermoregulation zones with their current
+  state; set target temperature, operating mode (OFF, MANUAL, AUTO, JOLLY), and fan speed
+  (OFF, SLOW, MEDIUM, FAST, AUTO) for individual zones via `thermo_zone_config_req`.
+  Switch between seasons (WINTER, SUMMER, PLANT_OFF) plant-wide via `thermo_season_req`.
+  Expose fan speed, dehumidifier state (enabled/setpoint), and auxiliary temperature
+  sensors (t1, t2, t3) on `ThermoZone` and `ThermoZoneUpdate`. Top-level analog sensor
+  readings (temperature, humidity, pressure) are also exposed.
 - **Digital inputs (read-only)**: List binary sensors (door contacts, motion sensors, etc.)
   via `digitalin_list_req`. Each digital input exposes its current state and attributes.
   Real-time updates are supported via `DigitalInputUpdate`.
+- **User management**: Create and remove users on the CAME server via `user_create_req`
+  and `user_delete_req`; update passwords via `user_passwd_change_req`.
 - **Real-time updates with typed classes**: Long-polling support with typed update objects
   (`LightUpdate`, `OpeningUpdate`, `ThermoZoneUpdate`, `ScenarioUpdate`,
   `DigitalInputUpdate`, `PlantUpdate`). `UpdateList` provides filtering by device type,
@@ -52,21 +58,6 @@ All planned features below are backed by real traffic captures from a domestic C
 Domotic plant and can be tested against a real server. Features that are only known from
 reverse-engineered sources (without real traffic verification) are listed separately
 under [Future considerations](#future-considerations).
-
-### Version 1.6 — User management & Thermoregulation (control)
-
-- **Add/Delete user APIs**: Create and remove users on the CAME server via
-  `user_create_req` and `user_delete_req`.
-- **Change-password support**: Update user passwords via `user_passwd_change_req`.
-- **Real-server lifecycle tests**: End-to-end create → change-password → delete
-  test verified against a real CAME Domotic plant.
-- **Zone configuration**: Set target temperature, operating mode (OFF, MANUAL, AUTO,
-  JOLLY), and fan speed (OFF, SLOW, MEDIUM, FAST, AUTO) for individual zones via
-  `thermo_zone_config_req`.
-- **Global season**: Switch between heating and cooling seasons (WINTER, SUMMER,
-  PLANT_OFF) for all zones via `thermo_season_req`.
-- **Extended zone properties**: Expose fan speed, dehumidifier state (enabled/setpoint),
-  and auxiliary temperature sensors (t1, t2, t3) on `ThermoZone` and `ThermoZoneUpdate`.
 
 ### Version 1.7 — Energy meters
 

@@ -295,28 +295,28 @@ class ThermoZone(CameEntity):
         mode: ThermoZoneMode,
         set_point: float,
         *,
-        season: ThermoZoneSeason | None = None,
         fan_speed: ThermoZoneFanSpeed | None = None,
     ) -> None:
         """Configure the thermoregulation zone.
 
+        .. note::
+            The season cannot be changed via this method. The CAME server
+            silently ignores any season value sent in a zone config request.
+            Use :meth:`CameDomoticAPI.async_set_thermo_season` to change the
+            season at the plant level.
+
         Args:
             mode: Operating mode to set.
             set_point: Target temperature in degrees Celsius.
-            season: Season setting (optional, requires extended info).
             fan_speed: Fan speed setting (optional, requires extended info).
 
         Raises:
-            ValueError: If ``mode``, ``season``, or ``fan_speed`` is
-                ``UNKNOWN``.
+            ValueError: If ``mode`` or ``fan_speed`` is ``UNKNOWN``.
             CameDomoticAuthError: If the authentication fails.
             CameDomoticServerError: If the server returns an error.
         """
         if mode == ThermoZoneMode.UNKNOWN:
             raise ValueError("Cannot set mode to UNKNOWN")
-
-        if season is not None and season == ThermoZoneSeason.UNKNOWN:
-            raise ValueError("Cannot set season to UNKNOWN")
 
         if fan_speed is not None and fan_speed == ThermoZoneFanSpeed.UNKNOWN:
             raise ValueError("Cannot set fan_speed to UNKNOWN")
@@ -326,26 +326,21 @@ class ThermoZone(CameEntity):
             self.name,
             self.act_id,
         )
-        payload = self._prepare_thermo_config_payload(
-            mode, set_point, season, fan_speed
-        )
+        payload = self._prepare_thermo_config_payload(mode, set_point, fan_speed)
         await self.auth.async_send_command(payload)
 
         # Update the local state if the command succeeded
         self.raw_data["mode"] = mode.value
         self.raw_data["set_point"] = int(round(set_point * 10))
-        if season is not None:
-            self.raw_data["season"] = season.value
         if fan_speed is not None:
             self.raw_data["fan_speed"] = fan_speed.value
 
         LOGGER.info(
-            "Zone '%s' (ID: %s) configured: mode=%s, set_point=%.1f°C%s%s",
+            "Zone '%s' (ID: %s) configured: mode=%s, set_point=%.1f°C%s",
             self.name,
             self.act_id,
             mode.name,
             set_point,
-            f", season={season.name}" if season is not None else "",
             f", fan_speed={fan_speed.name}" if fan_speed is not None else "",
         )
 
@@ -353,7 +348,6 @@ class ThermoZone(CameEntity):
         self,
         mode: ThermoZoneMode,
         set_point: float,
-        season: ThermoZoneSeason | None,
         fan_speed: ThermoZoneFanSpeed | None,
     ) -> dict[str, Any]:
         """Prepare the payload for the zone config API call."""
@@ -362,13 +356,9 @@ class ThermoZone(CameEntity):
             "cmd_name": _CommandName.THERMO_ZONE_CONFIG.value,
             "mode": mode.value,
             "set_point": int(round(set_point * 10)),
+            "extended_infos": 1 if fan_speed is not None else 0,
         }
 
-        needs_extended = season is not None or fan_speed is not None
-        payload["extended_infos"] = 1 if needs_extended else 0
-
-        if season is not None:
-            payload["season"] = season.value
         if fan_speed is not None:
             payload["fan_speed"] = fan_speed.value
 
@@ -376,6 +366,14 @@ class ThermoZone(CameEntity):
 
     async def async_set_temperature(self, temperature: float) -> None:
         """Set the target temperature, keeping the current operating mode.
+
+        .. warning::
+            This method only has an effect when the zone is in
+            ``ThermoZoneMode.MANUAL`` mode. When the zone is in any other mode
+            (e.g. ``AUTO``), the server accepts the request without error but
+            silently discards the new setpoint. Use
+            :meth:`async_set_config` with ``mode=ThermoZoneMode.MANUAL`` to
+            guarantee that the setpoint is applied.
 
         Args:
             temperature: Target temperature in degrees Celsius.
