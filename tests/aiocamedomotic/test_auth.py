@@ -639,10 +639,6 @@ class TestAuthValidateHost:
                 async with await Auth.async_create(
                     session, "192.168.x.x", "username", "password"
                 ) as auth:
-                    auth.client_id = "test_client_id"
-                    auth.keep_alive_timeout_sec = 900
-                    auth.session_expiration_timestamp = time.monotonic() + 3600
-
                     previous_calls = mock_get.call_count
 
                     await auth.async_validate_host()
@@ -661,9 +657,7 @@ class TestAuthValidateHost:
                 async with await Auth.async_create(
                     session, "192.168.x.x", "username", "password"
                 ) as auth:
-                    auth.client_id = "test_client_id"
-                    auth.keep_alive_timeout_sec = 900
-                    auth.session_expiration_timestamp = time.monotonic() + 3600
+                    pass
 
                 mock_response.status = 404
 
@@ -685,9 +679,7 @@ class TestAuthValidateHost:
                 async with await Auth.async_create(
                     session, "192.168.x.x", "username", "password"
                 ) as auth:
-                    auth.client_id = "test_client_id"
-                    auth.keep_alive_timeout_sec = 900
-                    auth.session_expiration_timestamp = time.monotonic() + 3600
+                    pass
 
                 mock_get.side_effect = aiohttp.ClientError()
 
@@ -709,9 +701,7 @@ class TestAuthValidateHost:
                 async with await Auth.async_create(
                     session, "192.168.x.x", "username", "password"
                 ) as auth:
-                    auth.client_id = "test_client_id"
-                    auth.keep_alive_timeout_sec = 900
-                    auth.session_expiration_timestamp = time.monotonic() + 3600
+                    pass
 
                 mock_get.side_effect = aiohttp.ServerTimeoutError()
 
@@ -733,9 +723,7 @@ class TestAuthValidateHost:
                 async with await Auth.async_create(
                     session, "192.168.x.x", "username", "password"
                 ) as auth:
-                    auth.client_id = "test_client_id"
-                    auth.keep_alive_timeout_sec = 900
-                    auth.session_expiration_timestamp = time.monotonic() + 3600
+                    pass
 
                 mock_get.side_effect = TimeoutError()
 
@@ -1074,7 +1062,8 @@ class TestAuthDispose:
         mock_close.assert_called_once()
 
     @patch.object(ClientSession, "close", new_callable=AsyncMock)
-    async def test_no_websession_close(self, mock_close, auth_instance):
+    @patch.object(Auth, "async_logout", new_callable=AsyncMock)
+    async def test_no_websession_close(self, _mock_logout, mock_close, auth_instance):
         auth_instance.close_websession_on_disposal = False
         await auth_instance.async_dispose()
         mock_close.assert_not_called()

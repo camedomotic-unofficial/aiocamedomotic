@@ -40,7 +40,12 @@ async def auth_instance_not_logged_in() -> AsyncGenerator[Auth, None]:
                 session, "192.168.x.x", "username", "password"
             ) as auth:
                 yield auth
-                await auth.async_dispose()
+                # Invalidate the session before the context manager exits
+                # to prevent async_dispose() from attempting a real logout
+                # request to the fake host, which would hang on DNS resolution.
+                auth.__dict__.pop("is_session_valid", None)
+                auth.client_id = ""
+                auth.session_expiration_timestamp = 0
 
 
 @pytest.fixture
@@ -54,6 +59,14 @@ async def auth_instance() -> AsyncGenerator[Auth, None]:
                 auth.keep_alive_timeout_sec = 900  # 15min
                 auth.session_expiration_timestamp = time.monotonic() + 3600  # 1h
                 yield auth
+                # Invalidate the session before the context manager exits
+                # to prevent async_dispose() from attempting a real logout
+                # request to the fake host, which would hang on DNS resolution.
+                # Also remove any instance-level is_session_valid mock that
+                # tests may have set, so the real method sees the reset values.
+                auth.__dict__.pop("is_session_valid", None)
+                auth.client_id = ""
+                auth.session_expiration_timestamp = 0
 
 
 # endregion
