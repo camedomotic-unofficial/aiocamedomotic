@@ -109,15 +109,18 @@ class DigitalInput(CameEntity):
         absent from the server response (some digital inputs do not
         report a status until their first state change).
         """
+        raw_status = self.raw_data.get("status")
+        if raw_status is None:
+            return DigitalInputStatus.UNKNOWN
         try:
-            return DigitalInputStatus(self.raw_data["status"])
-        except (ValueError, KeyError):
-            LOGGER.debug(
+            return DigitalInputStatus(raw_status)
+        except ValueError:
+            LOGGER.warning(
                 "Unknown digital input status '%s' encountered for "
                 "digital input '%s' (ID: %s). "
                 "Returning DigitalInputStatus.UNKNOWN. Please report this "
                 "to the library developers.",
-                self.raw_data.get("status"),
+                raw_status,
                 self.name,
                 self.act_id,
             )
