@@ -119,6 +119,18 @@ def handle_came_domotic_errors(func: _F) -> _F:
 class Auth:
     """Class to make authenticated requests to the CAME Domotic API server.
 
+    Security features:
+
+    - **Credential protection** — username and password are encrypted in memory
+      using Fernet symmetric encryption with a runtime-generated key. Credentials
+      are explicitly cleared on disposal and as a safety net on garbage collection.
+    - **Response size limit** — server responses larger than
+      ``_MAX_RESPONSE_SIZE_BYTES`` (5 MB) are rejected to prevent memory
+      exhaustion from a compromised server.
+    - **Content-Type validation** — JSON responses are validated against the
+      expected ``application/json`` Content-Type, with a fallback to permissive
+      parsing for backward compatibility.
+
     Note:
         This class is not meant to be used directly, but through the ``CameDomoticAPI``
         class. To create an instance of this class, use the factory method
@@ -127,6 +139,13 @@ class Auth:
 
     # Default timeout "safe zone" for session expiration
     _DEFAULT_SAFE_ZONE_SEC: int = 30
+
+    # Maximum allowed response size in bytes (5 MB).
+    # This protects against memory exhaustion from a compromised or
+    # misbehaving server that could send an arbitrarily large response.
+    # Normal CAME API responses are small JSON payloads (a few KB at most),
+    # so 5 MB is an extremely generous upper bound.
+    _MAX_RESPONSE_SIZE_BYTES: int = 5 * 1024 * 1024
     _DEFAULT_HTTP_HEADERS: dict[str, str] = {
         "User-Agent": f"aiocamedomotic/{_LIBRARY_VERSION}",
         "Accept": "application/json, text/plain, */*",  # Desumed from pycame library
@@ -282,6 +301,35 @@ class Auth:
     ) -> None:
         await self.async_dispose()
 
+    def __del__(self) -> None:
+        """Best-effort cleanup of sensitive credentials on garbage collection.
+
+        This method is called by the Python garbage collector when the ``Auth``
+        instance has no remaining references. It nullifies any credentials that
+        were not already cleared by :meth:`async_dispose`.
+
+        .. note::
+            This is a **safety net**, not a substitute for calling
+            :meth:`async_dispose` or using the ``async with`` context manager.
+            Python does not guarantee that ``__del__`` will be called in all
+            scenarios (e.g., interpreter shutdown). Always prefer explicit
+            disposal via :meth:`async_dispose`.
+        """
+        # Use getattr() because __del__ can be called on partially-initialized
+        # instances (e.g., if __init__ raised an exception partway through).
+        if any(
+            getattr(self, attr, None) is not None
+            for attr in ("cipher_suite", "username", "password")
+        ):
+            LOGGER.debug(
+                "Auth.__del__: clearing credentials not cleaned up by "
+                "async_dispose (host=%s)",
+                getattr(self, "host", "<unknown>"),
+            )
+            self.cipher_suite = None
+            self.username = None
+            self.password = None
+
     # endregion
 
     def get_endpoint_url(self) -> str:
@@ -406,16 +454,8 @@ class Auth:
                 )
                 LOGGER.debug("Session refreshed, cseq=%d", self.cseq)
 
-            # Parse JSON response
-            try:
-                json_response = await response.json(content_type=None)
-            except json.JSONDecodeError as e:
-                LOGGER.error(
-                    "Failed to decode JSON response for command '%s'", cmd_name
-                )
-                raise CameDomoticServerError(
-                    "Error decoding the response to JSON"
-                ) from e
+            # Parse JSON response with size and content-type safeguards
+            json_response = await Auth._safe_read_json(response)
 
             resp_cmd_name = json_response.get("cmd_name")
             if response_command is not None and resp_cmd_name != response_command:
@@ -667,6 +707,63 @@ class Auth:
 
     # region Utilities
 
+    @staticmethod
+    async def _safe_read_json(response: aiohttp.ClientResponse) -> dict[str, Any]:
+        """Read and parse a JSON response with security safeguards.
+
+        This method applies two protections before parsing the response body:
+
+        1. **Response size limit** — the raw body is read incrementally and
+           rejected if it exceeds ``_MAX_RESPONSE_SIZE_BYTES`` (5 MB). This
+           prevents a compromised or misbehaving server from exhausting memory
+           with an arbitrarily large payload.
+
+        2. **Content-Type validation** — the response is first parsed expecting
+           ``application/json``. If the server sends a different Content-Type
+           header, parsing falls back to accepting any content type for
+           backward compatibility and a warning is logged.
+
+        Args:
+            response: The aiohttp response to read.
+
+        Returns:
+            The parsed JSON body as a dictionary.
+
+        Raises:
+            CameDomoticServerError: if the response exceeds the size limit or
+                if the body cannot be decoded as valid JSON.
+        """
+        # --- 1. Response size guard ---
+        raw_body = await response.content.read(Auth._MAX_RESPONSE_SIZE_BYTES + 1)
+        if len(raw_body) > Auth._MAX_RESPONSE_SIZE_BYTES:
+            LOGGER.warning(
+                "Response body exceeds the maximum allowed size of %d bytes, "
+                "rejecting response",
+                Auth._MAX_RESPONSE_SIZE_BYTES,
+            )
+            raise CameDomoticServerError(
+                f"Response body exceeds the maximum allowed size "
+                f"of {Auth._MAX_RESPONSE_SIZE_BYTES} bytes"
+            )
+        LOGGER.debug("Response body size: %d bytes", len(raw_body))
+
+        # --- 2. Content-Type validation with silent fallback ---
+        content_type = response.content_type
+        if content_type and content_type != "application/json":
+            LOGGER.warning(
+                "Unexpected Content-Type '%s' in server response "
+                "(expected 'application/json'), falling back to "
+                "permissive parsing",
+                content_type,
+            )
+
+        # --- 3. JSON parsing ---
+        try:
+            return json.loads(raw_body)
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            LOGGER.error("Failed to decode response body as JSON")
+            raise CameDomoticServerError("Error decoding the response to JSON") from e
+
     def is_session_valid(self) -> bool:
         """Check whether the session is still valid or not."""
         # Notice that self.session_expiration_timestamp already include the safe zone
@@ -696,10 +793,7 @@ class Auth:
                 f"Exception raised for HTTP status: {response.status}"
             ) from e
 
-        try:
-            resp_json = await response.json(content_type=None)
-        except json.JSONDecodeError as e:
-            raise CameDomoticServerError("Error decoding the response to JSON") from e
+        resp_json = await Auth._safe_read_json(response)
 
         ack_reason = resp_json.get("sl_data_ack_reason")
 
