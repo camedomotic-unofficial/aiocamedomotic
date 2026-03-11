@@ -40,6 +40,7 @@ from aiocamedomotic.models import (
     ThermoZoneMode,
     ThermoZoneSeason,
     ThermoZoneUpdate,
+    User,
 )
 from aiocamedomotic.models.opening import OpeningStatus
 
@@ -732,6 +733,108 @@ async def test_thermo_zone_updates_after_setpoint_change(
     finally:
         await zone.async_set_temperature(initial_set_point)
         print(f"  Reverted set_point to {initial_set_point}°C")
+
+
+async def test_user_management_lifecycle(
+    api_instance_real: CameDomoticAPI, real_server_config
+):
+    """Full lifecycle: create user, verify, switch session, change password, delete."""
+    admin_username = real_server_config["came_server"]["username"]
+    admin_password = real_server_config["came_server"]["password"]
+
+    test_username = real_server_config["test_user"]["username"]
+    test_password = real_server_config["test_user"]["password"]
+    new_password = real_server_config["test_user"]["new_password"]
+
+    # Step 1: Get users and terminal groups
+    print("\n--- Step 1: Get users and terminal groups ---")
+    users = await api_instance_real.async_get_users()
+    print(f"Users: {[u.name for u in users]}")
+
+    groups = await api_instance_real.async_get_terminal_groups()
+    print(f"Groups: {[g.name for g in groups]}")
+    assert groups, "No terminal groups found — cannot create a user without a group"
+    group_name = groups[0].name
+    print(f"Using group: '{group_name}'")
+
+    # Clean up any leftover test user from a previous failed run
+    leftover = next((u for u in users if u.name == test_username), None)
+    if leftover:
+        print(f"Cleaning up pre-existing '{test_username}' from a previous run")
+        await leftover.async_delete()
+
+    # Step 2: Create the test user
+    print(f"\n--- Step 2: Create user '{test_username}' ---")
+    await api_instance_real.async_add_user(test_username, test_password, group_name)
+    print(f"User '{test_username}' created in group '{group_name}'")
+
+    # Step 3: Verify the new user is in the users list
+    print(f"\n--- Step 3: Verify '{test_username}' appears in users list ---")
+    users_after = await api_instance_real.async_get_users()
+    print(f"Users after creation: {[u.name for u in users_after]}")
+    test_user = next((u for u in users_after if u.name == test_username), None)
+    assert test_user is not None, (
+        f"User '{test_username}' not found in list after creation"
+    )
+    print(f"Confirmed: '{test_username}' is present")
+
+    # Step 4: Switch to test user, get server info, then switch back to admin
+    print(
+        f"\n--- Step 4: Login as '{test_username}', get server info, restore admin ---"
+    )
+    await test_user.async_set_as_current_user(test_password)
+    print(f"Logged in as '{api_instance_real.auth.current_username}'")
+
+    server_info = await api_instance_real.async_get_server_info()
+    print(
+        f"Server info (as '{test_username}'): "
+        f"keycode={server_info.keycode}, swver={server_info.swver}"
+    )
+    assert server_info.keycode, "Server info keycode should not be empty"
+
+    admin_user = User({"name": admin_username}, api_instance_real.auth)
+    await admin_user.async_set_as_current_user(admin_password)
+    print(f"Restored session as '{api_instance_real.auth.current_username}'")
+
+    # Step 5: Change the test user's password
+    print(f"\n--- Step 5: Change password of '{test_username}' ---")
+    users_current = await api_instance_real.async_get_users()
+    test_user = next((u for u in users_current if u.name == test_username), None)
+    assert test_user is not None, (
+        f"User '{test_username}' not found before password change"
+    )
+    await test_user.async_change_password(test_password, new_password)
+    print(f"Password of '{test_username}' changed")
+
+    # Step 6: Login with new password and verify with server info, then restore admin
+    print(f"\n--- Step 6: Login as '{test_username}' with new password ---")
+    await test_user.async_set_as_current_user(new_password)
+    print(f"Logged in as '{api_instance_real.auth.current_username}' with new password")
+
+    server_info = await api_instance_real.async_get_server_info()
+    current = api_instance_real.auth.current_username
+    print(
+        f"Server info (as '{current}' with new password): keycode={server_info.keycode}"
+    )
+    assert server_info.keycode, "Server info keycode should not be empty"
+
+    await admin_user.async_set_as_current_user(admin_password)
+    print(f"Restored session as '{api_instance_real.auth.current_username}'")
+
+    # Step 7: Delete the test user and verify it's gone
+    print(f"\n--- Step 7: Delete '{test_username}' and verify ---")
+    users_before_delete = await api_instance_real.async_get_users()
+    test_user = next((u for u in users_before_delete if u.name == test_username), None)
+    assert test_user is not None, f"User '{test_username}' not found before deletion"
+    await test_user.async_delete()
+    print(f"User '{test_username}' deleted")
+
+    users_after_delete = await api_instance_real.async_get_users()
+    print(f"Users after deletion: {[u.name for u in users_after_delete]}")
+    assert not any(u.name == test_username for u in users_after_delete), (
+        f"User '{test_username}' still present after deletion"
+    )
+    print(f"Confirmed: '{test_username}' is no longer in the users list")
 
 
 async def test_autodiscovery(real_server_config):

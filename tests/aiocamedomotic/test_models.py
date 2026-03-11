@@ -30,7 +30,7 @@ from aiocamedomotic.const import (
     UpdateIndicator,
     _ServerFeature,
 )
-from aiocamedomotic.errors import CameDomoticAuthError
+from aiocamedomotic.errors import CameDomoticAuthError, CameDomoticServerError
 from aiocamedomotic.models import (
     AnalogSensor,
     DeviceUpdate,
@@ -53,6 +53,7 @@ from aiocamedomotic.models import (
     ScenarioStatus,
     ScenarioUpdate,
     ServerInfo,
+    TerminalGroup,
     ThermoZone,
     ThermoZoneFanSpeed,
     ThermoZoneMode,
@@ -320,6 +321,128 @@ class TestUser:
         mock_auth.update_auth_credentials.assert_called_once_with(
             "test_user", "test_password"
         )
+
+    @pytest.mark.asyncio
+    async def test_async_delete_sends_correct_command(self):
+        mock_auth = AsyncMock(spec=Auth)
+        mock_auth.current_username = "other_user"
+        user = User({"name": "user_to_delete"}, mock_auth)
+
+        await user.async_delete()
+
+        mock_auth.async_send_command.assert_called_once_with(
+            {},
+            command_type="sl_del_user_req",
+            additional_payload={"sl_login": "user_to_delete"},
+        )
+
+    @pytest.mark.asyncio
+    async def test_async_delete_raises_for_current_user(self):
+        mock_auth = AsyncMock(spec=Auth)
+        mock_auth.current_username = "current_user"
+        user = User({"name": "current_user"}, mock_auth)
+
+        with pytest.raises(ValueError, match="currently authenticated"):
+            await user.async_delete()
+
+        mock_auth.async_send_command.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_async_change_password_sends_correct_command(self):
+        mock_auth = AsyncMock(spec=Auth)
+        mock_auth.current_username = "other_user"
+        mock_auth.async_send_command.return_value = {
+            "sl_cmd": "sl_user_pwd_change_ack",
+            "sl_user_pwd_change_ack_reason": 0,
+            "sl_ack_reason": 0,
+            "sl_data_ack_reason": 0,
+        }
+        user = User({"name": "existing_user"}, mock_auth)
+
+        await user.async_change_password("current_password", "new_password")
+
+        mock_auth.async_send_command.assert_called_once_with(
+            {},
+            command_type="sl_user_pwd_change_req",
+            additional_payload={
+                "sl_login": "existing_user",
+                "sl_pwd": "current_password",
+                "sl_new_pwd": "new_password",
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_async_change_password_raises_on_ack_failure(self):
+        mock_auth = AsyncMock(spec=Auth)
+        mock_auth.current_username = "other_user"
+        mock_auth.async_send_command.return_value = {
+            "sl_cmd": "sl_user_pwd_change_ack",
+            "sl_user_pwd_change_ack_reason": 1,
+            "sl_ack_reason": 0,
+            "sl_data_ack_reason": 0,
+        }
+        user = User({"name": "existing_user"}, mock_auth)
+
+        with pytest.raises(
+            CameDomoticServerError, match="sl_user_pwd_change_ack_reason=1"
+        ):
+            await user.async_change_password("current_password", "new_password")
+
+    @pytest.mark.asyncio
+    async def test_async_change_password_updates_stored_password_for_current_user(self):
+        mock_auth = AsyncMock(spec=Auth)
+        mock_auth.current_username = "existing_user"
+        mock_auth.async_send_command.return_value = {
+            "sl_cmd": "sl_user_pwd_change_ack",
+            "sl_user_pwd_change_ack_reason": 0,
+            "sl_ack_reason": 0,
+            "sl_data_ack_reason": 0,
+        }
+        user = User({"name": "existing_user"}, mock_auth)
+
+        await user.async_change_password("current_password", "new_password")
+
+        mock_auth._update_stored_password.assert_called_once_with("new_password")
+
+    @pytest.mark.asyncio
+    async def test_async_change_password_does_not_update_stored_password_for_other_user(
+        self,
+    ):
+        mock_auth = AsyncMock(spec=Auth)
+        mock_auth.current_username = "other_user"
+        mock_auth.async_send_command.return_value = {
+            "sl_cmd": "sl_user_pwd_change_ack",
+            "sl_user_pwd_change_ack_reason": 0,
+            "sl_ack_reason": 0,
+            "sl_data_ack_reason": 0,
+        }
+        user = User({"name": "existing_user"}, mock_auth)
+
+        await user.async_change_password("current_password", "new_password")
+
+        mock_auth._update_stored_password.assert_not_called()
+
+
+class TestTerminalGroup:
+    def test_initialization(self):
+        raw_data = {"group_name": "ETI/Domo", "group_id": 1}
+        group = TerminalGroup(raw_data)
+
+        assert group.name == "ETI/Domo"
+        assert group.id == 1
+        assert group.raw_data == raw_data
+
+    def test_invalid_input_missing_group_name(self):
+        with pytest.raises(ValueError):
+            TerminalGroup({"group_id": 1})
+
+    def test_invalid_input_missing_group_id(self):
+        with pytest.raises(ValueError):
+            TerminalGroup({"group_name": "ETI/Domo"})
+
+    def test_invalid_input_none(self):
+        with pytest.raises(ValueError):
+            TerminalGroup(None)
 
 
 class TestUpdateList:

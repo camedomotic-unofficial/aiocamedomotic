@@ -1101,6 +1101,40 @@ class TestAuthCredentials:
         ):
             auth_instance.update_auth_credentials("user", "pass")
 
+    async def test_current_username_returns_decrypted_value(self, auth_instance):
+        assert auth_instance.current_username == "username"
+
+    async def test_current_username_returns_none_when_cipher_suite_is_none(
+        self, auth_instance
+    ):
+        auth_instance.cipher_suite = None
+        assert auth_instance.current_username is None
+
+    async def test_update_stored_password_updates_only_password(self, auth_instance):
+        original_session_expiration = auth_instance.session_expiration_timestamp
+        original_client_id = auth_instance.client_id
+        original_username = auth_instance.username
+
+        auth_instance._update_stored_password("new_password")
+
+        assert (
+            auth_instance.cipher_suite.decrypt(auth_instance.password).decode()
+            == "new_password"
+        )
+        assert auth_instance.username == original_username
+        assert auth_instance.session_expiration_timestamp == original_session_expiration
+        assert auth_instance.client_id == original_client_id
+
+    async def test_update_stored_password_raises_when_cipher_suite_none(
+        self, auth_instance
+    ):
+        auth_instance.cipher_suite = None
+
+        with pytest.raises(
+            CameDomoticAuthError, match="credentials are not initialized"
+        ):
+            auth_instance._update_stored_password("new_password")
+
     def test_backup_restore(self):
         """Test Auth backup and restore credentials methods."""
         mock_session = AsyncMock()

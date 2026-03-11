@@ -26,7 +26,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..auth import Auth
-from ..errors import CameDomoticAuthError
+from ..const import _CommandType
+from ..errors import CameDomoticAuthError, CameDomoticServerError
 from ..utils import (
     LOGGER,
     EntityValidator,
@@ -86,6 +87,82 @@ class User(CameEntity):
             raise
 
         LOGGER.info("Successfully switched to user '%s'", self.name)
+
+    async def async_delete(self) -> None:
+        """Delete this user from the CAME Domotic server.
+
+        Sends a delete-user request to the server for the user identified by
+        this object's ``name`` property.
+
+        .. warning::
+            This operation is based on reverse-engineered API documentation and
+            has not been verified against a real CAME Domotic server. Behaviour
+            may differ across firmware versions.
+
+        Raises:
+            ValueError: If this user is the currently authenticated user.
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        if self.name == self.auth.current_username:
+            raise ValueError(
+                f"Cannot delete the currently authenticated user ('{self.name}')."
+            )
+        LOGGER.debug("Deleting user '%s'", self.name)
+        await self.auth.async_send_command(
+            {},
+            command_type=_CommandType.DELETE_USER_REQUEST.value,
+            additional_payload={"sl_login": self.name},
+        )
+        LOGGER.info("User '%s' deleted", self.name)
+
+    async def async_change_password(
+        self, current_password: str, new_password: str
+    ) -> None:
+        """Change the password of this user on the CAME Domotic server.
+
+        Args:
+            current_password (str): The user's current password.
+            new_password (str): The desired new password.
+
+        .. warning::
+            This operation is based on reverse-engineered API documentation and
+            has not been verified against a real CAME Domotic server. Behaviour
+            may differ across firmware versions.
+
+        Note:
+            If the changed user is the currently authenticated user, the stored
+            credentials are updated automatically in the active session — no
+            additional action is required.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error or the
+                password change is rejected (``sl_user_pwd_change_ack_reason``
+                is non-zero).
+        """
+        LOGGER.debug("Changing password for user '%s'", self.name)
+        json_response = await self.auth.async_send_command(
+            {},
+            command_type=_CommandType.CHANGE_USER_PASSWORD_REQUEST.value,
+            additional_payload={
+                "sl_login": self.name,
+                "sl_pwd": current_password,
+                "sl_new_pwd": new_password,
+            },
+        )
+        ack_reason = json_response.get("sl_user_pwd_change_ack_reason", 0)
+        if ack_reason != 0:
+            raise CameDomoticServerError(
+                f"Password change rejected by server "
+                f"(sl_user_pwd_change_ack_reason={ack_reason})"
+            )
+        if self.name == self.auth.current_username:
+            self.auth._update_stored_password(new_password)  # pylint: disable=protected-access
+            LOGGER.debug(
+                "Stored password updated in active session for user '%s'", self.name
+            )
+        LOGGER.info("Password changed for user '%s'", self.name)
 
     async def _attempt_login_as_current_user(self, password: str) -> None:
         """Attempt to login with the user details.
@@ -206,3 +283,32 @@ class Room(CameEntity):
     def floor_id(self) -> int:
         """ID of the floor this room belongs to."""
         return self.raw_data["floor_ind"]
+
+
+@dataclass
+class TerminalGroup(CameEntity):
+    """Terminal group in the CAME Domotic API.
+
+    Represents a user permission group (e.g. ``"ETI/Domo"``). Groups are
+    assigned to users at creation time via
+    :meth:`CameDomoticAPI.async_add_user`. Use
+    :meth:`CameDomoticAPI.async_get_terminal_groups` to retrieve the
+    available group names before creating a user.
+    """
+
+    raw_data: dict[str, Any]
+
+    def __post_init__(self) -> None:
+        EntityValidator.validate_data(
+            self.raw_data, required_keys=["group_name", "group_id"]
+        )
+
+    @property
+    def name(self) -> str:
+        """Name of the group (e.g. ``"ETI/Domo"``)."""
+        return self.raw_data["group_name"]
+
+    @property
+    def id(self) -> int:
+        """Numeric ID of the group."""
+        return self.raw_data["group_id"]

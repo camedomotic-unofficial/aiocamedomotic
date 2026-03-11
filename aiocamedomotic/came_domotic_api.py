@@ -39,6 +39,7 @@ from .models import (
     Room,
     Scenario,
     ServerInfo,
+    TerminalGroup,
     ThermoZone,
     ThermoZoneSeason,
     UpdateList,
@@ -107,6 +108,73 @@ class CameDomoticAPI:
         users_list = json_response.get("sl_users_list", [])
         LOGGER.info("Retrieved %d user(s)", len(users_list))
         return [User(user, self.auth) for user in users_list]
+
+    async def async_get_terminal_groups(self) -> list[TerminalGroup]:
+        """Get the list of terminal groups defined on the server.
+
+        Terminal groups define the permission scope assigned to users at
+        creation time. Call this method before :meth:`async_add_user` to
+        discover the available group names on the server.
+
+        The ``group`` parameter of :meth:`async_add_user` accepts a group
+        **name** (e.g. ``"ETI/Domo"``), not its numeric ID. The special value
+        ``"*"`` (the default) may be used when fine-grained group assignment is
+        not required.
+
+        Returns:
+            list[TerminalGroup]: Available groups. Returns an empty list if
+            none are defined or the server response lacks the ``array`` key.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Fetching terminal groups list")
+        json_response = await self.auth.async_send_command(
+            {"cmd_name": _CommandName.TERMINALS_GROUPS_LIST.value},
+            response_command=_CommandNameResponse.TERMINALS_GROUPS_LIST.value,
+        )
+        groups = json_response.get("array", [])
+        LOGGER.info("Retrieved %d terminal group(s)", len(groups))
+        return [TerminalGroup(g) for g in groups]
+
+    async def async_add_user(
+        self, username: str, password: str, group: str = "*"
+    ) -> User:
+        """Add a new user to the CAME Domotic server.
+
+        Args:
+            username (str): The login name for the new user.
+            password (str): The initial password for the new user.
+            group (str, optional): The **name** of the permission group to
+                assign to the new user (e.g. ``"ETI/Domo"``). Defaults to
+                ``"*"``. Use :meth:`async_get_terminal_groups` to retrieve
+                the available group names from the server.
+
+        Returns:
+            User: A ``User`` object representing the newly created user.
+
+        .. warning::
+            This operation is based on reverse-engineered API documentation and
+            has not been verified against a real CAME Domotic server. Behaviour
+            may differ across firmware versions.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Adding user '%s'", username)
+        await self.auth.async_send_command(
+            {},
+            command_type=_CommandType.ADD_USER_REQUEST.value,
+            additional_payload={
+                "sl_login": username,
+                "sl_pwd": password,
+                "sl_group": group,
+            },
+        )
+        LOGGER.info("User '%s' added", username)
+        return User({"name": username}, self.auth)
 
     async def async_get_server_info(self) -> ServerInfo:
         """Get the server information.
