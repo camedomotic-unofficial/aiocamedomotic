@@ -53,8 +53,13 @@ Domotic plant and can be tested against a real server. Features that are only kn
 reverse-engineered sources (without real traffic verification) are listed separately
 under [Future considerations](#future-considerations).
 
-### Version 1.6 — Thermoregulation (control)
+### Version 1.6 — User management & Thermoregulation (control)
 
+- **Add/Delete user APIs**: Create and remove users on the CAME server via
+  `user_create_req` and `user_delete_req`.
+- **Change-password support**: Update user passwords via `user_passwd_change_req`.
+- **Real-server lifecycle tests**: End-to-end create → change-password → delete
+  test verified against a real CAME Domotic plant.
 - **Zone configuration**: Set target temperature, operating mode (OFF, MANUAL, AUTO,
   JOLLY), and fan speed (OFF, SLOW, MEDIUM, FAST, AUTO) for individual zones via
   `thermo_zone_config_req`.
@@ -91,7 +96,6 @@ considered for future development once real-world testing is possible:
 
 - **Relays (generic switches)**: List and control generic relay actuators. The API is
   documented but no real traffic has been observed.
-- **User management**: Add, delete, and change passwords for users on the CAME server.
 - **Scenario management**: Create and delete scenarios (beyond the current list/activate).
 - **Audio system**: Sound zone and source management (entirely unverified).
 - **Cameras (TVCC)**: Camera listing (entirely unverified).
