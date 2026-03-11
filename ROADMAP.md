@@ -22,7 +22,7 @@ reflects our commitment to making home automation more accessible and manageable
 This roadmap is subject to change based on community feedback and ongoing development
 insights. We look forward to growing this library together with our users and contributors.
 
-## Current Features (Version 1.4)
+## Current Features (Version 1.5)
 
 - **Session management**: Automated handling of login, logout, and keep-alive processes
   for the API, with automatic session recovery.
@@ -32,6 +32,9 @@ insights. We look forward to growing this library together with our users and co
 - **Thermoregulation (read-only)**: List thermoregulation zones with their current state,
   retrieve temperature, setpoint, mode, and season for each zone. Expose top-level analog
   sensor readings (temperature, humidity, pressure) from the thermo response.
+- **Digital inputs (read-only)**: List binary sensors (door contacts, motion sensors, etc.)
+  via `digitalin_list_req`. Each digital input exposes its current state and attributes.
+  Real-time updates are supported via `DigitalInputUpdate`.
 - **Real-time updates with typed classes**: Long-polling support with typed update objects
   (`LightUpdate`, `OpeningUpdate`, `ThermoZoneUpdate`, `ScenarioUpdate`,
   `DigitalInputUpdate`, `PlantUpdate`). `UpdateList` provides filtering by device type,
@@ -50,14 +53,14 @@ Domotic plant and can be tested against a real server. Features that are only kn
 reverse-engineered sources (without real traffic verification) are listed separately
 under [Future considerations](#future-considerations).
 
-### Version 1.5 — Energy meters
+### Version 1.6 — Energy meters
 
 - **Meter listing**: List all energy meters with their current readings.
 - **Instant power**: Expose real-time power consumption via `meter_instant_power_ind`.
 - **Energy statistics**: Query historical consumption data (`energy_stat_req`) for
   monitoring and dashboard integration.
 
-### Version 1.6 — Load control (read-only)
+### Version 1.7 — Load control (read-only)
 
 - **Load control meters**: List load control meters with their current state
   (`loadsctrl_meter_list_req`).
@@ -82,9 +85,6 @@ considered for future development once real-world testing is possible:
 
 - **Relays (generic switches)**: List and control generic relay actuators. The API is
   documented but no real traffic has been observed.
-- **Digital inputs**: List binary sensors (door contacts, motion sensors, etc.) via
-  `digitalin_list_req`. Update parsing is already implemented (`DigitalInputUpdate`),
-  but a device model class and list command are not yet available.
 - **User management**: Add, delete, and change passwords for users on the CAME server.
 - **Scenario management**: Create and delete scenarios (beyond the current list/activate).
 - **Audio system**: Sound zone and source management (entirely unverified).
@@ -93,7 +93,7 @@ considered for future development once real-world testing is possible:
 - **Maps**: Floor plan/map retrieval (entirely unverified).
 - **Status updates management**: Automatic long-polling loop with event callbacks,
   push-based state synchronization, and automatic `plant_update_ind` handling for full
-  cache invalidation. Typed update classes and filtering are already available (v1.4);
+  cache invalidation. Typed update classes and filtering are already available (v1.5);
   this item covers the higher-level automation layer on top.
 - **Infrastructure improvements**: Automated keep-alive scheduling, per-actuator scope
   queries, and connection resilience improvements.

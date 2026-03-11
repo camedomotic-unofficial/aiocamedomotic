@@ -112,7 +112,7 @@ class DigitalInput(CameEntity):
         try:
             return DigitalInputStatus(self.raw_data["status"])
         except (ValueError, KeyError):
-            LOGGER.warning(
+            LOGGER.debug(
                 "Unknown digital input status '%s' encountered for "
                 "digital input '%s' (ID: %s). "
                 "Returning DigitalInputStatus.UNKNOWN. Please report this "
