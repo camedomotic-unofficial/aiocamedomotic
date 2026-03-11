@@ -252,9 +252,9 @@ import asyncio
 from aiocamedomotic import CameDomoticAPI
 from aiocamedomotic.models import (
     DeviceType, DigitalInputStatus, LightStatus, LightType,
-    OpeningStatus, ScenarioStatus, ThermoZoneMode,
-    ThermoZoneSeason, ThermoZoneStatus, DeviceUpdate,
-    LightUpdate, OpeningUpdate, ThermoZoneUpdate,
+    OpeningStatus, ScenarioStatus, ThermoZoneFanSpeed,
+    ThermoZoneMode, ThermoZoneSeason, ThermoZoneStatus,
+    DeviceUpdate, LightUpdate, OpeningUpdate, ThermoZoneUpdate,
     ScenarioUpdate, DigitalInputUpdate, PlantUpdate,
 )
 from aiocamedomotic.errors import (
@@ -589,11 +589,38 @@ ID: 1, Name: Living Room, Temperature: 20.0°C, Setpoint: 21.5°C, Mode: ThermoZ
 ID: 52, Name: Bedroom, Temperature: 19.5°C, Setpoint: 20.0°C, Mode: ThermoZoneMode.MANUAL, Season: ThermoZoneSeason.WINTER
 ```
 
+**Controlling thermoregulation zones:**
+
+```python
+from aiocamedomotic.models import ThermoZoneFanSpeed, ThermoZoneMode, ThermoZoneSeason
+
+# Set target temperature (keeps current mode)
+zone = zones[0]
+await zone.async_set_temperature(22.0)
+
+# Change operating mode (keeps current temperature)
+await zone.async_set_mode(ThermoZoneMode.MANUAL)
+
+# Full configuration with season and fan speed
+await zone.async_set_config(
+    mode=ThermoZoneMode.AUTO,
+    set_point=21.5,
+    season=ThermoZoneSeason.WINTER,
+    fan_speed=ThermoZoneFanSpeed.MEDIUM,
+)
+
+# Set fan speed (keeps current mode and temperature)
+await zone.async_set_fan_speed(ThermoZoneFanSpeed.SLOW)
+
+# Change global season for all zones (plant-level command)
+await api.async_set_thermo_season(ThermoZoneSeason.WINTER)
+```
+
 ##### NOTE
-Thermoregulation zones are currently **read-only**. The library does not
-yet support setting temperature, mode, or season. Temperature values are
-returned as floats in degrees Celsius (the internal integer-times-10
-representation is converted automatically).
+Temperature values are returned as floats in degrees Celsius (the internal
+integer-times-10 representation is converted automatically). The
+`season` and `fan_speed` parameters in `async_set_config` are
+optional; when provided, the `extended_infos` flag is set automatically.
 
 #### Analog sensors
 
@@ -852,6 +879,31 @@ This module exposes the CAME Domotic API to the end-users.
 
 Main class, exposes all the public methods of the CAME Domotic API.
 
+##### *async* async_add_user(username: str, password: str, group: str = '\*') → [User](#aiocamedomotic.models.base.User)
+
+Add a new user to the CAME Domotic server.
+
+* **Parameters:**
+  * **username** (*str*) – The login name for the new user.
+  * **password** (*str*) – The initial password for the new user.
+  * **group** (*str* *,* *optional*) – The **name** of the permission group to
+    assign to the new user (e.g. `"ETI/Domo"`). Defaults to
+    `"*"`. Use [`async_get_terminal_groups()`](#aiocamedomotic.came_domotic_api.CameDomoticAPI.async_get_terminal_groups) to retrieve
+    the available group names from the server.
+* **Returns:**
+  A `User` object representing the newly created user.
+* **Return type:**
+  [User](#aiocamedomotic.models.base.User)
+
+##### WARNING
+This operation is based on reverse-engineered API documentation and
+has not been verified against a real CAME Domotic server. Behaviour
+may differ across firmware versions.
+
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
 ##### *async classmethod* async_create(host: str, username: str, password: str, \*, websession: ClientSession | None = None, close_websession_on_disposal: bool = False, command_timeout: int = 30) → [CameDomoticAPI](#aiocamedomotic.came_domotic_api.CameDomoticAPI)
 
 Create a CameDomoticAPI object.
@@ -1001,6 +1053,28 @@ features supported by the CAME Domotic server.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
+##### *async* async_get_terminal_groups() → list[[TerminalGroup](#aiocamedomotic.models.base.TerminalGroup)]
+
+Get the list of terminal groups defined on the server.
+
+Terminal groups define the permission scope assigned to users at
+creation time. Call this method before [`async_add_user()`](#aiocamedomotic.came_domotic_api.CameDomoticAPI.async_add_user) to
+discover the available group names on the server.
+
+The `group` parameter of [`async_add_user()`](#aiocamedomotic.came_domotic_api.CameDomoticAPI.async_add_user) accepts a group
+**name** (e.g. `"ETI/Domo"`), not its numeric ID. The special value
+`"*"` (the default) may be used when fine-grained group assignment is
+not required.
+
+* **Returns:**
+  Available groups. Returns an empty list if
+  none are defined or the server response lacks the `array` key.
+* **Return type:**
+  list[[TerminalGroup](#aiocamedomotic.models.base.TerminalGroup)]
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
 ##### *async* async_get_thermo_zones() → list[[ThermoZone](#aiocamedomotic.models.thermo_zone.ThermoZone)]
 
 Get the list of all thermoregulation zones defined on the server.
@@ -1045,6 +1119,21 @@ Get the list of users defined on the server.
 * **Return type:**
   list[[User](#aiocamedomotic.models.base.User)]
 * **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_set_thermo_season(season: [ThermoZoneSeason](#aiocamedomotic.models.thermo_zone.ThermoZoneSeason)) → None
+
+Set the global thermoregulation season for all zones.
+
+This is a plant-level command that changes the season for the
+entire thermoregulation system.
+
+* **Parameters:**
+  **season** – The season to set. Valid values are `WINTER`,
+  `SUMMER`, and `PLANT_OFF`.
+* **Raises:**
+  * **ValueError** – If `season` is `ThermoZoneSeason.UNKNOWN`.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
@@ -1610,6 +1699,24 @@ Software version of the server.
 
 Type of the server.
 
+#### *class* aiocamedomotic.models.TerminalGroup(raw_data: dict[str, Any])
+
+Terminal group in the CAME Domotic API.
+
+Represents a user permission group (e.g. `"ETI/Domo"`). Groups are
+assigned to users at creation time via
+`CameDomoticAPI.async_add_user()`. Use
+`CameDomoticAPI.async_get_terminal_groups()` to retrieve the
+available group names before creating a user.
+
+##### *property* id *: int*
+
+Numeric ID of the group.
+
+##### *property* name *: str*
+
+Name of the group (e.g. `"ETI/Domo"`).
+
 #### *class* aiocamedomotic.models.ThermoZone(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
 
 Thermoregulation zone entity in the CameDomotic API.
@@ -1633,6 +1740,65 @@ ID of the thermoregulation zone.
 ##### *property* antifreeze *: float | None*
 
 Antifreeze temperature in degrees Celsius, or None if not set.
+
+##### *async* async_set_config(mode: [ThermoZoneMode](#aiocamedomotic.models.thermo_zone.ThermoZoneMode), set_point: float, \*, season: [ThermoZoneSeason](#aiocamedomotic.models.thermo_zone.ThermoZoneSeason) | None = None, fan_speed: [ThermoZoneFanSpeed](#aiocamedomotic.models.thermo_zone.ThermoZoneFanSpeed) | None = None) → None
+
+Configure the thermoregulation zone.
+
+* **Parameters:**
+  * **mode** – Operating mode to set.
+  * **set_point** – Target temperature in degrees Celsius.
+  * **season** – Season setting (optional, requires extended info).
+  * **fan_speed** – Fan speed setting (optional, requires extended info).
+* **Raises:**
+  * **ValueError** – If `mode`, `season`, or `fan_speed` is
+        `UNKNOWN`.
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_set_fan_speed(fan_speed: [ThermoZoneFanSpeed](#aiocamedomotic.models.thermo_zone.ThermoZoneFanSpeed)) → None
+
+Set the fan speed, keeping the current mode and temperature.
+
+* **Parameters:**
+  **fan_speed** – Fan speed to set.
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_set_mode(mode: [ThermoZoneMode](#aiocamedomotic.models.thermo_zone.ThermoZoneMode)) → None
+
+Set the operating mode, keeping the current target temperature.
+
+* **Parameters:**
+  **mode** – Operating mode to set.
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_set_temperature(temperature: float) → None
+
+Set the target temperature, keeping the current operating mode.
+
+* **Parameters:**
+  **temperature** – Target temperature in degrees Celsius.
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *property* dehumidifier_enabled *: bool*
+
+Whether the dehumidifier is enabled for this zone.
+
+##### *property* dehumidifier_setpoint *: float | None*
+
+Dehumidifier humidity setpoint in percent, or None if not set.
+
+##### *property* fan_speed *: [ThermoZoneFanSpeed](#aiocamedomotic.models.thermo_zone.ThermoZoneFanSpeed)*
+
+Fan speed setting for the thermoregulation zone.
+
+Returns `ThermoZoneFanSpeed.UNKNOWN` for unrecognized values.
 
 ##### *property* floor_ind *: int*
 
@@ -1670,12 +1836,35 @@ Target temperature in degrees Celsius.
 
 Status of the thermoregulation zone (OFF or ON).
 
+##### *property* t1 *: float | None*
+
+Temperature sensor 1 reading in degrees Celsius, or None.
+
+##### *property* t2 *: float | None*
+
+Temperature sensor 2 reading in degrees Celsius, or None.
+
+##### *property* t3 *: float | None*
+
+Temperature sensor 3 reading in degrees Celsius, or None.
+
 ##### *property* temperature *: float*
 
 Current temperature in degrees Celsius.
 
 Handles both `temp` (from list responses) and `temp_dec`
 (from status indications) field names.
+
+#### *class* aiocamedomotic.models.ThermoZoneFanSpeed(\*values)
+
+Fan speed setting for a thermoregulation zone.
+
+Allowed values are:
+: - OFF (0)
+  - SLOW (1)
+  - MEDIUM (2)
+  - FAST (3)
+  - AUTO (4)
 
 #### *class* aiocamedomotic.models.ThermoZoneMode(\*values)
 
@@ -1713,6 +1902,18 @@ Typed update for a thermostat zone (`thermo_zone_info_ind` /
 
 Zone actuator ID.
 
+##### *property* dehumidifier_enabled *: bool*
+
+Whether the dehumidifier is enabled.
+
+##### *property* dehumidifier_setpoint *: float | None*
+
+Dehumidifier humidity setpoint in percent, or None if not present.
+
+##### *property* fan_speed *: [ThermoZoneFanSpeed](#aiocamedomotic.models.thermo_zone.ThermoZoneFanSpeed)*
+
+Fan speed setting (OFF, SLOW, MEDIUM, FAST, AUTO).
+
 ##### *property* floor_ind *: int*
 
 Floor index.
@@ -1737,6 +1938,18 @@ Target temperature in degrees Celsius (converted from
 ##### *property* status *: [ThermoZoneStatus](#aiocamedomotic.models.thermo_zone.ThermoZoneStatus)*
 
 Zone status (OFF, ON).
+
+##### *property* t1 *: float | None*
+
+Temperature sensor 1 reading in degrees Celsius.
+
+##### *property* t2 *: float | None*
+
+Temperature sensor 2 reading in degrees Celsius.
+
+##### *property* t3 *: float | None*
+
+Temperature sensor 3 reading in degrees Celsius.
 
 ##### *property* temperature *: float*
 
@@ -1822,6 +2035,47 @@ User in the CAME Domotic API.
 * **Raises:**
   **ValueError** – If name key is missing from the input data the auth argument is
       not an instance of the expected Auth class.
+
+##### *async* async_change_password(current_password: str, new_password: str) → None
+
+Change the password of this user on the CAME Domotic server.
+
+* **Parameters:**
+  * **current_password** (*str*) – The user’s current password.
+  * **new_password** (*str*) – The desired new password.
+
+##### WARNING
+This operation is based on reverse-engineered API documentation and
+has not been verified against a real CAME Domotic server. Behaviour
+may differ across firmware versions.
+
+##### NOTE
+If the changed user is the currently authenticated user, the stored
+credentials are updated automatically in the active session — no
+additional action is required.
+
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error or the
+        password change is rejected (`sl_user_pwd_change_ack_reason`
+        is non-zero).
+
+##### *async* async_delete() → None
+
+Delete this user from the CAME Domotic server.
+
+Sends a delete-user request to the server for the user identified by
+this object’s `name` property.
+
+##### WARNING
+This operation is based on reverse-engineered API documentation and
+has not been verified against a real CAME Domotic server. Behaviour
+may differ across firmware versions.
+
+* **Raises:**
+  * **ValueError** – If this user is the currently authenticated user.
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
 ##### *async* async_set_as_current_user(password: str) → None
 
@@ -1944,6 +2198,24 @@ Software version of the server.
 
 Type of the server.
 
+#### *class* aiocamedomotic.models.base.TerminalGroup(raw_data: dict[str, Any])
+
+Terminal group in the CAME Domotic API.
+
+Represents a user permission group (e.g. `"ETI/Domo"`). Groups are
+assigned to users at creation time via
+`CameDomoticAPI.async_add_user()`. Use
+`CameDomoticAPI.async_get_terminal_groups()` to retrieve the
+available group names before creating a user.
+
+##### *property* id *: int*
+
+Numeric ID of the group.
+
+##### *property* name *: str*
+
+Name of the group (e.g. `"ETI/Domo"`).
+
 #### *class* aiocamedomotic.models.base.User(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
 
 User in the CAME Domotic API.
@@ -1951,6 +2223,47 @@ User in the CAME Domotic API.
 * **Raises:**
   **ValueError** – If name key is missing from the input data the auth argument is
       not an instance of the expected Auth class.
+
+##### *async* async_change_password(current_password: str, new_password: str) → None
+
+Change the password of this user on the CAME Domotic server.
+
+* **Parameters:**
+  * **current_password** (*str*) – The user’s current password.
+  * **new_password** (*str*) – The desired new password.
+
+##### WARNING
+This operation is based on reverse-engineered API documentation and
+has not been verified against a real CAME Domotic server. Behaviour
+may differ across firmware versions.
+
+##### NOTE
+If the changed user is the currently authenticated user, the stored
+credentials are updated automatically in the active session — no
+additional action is required.
+
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error or the
+        password change is rejected (`sl_user_pwd_change_ack_reason`
+        is non-zero).
+
+##### *async* async_delete() → None
+
+Delete this user from the CAME Domotic server.
+
+Sends a delete-user request to the server for the user identified by
+this object’s `name` property.
+
+##### WARNING
+This operation is based on reverse-engineered API documentation and
+has not been verified against a real CAME Domotic server. Behaviour
+may differ across firmware versions.
+
+* **Raises:**
+  * **ValueError** – If this user is the currently authenticated user.
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
 ##### *async* async_set_as_current_user(password: str) → None
 
@@ -2207,9 +2520,11 @@ Allowed values are:
 CAME Domotic thermoregulation entity models.
 
 This module implements the classes for working with thermoregulation zones
-and analog sensors in a CAME Domotic system. It provides read-only access
-to zone state (temperature, setpoint, mode, season) and analog sensor
-readings (temperature, humidity, pressure).
+and analog sensors in a CAME Domotic system. It provides access to zone
+state (temperature, setpoint, mode, season, fan speed, dehumidifier) and
+analog sensor readings (temperature, humidity, pressure), as well as
+control methods to configure zone settings such as target temperature,
+operating mode, and fan speed.
 
 #### *class* aiocamedomotic.models.thermo_zone.AnalogSensor(raw_data: dict[str, Any])
 
@@ -2267,6 +2582,65 @@ ID of the thermoregulation zone.
 
 Antifreeze temperature in degrees Celsius, or None if not set.
 
+##### *async* async_set_config(mode: [ThermoZoneMode](#aiocamedomotic.models.thermo_zone.ThermoZoneMode), set_point: float, \*, season: [ThermoZoneSeason](#aiocamedomotic.models.thermo_zone.ThermoZoneSeason) | None = None, fan_speed: [ThermoZoneFanSpeed](#aiocamedomotic.models.thermo_zone.ThermoZoneFanSpeed) | None = None) → None
+
+Configure the thermoregulation zone.
+
+* **Parameters:**
+  * **mode** – Operating mode to set.
+  * **set_point** – Target temperature in degrees Celsius.
+  * **season** – Season setting (optional, requires extended info).
+  * **fan_speed** – Fan speed setting (optional, requires extended info).
+* **Raises:**
+  * **ValueError** – If `mode`, `season`, or `fan_speed` is
+        `UNKNOWN`.
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_set_fan_speed(fan_speed: [ThermoZoneFanSpeed](#aiocamedomotic.models.thermo_zone.ThermoZoneFanSpeed)) → None
+
+Set the fan speed, keeping the current mode and temperature.
+
+* **Parameters:**
+  **fan_speed** – Fan speed to set.
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_set_mode(mode: [ThermoZoneMode](#aiocamedomotic.models.thermo_zone.ThermoZoneMode)) → None
+
+Set the operating mode, keeping the current target temperature.
+
+* **Parameters:**
+  **mode** – Operating mode to set.
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_set_temperature(temperature: float) → None
+
+Set the target temperature, keeping the current operating mode.
+
+* **Parameters:**
+  **temperature** – Target temperature in degrees Celsius.
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *property* dehumidifier_enabled *: bool*
+
+Whether the dehumidifier is enabled for this zone.
+
+##### *property* dehumidifier_setpoint *: float | None*
+
+Dehumidifier humidity setpoint in percent, or None if not set.
+
+##### *property* fan_speed *: [ThermoZoneFanSpeed](#aiocamedomotic.models.thermo_zone.ThermoZoneFanSpeed)*
+
+Fan speed setting for the thermoregulation zone.
+
+Returns `ThermoZoneFanSpeed.UNKNOWN` for unrecognized values.
+
 ##### *property* floor_ind *: int*
 
 Floor index of the thermoregulation zone.
@@ -2303,12 +2677,35 @@ Target temperature in degrees Celsius.
 
 Status of the thermoregulation zone (OFF or ON).
 
+##### *property* t1 *: float | None*
+
+Temperature sensor 1 reading in degrees Celsius, or None.
+
+##### *property* t2 *: float | None*
+
+Temperature sensor 2 reading in degrees Celsius, or None.
+
+##### *property* t3 *: float | None*
+
+Temperature sensor 3 reading in degrees Celsius, or None.
+
 ##### *property* temperature *: float*
 
 Current temperature in degrees Celsius.
 
 Handles both `temp` (from list responses) and `temp_dec`
 (from status indications) field names.
+
+#### *class* aiocamedomotic.models.thermo_zone.ThermoZoneFanSpeed(\*values)
+
+Fan speed setting for a thermoregulation zone.
+
+Allowed values are:
+: - OFF (0)
+  - SLOW (1)
+  - MEDIUM (2)
+  - FAST (3)
+  - AUTO (4)
 
 #### *class* aiocamedomotic.models.thermo_zone.ThermoZoneMode(\*values)
 
@@ -2573,6 +2970,18 @@ Typed update for a thermostat zone (`thermo_zone_info_ind` /
 
 Zone actuator ID.
 
+##### *property* dehumidifier_enabled *: bool*
+
+Whether the dehumidifier is enabled.
+
+##### *property* dehumidifier_setpoint *: float | None*
+
+Dehumidifier humidity setpoint in percent, or None if not present.
+
+##### *property* fan_speed *: [ThermoZoneFanSpeed](#aiocamedomotic.models.thermo_zone.ThermoZoneFanSpeed)*
+
+Fan speed setting (OFF, SLOW, MEDIUM, FAST, AUTO).
+
 ##### *property* floor_ind *: int*
 
 Floor index.
@@ -2597,6 +3006,18 @@ Target temperature in degrees Celsius (converted from
 ##### *property* status *: [ThermoZoneStatus](#aiocamedomotic.models.thermo_zone.ThermoZoneStatus)*
 
 Zone status (OFF, ON).
+
+##### *property* t1 *: float | None*
+
+Temperature sensor 1 reading in degrees Celsius.
+
+##### *property* t2 *: float | None*
+
+Temperature sensor 2 reading in degrees Celsius.
+
+##### *property* t3 *: float | None*
+
+Temperature sensor 3 reading in degrees Celsius.
 
 ##### *property* temperature *: float*
 
@@ -2967,6 +3388,22 @@ Backup the current authentication credentials.
 ##### *static* create_cypher_suite() → Fernet
 
 Create a cypher suite.
+
+##### *property* current_username *: str | None*
+
+Return the decrypted username for the current session, or None.
+
+* **Returns:**
+  The plaintext username, or `None` if the cipher suite
+  has not been initialised (e.g. after `async_dispose`).
+* **Return type:**
+  str | None
+
+##### NOTE
+Usernames are not secret — they appear in plaintext in all API
+payloads. This property is intended for internal comparisons
+(e.g. preventing deletion of the current user). Avoid logging
+its return value unnecessarily.
 
 ##### get_endpoint_url() → str
 
