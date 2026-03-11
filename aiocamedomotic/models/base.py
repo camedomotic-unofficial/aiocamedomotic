@@ -158,7 +158,8 @@ class User(CameEntity):
                 f"(sl_user_pwd_change_ack_reason={ack_reason})"
             )
         if self.name == self.auth.current_username:
-            self.auth._update_stored_password(new_password)  # pylint: disable=protected-access
+            # pylint: disable-next=protected-access
+            self.auth._update_stored_password(new_password)
             LOGGER.debug(
                 "Stored password updated in active session for user '%s'", self.name
             )
