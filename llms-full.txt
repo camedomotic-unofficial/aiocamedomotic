@@ -396,6 +396,21 @@ Board type: 3
 Serial number: 0011ffee
 ```
 
+#### Connectivity check
+
+Use `async_ping()` to verify the server is reachable and measure
+round-trip latency:
+
+```python
+try:
+    latency_ms = await api.async_ping()
+    print(f"Server responded in {latency_ms:.1f} ms")
+except CameDomoticServerNotFoundError:
+    print("Server is unreachable")
+except CameDomoticServerTimeoutError:
+    print("Server timed out")
+```
+
 #### Available features
 
 The `features` property on `ServerInfo` lists the capabilities configured
@@ -1142,6 +1157,23 @@ Get the list of users defined on the server.
   list[[User](#aiocamedomotic.models.base.User)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_ping() → float
+
+Ping the CAME Domotic server and measure round-trip latency.
+
+Sends a keep-alive request to verify connectivity. If the session has
+expired, it transparently re-authenticates first.
+
+* **Returns:**
+  Round-trip latency in milliseconds.
+* **Return type:**
+  float
+* **Raises:**
+  * [**CameDomoticServerNotFoundError**](#aiocamedomotic.errors.CameDomoticServerNotFoundError) – If the server is unreachable.
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If authentication fails.
+  * [**CameDomoticServerTimeoutError**](#aiocamedomotic.errors.CameDomoticServerTimeoutError) – If the request times out.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
 ##### *async* async_set_thermo_season(season: [ThermoZoneSeason](#aiocamedomotic.models.thermo_zone.ThermoZoneSeason)) → None
