@@ -2,7 +2,7 @@ Getting started
 ===============
 
 This guide will walk you through the steps to quickly start using the CAME Domotic
-Unofficial library in your projects. Before you begin, ensure you have:
+library in your projects. Before you begin, ensure you have:
 
 - Python 3.12, 3.13 or 3.14 installed on your system.
 - Access to a CAME Domotic server.
@@ -11,7 +11,7 @@ Installation
 ------------
 
 Use `pip <https://pip.pypa.io/en/stable/>`_ to install the latest version of the CAME
-Domotic Unofficial library and its dependencies:
+Domotic library and its dependencies:
 
 .. code-block:: bash
 
@@ -170,7 +170,7 @@ Let's go step by step:
             # Turn the light off
             await kitchen_lamp.async_set_status(LightStatus.OFF)
 
-Congratulations! You've successfully used the CAME Domotic Unofficial library to
+Congratulations! You've successfully used the CAME Domotic library to
 interact with your CAME Domotic server.
 
 Exploring further
@@ -179,4 +179,4 @@ Exploring further
 - For more detailed examples see :doc:`usage_examples`.
 - To check the technical specifications see the :doc:`api_reference`.
 
-Thank you for choosing the CAME Domotic Unofficial library. Happy automating!
+Thank you for choosing the CAME Domotic library. Happy automating!

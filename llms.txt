@@ -6,7 +6,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-D22128.svg)](https://opensource.org/licenses/Apache-2.0)[![Python 3.12 | 3.13 | 3.14](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-417fb0.svg)](https://www.python.org)[![SonarCloud - Security Rating](https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_aiocamedomotic&metric=security_rating)](https://sonarcloud.io/project/overview?id=camedomotic-unofficial_aiocamedomotic)[![SonarCloud - Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_aiocamedomotic&metric=vulnerabilities)](https://sonarcloud.io/project/overview?id=camedomotic-unofficial_aiocamedomotic)[![SonarCloud - Bugs](https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_aiocamedomotic&metric=bugs)](https://sonarcloud.io/project/overview?id=camedomotic-unofficial_aiocamedomotic)[![Documentation status](https://readthedocs.org/projects/aiocamedomotic/badge/?version=latest)](https://aiocamedomotic.readthedocs.io/en/latest/?badge=latest)
 
-The **CAME Domotic Unofficial Library** ([aiocamedomotic](https://github.com/camedomotic-unofficial/aiocamedomotic))
+The **CAME Domotic Library** ([aiocamedomotic](https://github.com/camedomotic-unofficial/aiocamedomotic))
 provides a streamlined Python interface for interacting with CAME Domotic plants, much
 like the official
 [CAME Domotic app](https://www.came.com/global/itex/installers/solutions/domotica-e-termoregolazione/prodotti-compatibili-domotica/app-domotic-30).
@@ -69,7 +69,7 @@ on GitHub.
 ## Getting started
 
 This guide will walk you through the steps to quickly start using the CAME Domotic
-Unofficial library in your projects. Before you begin, ensure you have:
+library in your projects. Before you begin, ensure you have:
 
 - Python 3.12, 3.13 or 3.14 installed on your system.
 - Access to a CAME Domotic server.
@@ -77,7 +77,7 @@ Unofficial library in your projects. Before you begin, ensure you have:
 ### Installation
 
 Use [pip](https://pip.pypa.io/en/stable/) to install the latest version of the CAME
-Domotic Unofficial library and its dependencies:
+Domotic library and its dependencies:
 
 ```bash
 pip install aiocamedomotic
@@ -226,7 +226,7 @@ Let’s go step by step:
        await kitchen_lamp.async_set_status(LightStatus.OFF)
    ```
 
-Congratulations! You’ve successfully used the CAME Domotic Unofficial library to
+Congratulations! You’ve successfully used the CAME Domotic library to
 interact with your CAME Domotic server.
 
 ### Exploring further
@@ -234,7 +234,7 @@ interact with your CAME Domotic server.
 - For more detailed examples see [Usage examples](#usage-examples).
 - To check the technical specifications see the [API Reference](#api-reference).
 
-Thank you for choosing the CAME Domotic Unofficial library. Happy automating!
+Thank you for choosing the CAME Domotic library. Happy automating!
 
 ---
 

@@ -12,11 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-The **CAME Domotic Unofficial Library** provides a streamlined Python interface for
+The **CAME Domotic Library** provides a streamlined Python interface for
 interacting with CAME Domotic plants, much like the official *CAME Domotic app*.
 
 This library is designed to simplify the management of domotic devices by abstracting
 the complexities of the CAME Domotic API.
+
+Note:
+    This library is independently developed and is not affiliated with, endorsed by,
+    or supported by CAME. It may not be compatible with all CAME Domotic systems.
+    While this library is stable and publicly released, it comes with no guarantees.
+    Use at your own risk. This library is not intended for use in critical systems,
+    such as security or life-support systems.
 """
 
 from __future__ import annotations
