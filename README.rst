@@ -88,6 +88,8 @@ Once you are a bit more familiar with the library, you may want to explore the f
 resources too:
 
 - `API reference <https://aiocamedomotic.readthedocs.io/latest/api_reference.html>`_
+- `LLM-friendly docs <https://github.com/camedomotic-unofficial/aiocamedomotic/blob/main/llms.txt>`_
+  (also available: `full version <https://github.com/camedomotic-unofficial/aiocamedomotic/blob/main/llms-full.txt>`_)
 - `What's new (releases) <https://github.com/camedomotic-unofficial/aiocamedomotic/releases>`_
 - `Development roadmap <https://github.com/camedomotic-unofficial/aiocamedomotic/blob/main/ROADMAP.md#development-roadmap>`_
 - `Security Policy <https://github.com/camedomotic-unofficial/aiocamedomotic/blob/main/SECURITY.md#security-policy>`_
