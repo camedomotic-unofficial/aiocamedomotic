@@ -180,6 +180,22 @@ Example output:
     Board type: 3
     Serial number: 0011ffee
 
+Connectivity check
+^^^^^^^^^^^^^^^^^^
+
+Use ``async_ping()`` to verify the server is reachable and measure
+round-trip latency:
+
+.. code-block:: python
+
+    try:
+        latency_ms = await api.async_ping()
+        print(f"Server responded in {latency_ms:.1f} ms")
+    except CameDomoticServerNotFoundError:
+        print("Server is unreachable")
+    except CameDomoticServerTimeoutError:
+        print("Server timed out")
+
 Available features
 ^^^^^^^^^^^^^^^^^^
 
