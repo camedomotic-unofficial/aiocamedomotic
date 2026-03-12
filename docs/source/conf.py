@@ -28,7 +28,7 @@ with open(_pyproject_path, "rb") as f:
 release = _pyproject["tool"]["poetry"]["version"]
 
 project = "aiocamedomotic"
-copyright = "2024, CAME Domotic Unofficial team"
+copyright = "2026, CAME Domotic Unofficial team"
 author = "fredericks1982"
 
 # -- General configuration ---------------------------------------------------

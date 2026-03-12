@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AIOCameDomotic is an unofficial Python library that provides an asynchronous API for interacting with CAME Domotic home automation systems. The library abstracts away the complexity of the CAME API, offers automatic session management, and is primarily developed for integration with Home Assistant but usable independently.
+AIOCameDomotic is a Python library that provides an asynchronous API for interacting with CAME Domotic home automation systems. The library abstracts away the complexity of the CAME API, offers automatic session management, and is primarily developed for integration with Home Assistant but usable independently.
 
 ## Build & Development Commands
 

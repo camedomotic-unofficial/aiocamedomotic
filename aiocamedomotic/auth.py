@@ -16,12 +16,12 @@
 This module manages the HTTP interaction with the CAME Domotic API.
 
 Note:
-   As a consumer of the CAME Domotic Unofficial library, **it's quite unlikely that you
+   As a consumer of the CAME Domotic library, **it's quite unlikely that you
    will need to use this class directly**: you should use the ``CameDomoticAPI`` and the
    CameEntity classes instead.
 
    In case of special needs, consider requesting the implementation of the desired
-   feature in the CAME Domotic Unofficial library, or forking the library and implement
+   feature in the CAME Domotic library, or forking the library and implement
    the feature yourself.
 """
 
