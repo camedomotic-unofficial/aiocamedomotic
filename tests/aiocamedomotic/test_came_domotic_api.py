@@ -26,6 +26,7 @@ from aiocamedomotic.errors import (
     CameDomoticError,
     CameDomoticServerError,
     CameDomoticServerNotFoundError,
+    CameDomoticServerTimeoutError,
 )
 from aiocamedomotic.models import (
     AnalogSensor,
@@ -1390,3 +1391,42 @@ class TestAPIThermoSeason:
         api = CameDomoticAPI(auth_instance)
         with pytest.raises(ValueError, match="Cannot set season to UNKNOWN"):
             await api.async_set_thermo_season(ThermoZoneSeason.UNKNOWN)
+
+
+class TestAPIPing:
+    """Tests for the async_ping method."""
+
+    @patch.object(Auth, "async_keep_alive", new_callable=AsyncMock)
+    async def test_async_ping_returns_latency(self, mock_keep_alive, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_keep_alive.return_value = None
+
+        latency = await api.async_ping()
+
+        assert isinstance(latency, float)
+        assert latency >= 0
+        mock_keep_alive.assert_called_once()
+
+    @patch.object(Auth, "async_keep_alive", new_callable=AsyncMock)
+    async def test_async_ping_server_not_found(self, mock_keep_alive, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_keep_alive.side_effect = CameDomoticServerNotFoundError("unreachable")
+
+        with pytest.raises(CameDomoticServerNotFoundError):
+            await api.async_ping()
+
+    @patch.object(Auth, "async_keep_alive", new_callable=AsyncMock)
+    async def test_async_ping_auth_error(self, mock_keep_alive, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_keep_alive.side_effect = CameDomoticAuthError("auth failed")
+
+        with pytest.raises(CameDomoticAuthError):
+            await api.async_ping()
+
+    @patch.object(Auth, "async_keep_alive", new_callable=AsyncMock)
+    async def test_async_ping_timeout(self, mock_keep_alive, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_keep_alive.side_effect = CameDomoticServerTimeoutError("timeout")
+
+        with pytest.raises(CameDomoticServerTimeoutError):
+            await api.async_ping()

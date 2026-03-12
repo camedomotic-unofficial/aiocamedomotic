@@ -18,6 +18,7 @@ This module exposes the CAME Domotic API to the end-users.
 
 from __future__ import annotations
 
+import time
 from types import TracebackType
 
 import aiohttp
@@ -213,6 +214,28 @@ class CameDomoticAPI:
             serial=json_response.get("serial"),  # type: ignore[arg-type]
             features=json_response.get("list"),  # type: ignore[arg-type]
         )
+
+    async def async_ping(self) -> float:
+        """Ping the CAME Domotic server and measure round-trip latency.
+
+        Sends a keep-alive request to verify connectivity. If the session has
+        expired, it transparently re-authenticates first.
+
+        Returns:
+            float: Round-trip latency in milliseconds.
+
+        Raises:
+            CameDomoticServerNotFoundError: If the server is unreachable.
+            CameDomoticAuthError: If authentication fails.
+            CameDomoticServerTimeoutError: If the request times out.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Pinging server")
+        start = time.monotonic()
+        await self.auth.async_keep_alive()
+        latency_ms = (time.monotonic() - start) * 1000
+        LOGGER.info("Ping latency: %.1f ms", latency_ms)
+        return latency_ms
 
     async def async_get_floors(self) -> list[Floor]:
         """Get the list of all the floors defined on the server.
