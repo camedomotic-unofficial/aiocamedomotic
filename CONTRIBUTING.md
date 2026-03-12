@@ -35,6 +35,14 @@ We use 4 spaces for indentation. Our code is formatted with [Black](https://blac
 Before submitting a pull request, please make sure your code is formatted, linted,
 type-checked, and all tests pass.
 
+### AI-assisted development
+
+This project exposes [`llms.txt`](llms.txt) and [`llms-full.txt`](llms-full.txt) files
+at the repository root, following the [llms.txt standard](https://llmstxt.org/). These
+files contain the full project documentation in a format optimized for use with AI coding
+assistants. Point your AI tool at these files to give it full context about the library's
+API and usage patterns.
+
 ### Testing with real CAME servers
 
 The project includes tests that can be run against a real CAME Domotic server. These tests are skipped by default unless configured.
