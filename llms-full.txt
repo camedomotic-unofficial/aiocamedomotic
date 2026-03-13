@@ -3433,7 +3433,7 @@ Check the response status and raise an error if necessary.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – if there is an authentication error with
         the remote CAME Domotic server.
 
-##### *async* async_send_command(command: dict[str, Any], \*, response_command: str | None = None, timeout: int | None = None, skip_ack_check: bool = False, command_type: str = 'sl_data_req', additional_payload: dict[str, Any] | None = None) → dict[str, Any]
+##### *async* async_send_command(command: dict[str, Any], \*, response_command: str | None = None, timeout: int | None = None, skip_ack_check: bool = False, command_type: str = 'sl_data_req', additional_payload: dict[str, Any] | None = None, \_caller_holds_lock: bool = False) → dict[str, Any]
 
 Send a command to the CAME Domotic server.
 
@@ -3449,6 +3449,11 @@ Send a command to the CAME Domotic server.
     (default: “sl_data_req”).
   * **additional_payload** (*dict* *,* *optional*) – additional key-value pairs to include
     in the request payload (default: None).
+  * **\_caller_holds_lock** (*bool* *,* *optional*) – when True, the caller already
+    holds `self._lock` and has validated the session, so this
+    method uses `self.client_id` directly instead of calling
+    `async_get_valid_client_id()` (which would deadlock).
+    For internal use only (default: False).
 * **Returns:**
   the JSON response from the server.
 * **Return type:**
