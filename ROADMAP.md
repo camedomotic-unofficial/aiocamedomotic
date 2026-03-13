@@ -92,10 +92,6 @@ considered for future development once real-world testing is possible:
 - **Cameras (TVCC)**: Camera listing (entirely unverified).
 - **Security system**: Area/scenario management and alarm control (entirely unverified).
 - **Maps**: Floor plan/map retrieval (entirely unverified).
-- **Status updates management**: Automatic long-polling loop with event callbacks,
-  push-based state synchronization, and automatic `plant_update_ind` handling for full
-  cache invalidation. Typed update classes and filtering are already available (v1.5);
-  this item covers the higher-level automation layer on top.
 - **Infrastructure improvements**: Automated keep-alive scheduling, per-actuator scope
   queries, and connection resilience improvements.
 
