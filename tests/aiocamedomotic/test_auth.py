@@ -943,7 +943,9 @@ class TestAuthKeepAlive:
     ):
         await auth_instance.async_keep_alive()
         mock_is_session_valid.assert_called_once()
-        mock_send_command.assert_called_once_with({}, command_type="sl_keep_alive_req")
+        mock_send_command.assert_called_once_with(
+            {}, command_type="sl_keep_alive_req", _caller_holds_lock=True
+        )
 
     @patch.object(Auth, "is_session_valid", return_value=True)
     @patch.object(
@@ -958,7 +960,9 @@ class TestAuthKeepAlive:
         with pytest.raises(CameDomoticServerError):
             await auth_instance.async_keep_alive()
         mock_is_session_valid.assert_called_once()
-        mock_send_command.assert_called_once_with({}, command_type="sl_keep_alive_req")
+        mock_send_command.assert_called_once_with(
+            {}, command_type="sl_keep_alive_req", _caller_holds_lock=True
+        )
 
     @patch.object(Auth, "is_session_valid", return_value=False)
     @patch.object(Auth, "_async_perform_login", new_callable=AsyncMock)
