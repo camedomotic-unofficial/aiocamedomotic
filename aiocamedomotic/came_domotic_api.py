@@ -18,17 +18,22 @@ This module exposes the CAME Domotic API to the end-users.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from types import TracebackType
+from typing import Any
 
 import aiohttp
 
 from .auth import Auth
 from .const import (
     _DEFAULT_COMMAND_TIMEOUT,
+    _FEATURE_TO_NESTED_CMD,
+    _NESTED_3LEVEL_FEATURES,
     _CommandName,
     _CommandNameResponse,
     _CommandType,
+    _ServerFeature,
     _TopologicScope,
 )
 from .models import (
@@ -37,12 +42,15 @@ from .models import (
     Floor,
     Light,
     Opening,
+    PlantTopology,
     Room,
     Scenario,
     ServerInfo,
     TerminalGroup,
     ThermoZone,
     ThermoZoneSeason,
+    TopologyFloor,
+    TopologyRoom,
     UpdateList,
     User,
 )
@@ -524,6 +532,166 @@ class CameDomoticAPI:
         scenarios_list = json_response.get("array", []) or []
         LOGGER.info("Retrieved %d scenario(s)", len(scenarios_list))
         return [Scenario(scenario_data, self.auth) for scenario_data in scenarios_list]
+
+    async def async_get_topology(self) -> PlantTopology:
+        """Get the complete plant topology (floors and rooms).
+
+        Merges data from the standard ``floor_list_req`` / ``room_list_req``
+        endpoints with the nested device list commands
+        (``nested_light_list_req``, ``nested_openings_list_req``,
+        ``nested_thermo_list_req``) to build a comprehensive topology even on
+        servers where the flat floor/room endpoints return empty.
+
+        Only nested commands for features supported by the server are sent.
+
+        Returns:
+            PlantTopology: The merged plant topology.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Fetching plant topology")
+
+        # Determine which nested commands to send based on server features
+        server_info = await self.async_get_server_info()
+        nested_tasks: list[tuple[_ServerFeature, Any]] = []
+        for feature_str in server_info.features:
+            try:
+                feature = _ServerFeature(feature_str)
+            except ValueError:
+                continue
+            if feature in _FEATURE_TO_NESTED_CMD:
+                cmd_name, resp_cmd = _FEATURE_TO_NESTED_CMD[feature]
+                coro = self.auth.async_send_command(
+                    {"cmd_name": cmd_name},
+                    response_command=resp_cmd,
+                )
+                nested_tasks.append((feature, coro))
+
+        # Run flat endpoints and nested commands concurrently
+        flat_coros: list[Any] = [self.async_get_floors(), self.async_get_rooms()]
+        nested_coros = [coro for _, coro in nested_tasks]
+        all_results = await asyncio.gather(
+            *flat_coros, *nested_coros, return_exceptions=True
+        )
+
+        flat_floors_result = all_results[0]
+        flat_rooms_result = all_results[1]
+        nested_results = list(
+            zip(
+                [feat for feat, _ in nested_tasks],
+                all_results[2:],
+                strict=False,
+            )
+        )
+
+        # Merge dictionaries: floor_ind -> name, (floor_ind, room_ind) -> name
+        floors: dict[int, str] = {}
+        rooms: dict[tuple[int, int], str] = {}
+
+        # Parse flat endpoints
+        if not isinstance(flat_floors_result, BaseException):
+            for floor in flat_floors_result:
+                floors.setdefault(floor.id, floor.name)
+        else:
+            LOGGER.warning("Failed to fetch flat floors: %s", flat_floors_result)
+
+        if not isinstance(flat_rooms_result, BaseException):
+            for room in flat_rooms_result:
+                rooms.setdefault((room.floor_id, room.id), room.name)
+        else:
+            LOGGER.warning("Failed to fetch flat rooms: %s", flat_rooms_result)
+
+        # Parse nested responses
+        for feature, result in nested_results:
+            if isinstance(result, BaseException):
+                LOGGER.warning("Failed to fetch nested %s: %s", feature.value, result)
+                continue
+            is_3level = feature in _NESTED_3LEVEL_FEATURES
+            if is_3level:
+                n_floors, n_rooms = self._parse_nested_3level(result)
+            else:
+                n_floors, n_rooms = self._parse_nested_2level(result)
+            for fid, fname in n_floors.items():
+                if fid not in floors or not floors[fid]:
+                    floors[fid] = fname
+            for key, rname in n_rooms.items():
+                if key not in rooms or (not rooms[key] and rname):
+                    rooms[key] = rname
+
+        # Apply fallback names for rooms without a name
+        for key in rooms:
+            if not rooms[key]:
+                rooms[key] = f"Room {key[1]}"
+
+        # Build PlantTopology
+        floor_rooms: dict[int, list[TopologyRoom]] = {}
+        for (fid, rid), rname in sorted(rooms.items()):
+            floor_rooms.setdefault(fid, []).append(TopologyRoom(id=rid, name=rname))
+
+        topology_floors = [
+            TopologyFloor(id=fid, name=fname, rooms=floor_rooms.get(fid, []))
+            for fid, fname in sorted(floors.items())
+        ]
+
+        LOGGER.info(
+            "Plant topology: %d floor(s), %d room(s)",
+            len(topology_floors),
+            sum(len(f.rooms) for f in topology_floors),
+        )
+        return PlantTopology(floors=topology_floors)
+
+    @staticmethod
+    def _parse_nested_3level(
+        response: dict[str, Any],
+    ) -> tuple[dict[int, str], dict[tuple[int, int], str]]:
+        """Extract floors and rooms from a 3-level nested response.
+
+        Structure: array -> Floor(name, floor_ind)
+        -> Room(name, room_ind) -> Device(leaf)
+        """
+        floors: dict[int, str] = {}
+        rooms: dict[tuple[int, int], str] = {}
+        for floor_node in response.get("array", []) or []:
+            if floor_node.get("leaf"):
+                continue
+            floor_ind = floor_node.get("floor_ind")
+            if floor_ind is None:
+                continue
+            floors[floor_ind] = floor_node.get("name", "")
+            for room_node in floor_node.get("array", []) or []:
+                if room_node.get("leaf"):
+                    continue
+                room_ind = room_node.get("room_ind")
+                if room_ind is not None:
+                    rooms[(floor_ind, room_ind)] = room_node.get("name", "")
+        return floors, rooms
+
+    @staticmethod
+    def _parse_nested_2level(
+        response: dict[str, Any],
+    ) -> tuple[dict[int, str], dict[tuple[int, int], str]]:
+        """Extract floors and room IDs from a 2-level nested response.
+
+        Structure: array -> Floor(name, floor_ind) -> Device(leaf, with room_ind)
+        Room names are not available at this level.
+        """
+        floors: dict[int, str] = {}
+        rooms: dict[tuple[int, int], str] = {}
+        for floor_node in response.get("array", []) or []:
+            if floor_node.get("leaf"):
+                continue
+            floor_ind = floor_node.get("floor_ind")
+            if floor_ind is None:
+                continue
+            floors[floor_ind] = floor_node.get("name", "")
+            for device_node in floor_node.get("array", []) or []:
+                room_ind = device_node.get("room_ind")
+                device_floor = device_node.get("floor_ind", floor_ind)
+                if room_ind is not None and device_floor is not None:
+                    rooms.setdefault((device_floor, room_ind), "")
+        return floors, rooms
 
     @classmethod
     async def async_create(
