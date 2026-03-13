@@ -356,6 +356,7 @@ class Auth:
         skip_ack_check: bool = False,
         command_type: str = _CommandType.DATA_REQUEST.value,
         additional_payload: dict[str, Any] | None = None,
+        _caller_holds_lock: bool = False,
     ) -> dict[str, Any]:
         """Send a command to the CAME Domotic server.
 
@@ -371,6 +372,11 @@ class Auth:
                 (default: "sl_data_req").
             additional_payload (dict, optional): additional key-value pairs to include
                 in the request payload (default: None).
+            _caller_holds_lock (bool, optional): when True, the caller already
+                holds ``self._lock`` and has validated the session, so this
+                method uses ``self.client_id`` directly instead of calling
+                ``async_get_valid_client_id()`` (which would deadlock).
+                For internal use only (default: False).
 
         Returns:
             dict: the JSON response from the server.
@@ -390,6 +396,8 @@ class Auth:
             _CommandType.CHANGE_USER_PASSWORD_REQUEST.value,
         ):
             client_id = ""
+        elif _caller_holds_lock:
+            client_id = self.client_id
         else:
             client_id = await self.async_get_valid_client_id()
 
@@ -670,7 +678,9 @@ class Auth:
         """
         LOGGER.debug("Sending keep-alive to '%s'", self.host)
         await self.async_send_command(
-            {}, command_type=_CommandType.KEEP_ALIVE_REQUEST.value
+            {},
+            command_type=_CommandType.KEEP_ALIVE_REQUEST.value,
+            _caller_holds_lock=True,
         )
 
     @handle_came_domotic_errors
