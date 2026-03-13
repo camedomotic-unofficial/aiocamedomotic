@@ -867,6 +867,57 @@ async def test_user_management_lifecycle(
     print(f"Confirmed: '{test_username}' is no longer in the users list")
 
 
+@pytest.mark.timeout(5)
+async def test_consecutive_scenario_then_light_list(
+    api_instance_real: CameDomoticAPI,
+):
+    """Tests two consecutive API calls: scenario list followed by light list."""
+    print("\nFetching scenarios...")
+    scenarios = await api_instance_real.async_get_scenarios()
+    print(f"Got {len(scenarios)} scenario(s)")
+    for s in scenarios:
+        print(f"  Scenario ID={s.id}, Name='{s.name}'")
+
+    print("\nSending keep-alive...")
+    await api_instance_real.auth.async_keep_alive()
+    print("Keep-alive succeeded.")
+
+    print("\nFetching lights (immediately after scenarios)...")
+    lights = await api_instance_real.async_get_lights()
+    print(f"Got {len(lights)} light(s)")
+    for light in lights:
+        print(f"  Light act_id={light.act_id}, Name='{light.name}'")
+
+    assert scenarios is not None
+    assert lights is not None
+    print("\nBoth consecutive calls completed successfully.")
+
+
+async def test_async_ping(api_instance_real: CameDomoticAPI):
+    """Tests server info retrieval followed by a ping with latency measurement."""
+    print("\nFetching server info...")
+    server_info = await api_instance_real.async_get_server_info()
+    print(
+        f"Server Info - Keycode: {server_info.keycode}, "
+        f"Swver: {server_info.swver}, Board: {server_info.board}"
+    )
+
+    print("Pinging server...")
+    latency_ms = await api_instance_real.async_ping()
+    print(f"Ping successful — round-trip latency: {latency_ms:.1f} ms")
+
+    assert isinstance(latency_ms, float)
+    assert latency_ms >= 0
+
+
+async def test_async_keep_alive(api_instance_real: CameDomoticAPI):
+    """Tests that async_keep_alive succeeds on a live session."""
+    print("\nCalling async_keep_alive...")
+    await api_instance_real.auth.async_keep_alive()
+    print("Keep-alive succeeded — session is still valid")
+    assert api_instance_real.auth.is_session_valid()
+
+
 async def test_autodiscovery(real_server_config):
     """Tests the two-step autodiscovery: MAC prefix check + API verification."""
     mac_address = real_server_config["came_server"].get("mac_address", "")
