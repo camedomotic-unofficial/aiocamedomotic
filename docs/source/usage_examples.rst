@@ -245,17 +245,18 @@ You can use the features list to decide which device APIs to call:
 Floors and rooms
 ^^^^^^^^^^^^^^^^
 
-Retrieve the building topology to understand how devices are organized:
+Retrieve the building topology to understand how devices are organized.
+``async_get_topology()`` merges data from multiple server endpoints and
+nested device list commands, ensuring that floors and rooms are discovered
+even on servers where some endpoints return empty:
 
 .. code-block:: python
 
-    floors = await api.async_get_floors()
-    rooms = await api.async_get_rooms()
+    topology = await api.async_get_topology()
 
-    for floor in floors:
+    for floor in topology.floors:
         print(f"Floor {floor.id}: {floor.name}")
-        floor_rooms = [r for r in rooms if r.floor_id == floor.id]
-        for room in floor_rooms:
+        for room in floor.rooms:
             print(f"  Room {room.id}: {room.name}")
 
 Example output:
@@ -268,6 +269,12 @@ Example output:
     Floor 1: First Floor
       Room 3: Bedroom
       Room 4: Bathroom
+
+.. note::
+    ``async_get_topology()`` issues all requests concurrently and produces a
+    :class:`~aiocamedomotic.models.base.PlantTopology` object with floors
+    and rooms already nested, so you don't need to cross-reference floor IDs
+    manually.
 
 Working with devices
 --------------------
