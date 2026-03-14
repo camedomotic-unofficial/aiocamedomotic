@@ -36,6 +36,7 @@ from .const import (
     _ServerFeature,
     _TopologicScope,
 )
+from .errors import CameDomoticAuthError
 from .models import (
     AnalogSensor,
     DigitalInput,
@@ -554,20 +555,29 @@ class CameDomoticAPI:
         LOGGER.debug("Fetching plant topology")
 
         # Determine which nested commands to send based on server features
-        server_info = await self.async_get_server_info()
         nested_tasks: list[tuple[_ServerFeature, Any]] = []
-        for feature_str in server_info.features:
-            try:
-                feature = _ServerFeature(feature_str)
-            except ValueError:
-                continue
-            if feature in _FEATURE_TO_NESTED_CMD:
-                cmd_name, resp_cmd = _FEATURE_TO_NESTED_CMD[feature]
-                coro = self.auth.async_send_command(
-                    {"cmd_name": cmd_name},
-                    response_command=resp_cmd,
-                )
-                nested_tasks.append((feature, coro))
+        try:
+            server_info = await self.async_get_server_info()
+        except CameDomoticAuthError:
+            raise
+        except Exception:  # noqa: BLE001
+            LOGGER.warning(
+                "Failed to fetch server info; skipping nested topology commands",
+                exc_info=True,
+            )
+        else:
+            for feature_str in server_info.features:
+                try:
+                    feature = _ServerFeature(feature_str)
+                except ValueError:
+                    continue
+                if feature in _FEATURE_TO_NESTED_CMD:
+                    cmd_name, resp_cmd = _FEATURE_TO_NESTED_CMD[feature]
+                    coro = self.auth.async_send_command(
+                        {"cmd_name": cmd_name},
+                        response_command=resp_cmd,
+                    )
+                    nested_tasks.append((feature, coro))
 
         # Run flat endpoints and nested commands concurrently
         flat_coros: list[Any] = [self.async_get_floors(), self.async_get_rooms()]
@@ -630,9 +640,14 @@ class CameDomoticAPI:
         for (fid, rid), rname in sorted(rooms.items()):
             floor_rooms.setdefault(fid, []).append(TopologyRoom(id=rid, name=rname))
 
+        union_keys = set(floors.keys()) | set(floor_rooms.keys())
         topology_floors = [
-            TopologyFloor(id=fid, name=fname, rooms=floor_rooms.get(fid, []))
-            for fid, fname in sorted(floors.items())
+            TopologyFloor(
+                id=fid,
+                name=floors.get(fid, ""),
+                rooms=floor_rooms.get(fid, []),
+            )
+            for fid in sorted(union_keys)
         ]
 
         LOGGER.info(

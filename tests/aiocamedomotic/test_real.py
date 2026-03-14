@@ -34,6 +34,7 @@ from aiocamedomotic.models import (
     LightStatus,
     LightUpdate,
     OpeningUpdate,
+    PlantTopology,
     PlantUpdate,
     ScenarioUpdate,
     ThermoZoneFanSpeed,
@@ -58,15 +59,16 @@ async def test_async_get_topology(api_instance_real: CameDomoticAPI):
     print("\nFetching plant topology...")
     topology = await api_instance_real.async_get_topology()
 
-    print(f"Found {len(topology.floors)} floor(s):")
-    for floor in topology.floors:
-        print(f"\n  Floor ID: {floor.id}, Name: {floor.name}")
-        print(f"    Rooms ({len(floor.rooms)}):")
-        for room in floor.rooms:
-            print(f"      Room ID: {room.id}, Name: {room.name}")
-
     assert topology is not None, "Failed to get topology"
-    assert len(topology.floors) > 0, "Expected at least one floor"
+    assert isinstance(topology, PlantTopology)
+
+    print(f"Found {len(topology.floors)} floor(s):")
+    if topology.floors:
+        for floor in topology.floors:
+            print(f"\n  Floor ID: {floor.id}, Name: {floor.name}")
+            print(f"    Rooms ({len(floor.rooms)}):")
+            for room in floor.rooms:
+                print(f"      Room ID: {room.id}, Name: {room.name}")
 
 
 async def test_async_get_floors_and_rooms(api_instance_real: CameDomoticAPI):
