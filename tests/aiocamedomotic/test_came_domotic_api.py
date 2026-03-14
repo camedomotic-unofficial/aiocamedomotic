@@ -34,6 +34,7 @@ from aiocamedomotic.models import (
     Floor,
     Light,
     Opening,
+    PlantTopology,
     Room,
     Scenario,
     ServerInfo,
@@ -1430,3 +1431,640 @@ class TestAPIPing:
 
         with pytest.raises(CameDomoticServerTimeoutError):
             await api.async_ping()
+
+
+# region Topology test data
+
+_NESTED_LIGHTS_RESP = {
+    "cseq": 1,
+    "cmd_name": "light_list_resp",
+    "array": [
+        {
+            "name": "Ground Floor",
+            "floor_ind": 1,
+            "status": 0,
+            "array": [
+                {
+                    "name": "Kitchen",
+                    "room_ind": 10,
+                    "status": 0,
+                    "array": [
+                        {
+                            "act_id": 100,
+                            "name": "Ceiling light",
+                            "floor_ind": 1,
+                            "room_ind": 10,
+                            "status": 0,
+                            "type": "STEP_STEP",
+                            "leaf": True,
+                        }
+                    ],
+                },
+                {
+                    "name": "Living Room",
+                    "room_ind": 11,
+                    "status": 0,
+                    "array": [
+                        {
+                            "act_id": 101,
+                            "name": "Wall light",
+                            "floor_ind": 1,
+                            "room_ind": 11,
+                            "status": 0,
+                            "type": "DIMMER",
+                            "perc": 50,
+                            "leaf": True,
+                        }
+                    ],
+                },
+            ],
+        },
+        {
+            "name": "First Floor",
+            "floor_ind": 2,
+            "status": 0,
+            "array": [
+                {
+                    "name": "Bedroom",
+                    "room_ind": 20,
+                    "status": 0,
+                    "array": [
+                        {
+                            "act_id": 200,
+                            "name": "Bedside lamp",
+                            "floor_ind": 2,
+                            "room_ind": 20,
+                            "status": 0,
+                            "type": "STEP_STEP",
+                            "leaf": True,
+                        }
+                    ],
+                },
+            ],
+        },
+    ],
+    "sl_data_ack_reason": 0,
+}
+
+_NESTED_OPENINGS_RESP = {
+    "cseq": 1,
+    "cmd_name": "openings_list_resp",
+    "array": [
+        {
+            "name": "Ground Floor",
+            "floor_ind": 1,
+            "status": 0,
+            "array": [
+                {
+                    "name": "Kitchen",
+                    "room_ind": 10,
+                    "status": 0,
+                    "array": [
+                        {
+                            "open_act_id": 300,
+                            "close_act_id": 301,
+                            "name": "Kitchen shutter",
+                            "floor_ind": 1,
+                            "room_ind": 10,
+                            "status": 0,
+                            "type": 0,
+                            "leaf": True,
+                        }
+                    ],
+                },
+                {
+                    "name": "Hallway",
+                    "room_ind": 12,
+                    "status": 0,
+                    "array": [
+                        {
+                            "open_act_id": 302,
+                            "close_act_id": 303,
+                            "name": "Front door",
+                            "floor_ind": 1,
+                            "room_ind": 12,
+                            "status": 0,
+                            "type": 0,
+                            "leaf": True,
+                        }
+                    ],
+                },
+            ],
+        },
+    ],
+    "sl_data_ack_reason": 0,
+}
+
+_NESTED_THERMO_RESP = {
+    "cseq": 1,
+    "cmd_name": "thermo_list_resp",
+    "array": [
+        {
+            "name": "First Floor",
+            "floor_ind": 2,
+            "array": [
+                {
+                    "act_id": 400,
+                    "name": "Bedroom thermostat",
+                    "floor_ind": 2,
+                    "room_ind": 20,
+                    "status": 0,
+                    "temp": 210,
+                    "leaf": True,
+                },
+                {
+                    "act_id": 401,
+                    "name": "Bathroom thermostat",
+                    "floor_ind": 2,
+                    "room_ind": 21,
+                    "status": 0,
+                    "temp": 220,
+                    "leaf": True,
+                },
+            ],
+        },
+    ],
+    "sl_data_ack_reason": 0,
+}
+
+_SERVER_INFO_ALL_FEATURES = ServerInfo(
+    keycode="0000FFFF9999AAAA",
+    serial="0011ffee",
+    features=["lights", "openings", "thermoregulation", "scenarios"],
+)
+
+_SERVER_INFO_LIGHTS_ONLY = ServerInfo(
+    keycode="0000FFFF9999AAAA",
+    serial="0011ffee",
+    features=["lights"],
+)
+
+_SERVER_INFO_THERMO_ONLY = ServerInfo(
+    keycode="0000FFFF9999AAAA",
+    serial="0011ffee",
+    features=["thermoregulation"],
+)
+
+_SERVER_INFO_NO_NESTED_FEATURES = ServerInfo(
+    keycode="0000FFFF9999AAAA",
+    serial="0011ffee",
+    features=["scenarios", "digitalin"],
+)
+
+# endregion
+
+
+class TestAPITopology:
+    @patch.object(CameDomoticAPI, "async_get_rooms", new_callable=AsyncMock)
+    @patch.object(CameDomoticAPI, "async_get_floors", new_callable=AsyncMock)
+    @patch.object(Auth, "async_send_command")
+    @patch.object(CameDomoticAPI, "async_get_server_info", new_callable=AsyncMock)
+    async def test_all_sources_merged(
+        self,
+        mock_server_info,
+        mock_send_command,
+        mock_get_floors,
+        mock_get_rooms,
+        auth_instance,
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_server_info.return_value = _SERVER_INFO_ALL_FEATURES
+        mock_get_floors.return_value = []
+        mock_get_rooms.return_value = []
+        mock_send_command.side_effect = [
+            _NESTED_LIGHTS_RESP,
+            _NESTED_OPENINGS_RESP,
+            _NESTED_THERMO_RESP,
+        ]
+
+        topology = await api.async_get_topology()
+
+        assert isinstance(topology, PlantTopology)
+        assert len(topology.floors) == 2
+
+        gf = topology.floors[0]
+        assert gf.id == 1
+        assert gf.name == "Ground Floor"
+        assert len(gf.rooms) == 3
+        room_names = {r.name for r in gf.rooms}
+        assert room_names == {"Kitchen", "Living Room", "Hallway"}
+
+        ff = topology.floors[1]
+        assert ff.id == 2
+        assert ff.name == "First Floor"
+        assert len(ff.rooms) == 2
+        room_ids = {r.id for r in ff.rooms}
+        assert room_ids == {20, 21}
+
+    @patch.object(CameDomoticAPI, "async_get_rooms", new_callable=AsyncMock)
+    @patch.object(CameDomoticAPI, "async_get_floors", new_callable=AsyncMock)
+    @patch.object(CameDomoticAPI, "async_get_server_info", new_callable=AsyncMock)
+    async def test_flat_endpoints_provide_data(
+        self,
+        mock_server_info,
+        mock_get_floors,
+        mock_get_rooms,
+        auth_instance,
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_server_info.return_value = _SERVER_INFO_NO_NESTED_FEATURES
+        mock_get_floors.return_value = [
+            Floor({"floor_ind": 1, "name": "Piano Terra"}),
+        ]
+        mock_get_rooms.return_value = [
+            Room({"room_ind": 10, "name": "Cucina", "floor_ind": 1}),
+        ]
+
+        topology = await api.async_get_topology()
+
+        assert len(topology.floors) == 1
+        assert topology.floors[0].name == "Piano Terra"
+        assert len(topology.floors[0].rooms) == 1
+        assert topology.floors[0].rooms[0].name == "Cucina"
+
+    @patch.object(CameDomoticAPI, "async_get_rooms", new_callable=AsyncMock)
+    @patch.object(CameDomoticAPI, "async_get_floors", new_callable=AsyncMock)
+    @patch.object(Auth, "async_send_command")
+    @patch.object(CameDomoticAPI, "async_get_server_info", new_callable=AsyncMock)
+    async def test_flat_empty_nested_provide_data(
+        self,
+        mock_server_info,
+        mock_send_command,
+        mock_get_floors,
+        mock_get_rooms,
+        auth_instance,
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_server_info.return_value = _SERVER_INFO_LIGHTS_ONLY
+        mock_get_floors.return_value = []
+        mock_get_rooms.return_value = []
+        mock_send_command.return_value = _NESTED_LIGHTS_RESP
+
+        topology = await api.async_get_topology()
+
+        assert len(topology.floors) == 2
+        assert topology.floors[0].name == "Ground Floor"
+        assert topology.floors[1].name == "First Floor"
+        room_names = [r.name for f in topology.floors for r in f.rooms]
+        assert "Kitchen" in room_names
+        assert "Living Room" in room_names
+        assert "Bedroom" in room_names
+
+    @patch.object(CameDomoticAPI, "async_get_rooms", new_callable=AsyncMock)
+    @patch.object(CameDomoticAPI, "async_get_floors", new_callable=AsyncMock)
+    @patch.object(Auth, "async_send_command")
+    @patch.object(CameDomoticAPI, "async_get_server_info", new_callable=AsyncMock)
+    async def test_thermo_only_room_names_fallback(
+        self,
+        mock_server_info,
+        mock_send_command,
+        mock_get_floors,
+        mock_get_rooms,
+        auth_instance,
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_server_info.return_value = _SERVER_INFO_THERMO_ONLY
+        mock_get_floors.return_value = []
+        mock_get_rooms.return_value = []
+        mock_send_command.return_value = _NESTED_THERMO_RESP
+
+        topology = await api.async_get_topology()
+
+        assert len(topology.floors) == 1
+        ff = topology.floors[0]
+        assert ff.id == 2
+        assert ff.name == "First Floor"
+        assert len(ff.rooms) == 2
+        # Room names should be fallback since thermo doesn't provide them
+        room_names = {r.name for r in ff.rooms}
+        assert room_names == {"Room 20", "Room 21"}
+
+    @patch.object(CameDomoticAPI, "async_get_rooms", new_callable=AsyncMock)
+    @patch.object(CameDomoticAPI, "async_get_floors", new_callable=AsyncMock)
+    @patch.object(Auth, "async_send_command")
+    @patch.object(CameDomoticAPI, "async_get_server_info", new_callable=AsyncMock)
+    async def test_thermo_plus_lights_rooms_get_names(
+        self,
+        mock_server_info,
+        mock_send_command,
+        mock_get_floors,
+        mock_get_rooms,
+        auth_instance,
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_server_info.return_value = ServerInfo(
+            keycode="0000FFFF9999AAAA",
+            serial="0011ffee",
+            features=["lights", "thermoregulation"],
+        )
+        mock_get_floors.return_value = []
+        mock_get_rooms.return_value = []
+        mock_send_command.side_effect = [
+            _NESTED_LIGHTS_RESP,
+            _NESTED_THERMO_RESP,
+        ]
+
+        topology = await api.async_get_topology()
+
+        ff = next(f for f in topology.floors if f.id == 2)
+        room_map = {r.id: r.name for r in ff.rooms}
+        # room_ind 20 should get "Bedroom" from lights, not fallback
+        assert room_map[20] == "Bedroom"
+        # room_ind 21 only exists in thermo, should get fallback
+        assert room_map[21] == "Room 21"
+
+    @patch.object(CameDomoticAPI, "async_get_rooms", new_callable=AsyncMock)
+    @patch.object(CameDomoticAPI, "async_get_floors", new_callable=AsyncMock)
+    @patch.object(CameDomoticAPI, "async_get_server_info", new_callable=AsyncMock)
+    async def test_all_empty_returns_empty_topology(
+        self,
+        mock_server_info,
+        mock_get_floors,
+        mock_get_rooms,
+        auth_instance,
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_server_info.return_value = _SERVER_INFO_NO_NESTED_FEATURES
+        mock_get_floors.return_value = []
+        mock_get_rooms.return_value = []
+
+        topology = await api.async_get_topology()
+
+        assert isinstance(topology, PlantTopology)
+        assert topology.floors == []
+
+    @patch.object(CameDomoticAPI, "async_get_rooms", new_callable=AsyncMock)
+    @patch.object(CameDomoticAPI, "async_get_floors", new_callable=AsyncMock)
+    @patch.object(Auth, "async_send_command")
+    @patch.object(CameDomoticAPI, "async_get_server_info", new_callable=AsyncMock)
+    async def test_nested_command_failure_graceful_degradation(
+        self,
+        mock_server_info,
+        mock_send_command,
+        mock_get_floors,
+        mock_get_rooms,
+        auth_instance,
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_server_info.return_value = _SERVER_INFO_ALL_FEATURES
+        mock_get_floors.return_value = [
+            Floor({"floor_ind": 1, "name": "Ground Floor"}),
+        ]
+        mock_get_rooms.return_value = [
+            Room({"room_ind": 10, "name": "Kitchen", "floor_ind": 1}),
+        ]
+        # All nested commands fail
+        mock_send_command.side_effect = CameDomoticServerError("server error")
+
+        topology = await api.async_get_topology()
+
+        # Should still have data from flat endpoints
+        assert len(topology.floors) == 1
+        assert topology.floors[0].name == "Ground Floor"
+        assert len(topology.floors[0].rooms) == 1
+        assert topology.floors[0].rooms[0].name == "Kitchen"
+
+    @patch.object(CameDomoticAPI, "async_get_rooms", new_callable=AsyncMock)
+    @patch.object(CameDomoticAPI, "async_get_floors", new_callable=AsyncMock)
+    @patch.object(CameDomoticAPI, "async_get_server_info", new_callable=AsyncMock)
+    async def test_no_nested_features_flat_only(
+        self,
+        mock_server_info,
+        mock_get_floors,
+        mock_get_rooms,
+        auth_instance,
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_server_info.return_value = _SERVER_INFO_NO_NESTED_FEATURES
+        mock_get_floors.return_value = [
+            Floor({"floor_ind": 5, "name": "Basement"}),
+        ]
+        mock_get_rooms.return_value = [
+            Room({"room_ind": 50, "name": "Storage", "floor_ind": 5}),
+            Room({"room_ind": 51, "name": "Laundry", "floor_ind": 5}),
+        ]
+
+        topology = await api.async_get_topology()
+
+        assert len(topology.floors) == 1
+        assert topology.floors[0].name == "Basement"
+        assert len(topology.floors[0].rooms) == 2
+        room_names = {r.name for r in topology.floors[0].rooms}
+        assert room_names == {"Storage", "Laundry"}
+
+    # --- Server info error handling ---
+
+    @patch.object(CameDomoticAPI, "async_get_server_info", new_callable=AsyncMock)
+    async def test_server_info_auth_error_propagates(
+        self,
+        mock_server_info,
+        auth_instance,
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_server_info.side_effect = CameDomoticAuthError("auth failed")
+
+        with pytest.raises(CameDomoticAuthError):
+            await api.async_get_topology()
+
+    @patch.object(CameDomoticAPI, "async_get_rooms", new_callable=AsyncMock)
+    @patch.object(CameDomoticAPI, "async_get_floors", new_callable=AsyncMock)
+    @patch.object(CameDomoticAPI, "async_get_server_info", new_callable=AsyncMock)
+    async def test_server_info_generic_error_skips_nested(
+        self,
+        mock_server_info,
+        mock_get_floors,
+        mock_get_rooms,
+        auth_instance,
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_server_info.side_effect = RuntimeError("unexpected")
+        mock_get_floors.return_value = [
+            Floor({"floor_ind": 1, "name": "Ground Floor"}),
+        ]
+        mock_get_rooms.return_value = [
+            Room({"room_ind": 10, "name": "Kitchen", "floor_ind": 1}),
+        ]
+
+        topology = await api.async_get_topology()
+
+        assert len(topology.floors) == 1
+        assert topology.floors[0].name == "Ground Floor"
+        assert len(topology.floors[0].rooms) == 1
+        assert topology.floors[0].rooms[0].name == "Kitchen"
+
+    # --- Unknown feature string ---
+
+    @patch.object(CameDomoticAPI, "async_get_rooms", new_callable=AsyncMock)
+    @patch.object(CameDomoticAPI, "async_get_floors", new_callable=AsyncMock)
+    @patch.object(Auth, "async_send_command")
+    @patch.object(CameDomoticAPI, "async_get_server_info", new_callable=AsyncMock)
+    async def test_unknown_feature_string_silently_skipped(
+        self,
+        mock_server_info,
+        mock_send_command,
+        mock_get_floors,
+        mock_get_rooms,
+        auth_instance,
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_server_info.return_value = ServerInfo(
+            keycode="0000FFFF9999AAAA",
+            serial="0011ffee",
+            features=["lights", "unknown_xyz"],
+        )
+        mock_get_floors.return_value = []
+        mock_get_rooms.return_value = []
+        mock_send_command.return_value = _NESTED_LIGHTS_RESP
+
+        topology = await api.async_get_topology()
+
+        assert len(topology.floors) == 2
+        mock_send_command.assert_called_once()
+
+    # --- Flat endpoint failures ---
+
+    @patch.object(CameDomoticAPI, "async_get_rooms", new_callable=AsyncMock)
+    @patch.object(CameDomoticAPI, "async_get_floors", new_callable=AsyncMock)
+    @patch.object(CameDomoticAPI, "async_get_server_info", new_callable=AsyncMock)
+    async def test_flat_floors_failure_graceful(
+        self,
+        mock_server_info,
+        mock_get_floors,
+        mock_get_rooms,
+        auth_instance,
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_server_info.return_value = _SERVER_INFO_NO_NESTED_FEATURES
+        mock_get_floors.side_effect = CameDomoticServerError("floors error")
+        mock_get_rooms.return_value = [
+            Room({"room_ind": 10, "name": "Kitchen", "floor_ind": 1}),
+        ]
+
+        topology = await api.async_get_topology()
+
+        assert len(topology.floors) == 1
+        assert topology.floors[0].id == 1
+        assert topology.floors[0].rooms[0].name == "Kitchen"
+
+    @patch.object(CameDomoticAPI, "async_get_rooms", new_callable=AsyncMock)
+    @patch.object(CameDomoticAPI, "async_get_floors", new_callable=AsyncMock)
+    @patch.object(CameDomoticAPI, "async_get_server_info", new_callable=AsyncMock)
+    async def test_flat_rooms_failure_graceful(
+        self,
+        mock_server_info,
+        mock_get_floors,
+        mock_get_rooms,
+        auth_instance,
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_server_info.return_value = _SERVER_INFO_NO_NESTED_FEATURES
+        mock_get_floors.return_value = [
+            Floor({"floor_ind": 1, "name": "Ground Floor"}),
+        ]
+        mock_get_rooms.side_effect = CameDomoticServerError("rooms error")
+
+        topology = await api.async_get_topology()
+
+        assert len(topology.floors) == 1
+        assert topology.floors[0].name == "Ground Floor"
+        assert topology.floors[0].rooms == []
+
+    # --- _parse_nested_3level edge cases ---
+
+    def test_parse_nested_3level_leaf_at_floor_level(self):
+        response = {
+            "array": [
+                {"leaf": True, "name": "Stray device", "floor_ind": 99},
+                {
+                    "name": "Floor 1",
+                    "floor_ind": 1,
+                    "array": [
+                        {"name": "Room A", "room_ind": 10, "array": []},
+                    ],
+                },
+            ]
+        }
+
+        floors, rooms = CameDomoticAPI._parse_nested_3level(response)
+
+        assert 99 not in floors
+        assert floors == {1: "Floor 1"}
+        assert rooms == {(1, 10): "Room A"}
+
+    def test_parse_nested_3level_missing_floor_ind(self):
+        response = {
+            "array": [
+                {
+                    "name": "No Index Floor",
+                    "array": [
+                        {"name": "Room X", "room_ind": 10, "array": []},
+                    ],
+                },
+                {"name": "Good Floor", "floor_ind": 2, "array": []},
+            ]
+        }
+
+        floors, rooms = CameDomoticAPI._parse_nested_3level(response)
+
+        assert floors == {2: "Good Floor"}
+        assert rooms == {}
+
+    def test_parse_nested_3level_leaf_at_room_level(self):
+        response = {
+            "array": [
+                {
+                    "name": "Floor 1",
+                    "floor_ind": 1,
+                    "array": [
+                        {"leaf": True, "name": "Stray device", "room_ind": 77},
+                        {"name": "Real Room", "room_ind": 10, "array": []},
+                    ],
+                },
+            ]
+        }
+
+        floors, rooms = CameDomoticAPI._parse_nested_3level(response)
+
+        assert floors == {1: "Floor 1"}
+        assert (1, 77) not in rooms
+        assert rooms == {(1, 10): "Real Room"}
+
+    # --- _parse_nested_2level edge cases ---
+
+    def test_parse_nested_2level_leaf_at_floor_level(self):
+        response = {
+            "array": [
+                {"leaf": True, "floor_ind": 99, "name": "Stray"},
+                {
+                    "name": "Floor 1",
+                    "floor_ind": 1,
+                    "array": [
+                        {"room_ind": 10, "floor_ind": 1, "leaf": True},
+                    ],
+                },
+            ]
+        }
+
+        floors, rooms = CameDomoticAPI._parse_nested_2level(response)
+
+        assert 99 not in floors
+        assert floors == {1: "Floor 1"}
+        assert rooms == {(1, 10): ""}
+
+    def test_parse_nested_2level_missing_floor_ind(self):
+        response = {
+            "array": [
+                {
+                    "name": "No Index",
+                    "array": [
+                        {"room_ind": 10, "floor_ind": 1, "leaf": True},
+                    ],
+                },
+                {"name": "Good Floor", "floor_ind": 2, "array": []},
+            ]
+        }
+
+        floors, rooms = CameDomoticAPI._parse_nested_2level(response)
+
+        assert floors == {2: "Good Floor"}
+        assert rooms == {}

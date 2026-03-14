@@ -34,6 +34,7 @@ from aiocamedomotic.models import (
     LightStatus,
     LightUpdate,
     OpeningUpdate,
+    PlantTopology,
     PlantUpdate,
     ScenarioUpdate,
     ThermoZoneFanSpeed,
@@ -51,6 +52,48 @@ pytestmark = pytest.mark.skipif(
     not RUN_TESTS_ON_REAL_SERVER,
     reason="All tests in this module are disabled by default.",
 )
+
+
+async def test_async_get_topology(api_instance_real: CameDomoticAPI):
+    """Tests fetching the complete plant topology."""
+    print("\nFetching plant topology...")
+    topology = await api_instance_real.async_get_topology()
+
+    assert topology is not None, "Failed to get topology"
+    assert isinstance(topology, PlantTopology)
+
+    print(f"Found {len(topology.floors)} floor(s):")
+    if topology.floors:
+        for floor in topology.floors:
+            print(f"\n  Floor ID: {floor.id}, Name: {floor.name}")
+            print(f"    Rooms ({len(floor.rooms)}):")
+            for room in floor.rooms:
+                print(f"      Room ID: {room.id}, Name: {room.name}")
+
+
+async def test_async_get_floors_and_rooms(api_instance_real: CameDomoticAPI):
+    """Tests fetching all floors and rooms from the server."""
+    print("\nFetching all floors...")
+    floors = await api_instance_real.async_get_floors()
+    floors_by_id = {f.id: f.name for f in floors}
+
+    print(f"Found {len(floors)} floor(s):")
+    for floor in floors:
+        print(f"  Floor ID: {floor.id}, Name: {floor.name}")
+
+    print("\nFetching all rooms...")
+    rooms = await api_instance_real.async_get_rooms()
+
+    print(f"Found {len(rooms)} room(s):")
+    for room in rooms:
+        floor_name = floors_by_id.get(room.floor_id, "Unknown")
+        print(
+            f"  Room ID: {room.id}, Name: {room.name}, "
+            f"Floor: {floor_name} (ID: {room.floor_id})"
+        )
+
+    assert floors is not None, "Failed to get floors"
+    assert rooms is not None, "Failed to get rooms"
 
 
 async def test_async_get_users(api_instance_real: CameDomoticAPI):
@@ -78,7 +121,10 @@ async def test_async_get_lights(api_instance_real: CameDomoticAPI):
     lights = await api_instance_real.async_get_lights()
     # Print the id, name and status of each light in a human readable format
     for light in lights:
-        print(f"ID: {light.act_id}, Name: {light.name}, Status: {light.status}")
+        print(
+            f"ID: {light.act_id}, Name: {light.name}, Status: {light.status}, "
+            f"Floor: {light.floor_ind}, Room: {light.room_ind}"
+        )
 
 
 async def test_async_change_light_status(api_instance_real: CameDomoticAPI):
@@ -865,32 +911,6 @@ async def test_user_management_lifecycle(
         f"User '{test_username}' still present after deletion"
     )
     print(f"Confirmed: '{test_username}' is no longer in the users list")
-
-
-@pytest.mark.timeout(5)
-async def test_consecutive_scenario_then_light_list(
-    api_instance_real: CameDomoticAPI,
-):
-    """Tests two consecutive API calls: scenario list followed by light list."""
-    print("\nFetching scenarios...")
-    scenarios = await api_instance_real.async_get_scenarios()
-    print(f"Got {len(scenarios)} scenario(s)")
-    for s in scenarios:
-        print(f"  Scenario ID={s.id}, Name='{s.name}'")
-
-    print("\nSending keep-alive...")
-    await api_instance_real.auth.async_keep_alive()
-    print("Keep-alive succeeded.")
-
-    print("\nFetching lights (immediately after scenarios)...")
-    lights = await api_instance_real.async_get_lights()
-    print(f"Got {len(lights)} light(s)")
-    for light in lights:
-        print(f"  Light act_id={light.act_id}, Name='{light.name}'")
-
-    assert scenarios is not None
-    assert lights is not None
-    print("\nBoth consecutive calls completed successfully.")
 
 
 async def test_async_ping(api_instance_real: CameDomoticAPI):

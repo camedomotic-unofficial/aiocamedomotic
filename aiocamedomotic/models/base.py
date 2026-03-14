@@ -287,6 +287,52 @@ class Room(CameEntity):
 
 
 @dataclass
+class TopologyRoom(CameEntity):
+    """A room in the plant topology.
+
+    Lightweight representation used by :class:`PlantTopology` to describe the
+    building structure independently of any specific device type.
+    """
+
+    id: int
+    """Numeric identifier of the room (``room_ind``)."""
+
+    name: str
+    """Human-readable name of the room."""
+
+
+@dataclass
+class TopologyFloor(CameEntity):
+    """A floor in the plant topology.
+
+    Contains the list of rooms discovered on this floor.
+    """
+
+    id: int
+    """Numeric identifier of the floor (``floor_ind``)."""
+
+    name: str
+    """Human-readable name of the floor."""
+
+    rooms: list[TopologyRoom]
+    """Rooms belonging to this floor."""
+
+
+@dataclass
+class PlantTopology(CameEntity):
+    """Complete plant topology (floors and rooms).
+
+    Built by merging data from the standard ``floor_list_req`` /
+    ``room_list_req`` endpoints and the nested device list commands
+    (``nested_light_list_req``, ``nested_openings_list_req``,
+    ``nested_thermo_list_req``).
+    """
+
+    floors: list[TopologyFloor]
+    """All floors in the plant, each containing its rooms."""
+
+
+@dataclass
 class TerminalGroup(CameEntity):
     """Terminal group in the CAME Domotic API.
 

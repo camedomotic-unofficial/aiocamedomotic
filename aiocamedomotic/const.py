@@ -149,6 +149,10 @@ class _CommandName(Enum):
     THERMO_LIST = "thermo_list_req"
     METERS_LIST = "meters_list_req"
     DIGITALIN_LIST = "digitalin_list_req"
+    # Nested lists (topology-aware)
+    NESTED_LIGHT_LIST = "nested_light_list_req"
+    NESTED_OPENINGS_LIST = "nested_openings_list_req"
+    NESTED_THERMO_LIST = "nested_thermo_list_req"
     # Status
     STATUS_UPDATE = "status_update_req"
     # Actions
@@ -195,6 +199,30 @@ class _ServerFeature(Enum):
     DIGITALIN = "digitalin"
     ENERGY = "energy"
     LOADSCTRL = "loadsctrl"
+
+
+# Mapping from server feature to (nested request cmd_name, expected response cmd_name).
+# Used by async_get_topology to determine which nested commands to send.
+_FEATURE_TO_NESTED_CMD: dict[_ServerFeature, tuple[str, str]] = {
+    _ServerFeature.LIGHTS: (
+        _CommandName.NESTED_LIGHT_LIST.value,
+        _CommandNameResponse.LIGHT_LIST.value,
+    ),
+    _ServerFeature.OPENINGS: (
+        _CommandName.NESTED_OPENINGS_LIST.value,
+        _CommandNameResponse.OPENINGS_LIST.value,
+    ),
+    _ServerFeature.THERMOREGULATION: (
+        _CommandName.NESTED_THERMO_LIST.value,
+        _CommandNameResponse.THERMO_LIST.value,
+    ),
+}
+
+# Features whose nested response uses a 3-level hierarchy (Floor → Room → Device).
+# Other features (e.g. thermoregulation) use a 2-level hierarchy (Floor → Device).
+_NESTED_3LEVEL_FEATURES: frozenset[_ServerFeature] = frozenset(
+    {_ServerFeature.LIGHTS, _ServerFeature.OPENINGS}
+)
 
 
 # endregion
