@@ -1124,6 +1124,26 @@ Get the list of all thermoregulation zones defined on the server.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
+##### *async* async_get_topology() → [PlantTopology](#aiocamedomotic.models.base.PlantTopology)
+
+Get the complete plant topology (floors and rooms).
+
+Merges data from the standard `floor_list_req` / `room_list_req`
+endpoints with the nested device list commands
+(`nested_light_list_req`, `nested_openings_list_req`,
+`nested_thermo_list_req`) to build a comprehensive topology even on
+servers where the flat floor/room endpoints return empty.
+
+Only nested commands for features supported by the server are sent.
+
+* **Returns:**
+  The merged plant topology.
+* **Return type:**
+  [PlantTopology](#aiocamedomotic.models.base.PlantTopology)
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
 ##### *async* async_get_updates(timeout: int | None = None) → [UpdateList](#aiocamedomotic.models.update.UpdateList)
 
 Get status updates from the server using long polling.
@@ -1621,6 +1641,19 @@ Room index.
 
 Opening status (STOPPED, OPENING, CLOSING, etc.).
 
+#### *class* aiocamedomotic.models.PlantTopology(floors: list[[TopologyFloor](#aiocamedomotic.models.base.TopologyFloor)])
+
+Complete plant topology (floors and rooms).
+
+Built by merging data from the standard `floor_list_req` /
+`room_list_req` endpoints and the nested device list commands
+(`nested_light_list_req`, `nested_openings_list_req`,
+`nested_thermo_list_req`).
+
+##### floors *: list[[TopologyFloor](#aiocamedomotic.models.base.TopologyFloor)]*
+
+All floors in the plant, each containing its rooms.
+
 #### *class* aiocamedomotic.models.PlantUpdate(raw_data: dict[str, Any])
 
 Marker update for `plant_update_ind`.
@@ -2031,6 +2064,39 @@ Temperature sensor 3 reading in degrees Celsius.
 Current temperature in degrees Celsius (converted from
 `temp_dec`).
 
+#### *class* aiocamedomotic.models.TopologyFloor(id: int, name: str, rooms: list[[TopologyRoom](#aiocamedomotic.models.base.TopologyRoom)])
+
+A floor in the plant topology.
+
+Contains the list of rooms discovered on this floor.
+
+##### id *: int*
+
+Numeric identifier of the floor (`floor_ind`).
+
+##### name *: str*
+
+Human-readable name of the floor.
+
+##### rooms *: list[[TopologyRoom](#aiocamedomotic.models.base.TopologyRoom)]*
+
+Rooms belonging to this floor.
+
+#### *class* aiocamedomotic.models.TopologyRoom(id: int, name: str)
+
+A room in the plant topology.
+
+Lightweight representation used by `PlantTopology` to describe the
+building structure independently of any specific device type.
+
+##### id *: int*
+
+Numeric identifier of the room (`room_ind`).
+
+##### name *: str*
+
+Human-readable name of the room.
+
 #### *class* aiocamedomotic.models.UpdateIndicator(\*values)
 
 Known status-update indication cmd_names from the CAME API.
@@ -2217,6 +2283,19 @@ ID of the floor.
 
 Name of the floor.
 
+#### *class* aiocamedomotic.models.base.PlantTopology(floors: list[[TopologyFloor](#aiocamedomotic.models.base.TopologyFloor)])
+
+Complete plant topology (floors and rooms).
+
+Built by merging data from the standard `floor_list_req` /
+`room_list_req` endpoints and the nested device list commands
+(`nested_light_list_req`, `nested_openings_list_req`,
+`nested_thermo_list_req`).
+
+##### floors *: list[[TopologyFloor](#aiocamedomotic.models.base.TopologyFloor)]*
+
+All floors in the plant, each containing its rooms.
+
 #### *class* aiocamedomotic.models.base.Room(raw_data: dict[str, Any])
 
 Room entity in the CAME Domotic API.
@@ -2290,6 +2369,39 @@ Numeric ID of the group.
 ##### *property* name *: str*
 
 Name of the group (e.g. `"ETI/Domo"`).
+
+#### *class* aiocamedomotic.models.base.TopologyFloor(id: int, name: str, rooms: list[[TopologyRoom](#aiocamedomotic.models.base.TopologyRoom)])
+
+A floor in the plant topology.
+
+Contains the list of rooms discovered on this floor.
+
+##### id *: int*
+
+Numeric identifier of the floor (`floor_ind`).
+
+##### name *: str*
+
+Human-readable name of the floor.
+
+##### rooms *: list[[TopologyRoom](#aiocamedomotic.models.base.TopologyRoom)]*
+
+Rooms belonging to this floor.
+
+#### *class* aiocamedomotic.models.base.TopologyRoom(id: int, name: str)
+
+A room in the plant topology.
+
+Lightweight representation used by [`PlantTopology`](#aiocamedomotic.models.base.PlantTopology) to describe the
+building structure independently of any specific device type.
+
+##### id *: int*
+
+Numeric identifier of the room (`room_ind`).
+
+##### name *: str*
+
+Human-readable name of the room.
 
 #### *class* aiocamedomotic.models.base.User(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
 
