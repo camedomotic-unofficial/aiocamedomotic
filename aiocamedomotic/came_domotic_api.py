@@ -554,30 +554,7 @@ class CameDomoticAPI:
         """
         LOGGER.debug("Fetching plant topology")
 
-        # Determine which nested commands to send based on server features
-        nested_tasks: list[tuple[_ServerFeature, Any]] = []
-        try:
-            server_info = await self.async_get_server_info()
-        except CameDomoticAuthError:
-            raise
-        except Exception:  # noqa: BLE001
-            LOGGER.warning(
-                "Failed to fetch server info; skipping nested topology commands",
-                exc_info=True,
-            )
-        else:
-            for feature_str in server_info.features:
-                try:
-                    feature = _ServerFeature(feature_str)
-                except ValueError:
-                    continue
-                if feature in _FEATURE_TO_NESTED_CMD:
-                    cmd_name, resp_cmd = _FEATURE_TO_NESTED_CMD[feature]
-                    coro = self.auth.async_send_command(
-                        {"cmd_name": cmd_name},
-                        response_command=resp_cmd,
-                    )
-                    nested_tasks.append((feature, coro))
+        nested_tasks = await self._build_nested_tasks()
 
         # Run flat endpoints and nested commands concurrently
         flat_coros: list[Any] = [self.async_get_floors(), self.async_get_rooms()]
@@ -596,11 +573,48 @@ class CameDomoticAPI:
             )
         )
 
-        # Merge dictionaries: floor_ind -> name, (floor_ind, room_ind) -> name
+        floors, rooms = self._parse_flat_results(flat_floors_result, flat_rooms_result)
+        self._merge_nested_results(nested_results, floors, rooms)
+        return self._build_plant_topology(floors, rooms)
+
+    async def _build_nested_tasks(self) -> list[tuple[_ServerFeature, Any]]:
+        """Fetch server info and return (feature, coro) pairs for nested cmds."""
+        nested_tasks: list[tuple[_ServerFeature, Any]] = []
+        try:
+            server_info = await self.async_get_server_info()
+        except CameDomoticAuthError:
+            raise
+        except Exception:  # noqa: BLE001
+            LOGGER.warning(
+                "Failed to fetch server info; skipping nested topology commands",
+                exc_info=True,
+            )
+            return nested_tasks
+
+        for feature_str in server_info.features:
+            try:
+                feature = _ServerFeature(feature_str)
+            except ValueError:
+                continue
+            if feature in _FEATURE_TO_NESTED_CMD:
+                cmd_name, resp_cmd = _FEATURE_TO_NESTED_CMD[feature]
+                coro = self.auth.async_send_command(
+                    {"cmd_name": cmd_name},
+                    response_command=resp_cmd,
+                )
+                nested_tasks.append((feature, coro))
+
+        return nested_tasks
+
+    @staticmethod
+    def _parse_flat_results(
+        flat_floors_result: Any,
+        flat_rooms_result: Any,
+    ) -> tuple[dict[int, str], dict[tuple[int, int], str]]:
+        """Extract floor/room dicts from flat endpoint results, logging failures."""
         floors: dict[int, str] = {}
         rooms: dict[tuple[int, int], str] = {}
 
-        # Parse flat endpoints
         if not isinstance(flat_floors_result, BaseException):
             for floor in flat_floors_result:
                 floors.setdefault(floor.id, floor.name)
@@ -613,16 +627,26 @@ class CameDomoticAPI:
         else:
             LOGGER.warning("Failed to fetch flat rooms: %s", flat_rooms_result)
 
-        # Parse nested responses
+        return floors, rooms
+
+    @staticmethod
+    def _merge_nested_results(
+        nested_results: list[tuple[_ServerFeature, Any]],
+        floors: dict[int, str],
+        rooms: dict[tuple[int, int], str],
+    ) -> None:
+        """Merge nested command results into floors/rooms dicts in-place.
+
+        Also applies fallback room names for rooms that still have no name.
+        """
         for feature, result in nested_results:
             if isinstance(result, BaseException):
                 LOGGER.warning("Failed to fetch nested %s: %s", feature.value, result)
                 continue
-            is_3level = feature in _NESTED_3LEVEL_FEATURES
-            if is_3level:
-                n_floors, n_rooms = self._parse_nested_3level(result)
+            if feature in _NESTED_3LEVEL_FEATURES:
+                n_floors, n_rooms = CameDomoticAPI._parse_nested_3level(result)
             else:
-                n_floors, n_rooms = self._parse_nested_2level(result)
+                n_floors, n_rooms = CameDomoticAPI._parse_nested_2level(result)
             for fid, fname in n_floors.items():
                 if fid not in floors or not floors[fid]:
                     floors[fid] = fname
@@ -630,12 +654,16 @@ class CameDomoticAPI:
                 if key not in rooms or (not rooms[key] and rname):
                     rooms[key] = rname
 
-        # Apply fallback names for rooms without a name
         for key in rooms:
             if not rooms[key]:
                 rooms[key] = f"Room {key[1]}"
 
-        # Build PlantTopology
+    @staticmethod
+    def _build_plant_topology(
+        floors: dict[int, str],
+        rooms: dict[tuple[int, int], str],
+    ) -> PlantTopology:
+        """Assemble a PlantTopology from merged floor/room dictionaries."""
         floor_rooms: dict[int, list[TopologyRoom]] = {}
         for (fid, rid), rname in sorted(rooms.items()):
             floor_rooms.setdefault(fid, []).append(TopologyRoom(id=rid, name=rname))
