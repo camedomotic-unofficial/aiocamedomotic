@@ -45,6 +45,7 @@ from .models import (
     Light,
     Opening,
     PlantTopology,
+    Relay,
     Room,
     Scenario,
     ServerInfo,
@@ -520,6 +521,38 @@ class CameDomoticAPI:
         openings_data = json_response.get("array", []) or []
         LOGGER.info("Retrieved %d opening(s)", len(openings_data))
         return [Opening(opening_data, self.auth) for opening_data in openings_data]
+
+    async def async_get_relays(self) -> list[Relay]:
+        """Get the list of all relay devices defined on the server.
+
+        Relays are simple on/off switches that can be controlled remotely.
+
+        .. note::
+            This method uses API commands documented in the CAME API
+            specification but not yet verified against a real server.
+            Behaviour may differ across firmware versions.
+
+        Returns:
+            list[Relay]: List of relays.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Fetching relays list")
+        payload = {
+            "cmd_name": _CommandName.RELAYS_LIST.value,
+            "topologic_scope": _TopologicScope.PLANT.value,
+        }
+
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.RELAYS_LIST.value
+        )
+
+        # Defaults to an empty list if the key is missing from the response JSON
+        relays_list = json_response.get("array", []) or []
+        LOGGER.info("Retrieved %d relay(s)", len(relays_list))
+        return [Relay(relay_data, self.auth) for relay_data in relays_list]
 
     async def async_get_scenarios(self) -> list[Scenario]:
         """Get the list of all scenarios defined on the server.

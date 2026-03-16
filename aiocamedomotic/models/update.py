@@ -33,6 +33,7 @@ from ..utils import LOGGER
 from .base import CameEntity
 from .light import LightStatus, LightType
 from .opening import OpeningStatus
+from .relay import RelayStatus
 from .scenario import ScenarioStatus
 from .thermo_zone import (
     ThermoZoneFanSpeed,
@@ -199,6 +200,36 @@ class OpeningUpdate(DeviceUpdate):
     def device_id(self) -> int | None:
         """For openings the primary ID is ``open_act_id``."""
         return self.raw_data.get("open_act_id")
+
+
+@dataclass
+class RelayUpdate(DeviceUpdate):
+    """Typed update for a relay device (``relay_status_ind`` /
+    ``relay_update_ind``).
+    """
+
+    @property
+    def act_id(self) -> int:
+        """Relay actuator ID."""
+        return self.raw_data["act_id"]
+
+    @property
+    def floor_ind(self) -> int:
+        """Floor index."""
+        return self.raw_data.get("floor_ind", 0)
+
+    @property
+    def room_ind(self) -> int:
+        """Room index."""
+        return self.raw_data.get("room_ind", 0)
+
+    @property
+    def status(self) -> RelayStatus:
+        """Relay status (OFF, ON)."""
+        try:
+            return RelayStatus(self.raw_data["status"])
+        except (ValueError, KeyError):
+            return RelayStatus.UNKNOWN
 
 
 @dataclass
@@ -380,6 +411,8 @@ _INDICATOR_TO_UPDATE_CLASS: dict[str, type[DeviceUpdate]] = {
     "scenario_status_ind": ScenarioUpdate,
     "scenario_activation_ind": ScenarioUpdate,
     "scenario_user_ind": ScenarioUpdate,
+    "relay_status_ind": RelayUpdate,
+    "relay_update_ind": RelayUpdate,
     "digitalin_status_ind": DigitalInputUpdate,
     "digitalin_update_ind": DigitalInputUpdate,
     "plant_update_ind": PlantUpdate,

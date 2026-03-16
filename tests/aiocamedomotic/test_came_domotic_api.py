@@ -36,6 +36,7 @@ from aiocamedomotic.models import (
     Light,
     Opening,
     PlantTopology,
+    Relay,
     Room,
     Scenario,
     ServerInfo,
@@ -845,6 +846,124 @@ class TestAPIOpenings:
         assert len(openings) == 1
         assert openings[0].status.value == -1  # OpeningStatus.UNKNOWN
         assert openings[0].type.value == -1  # OpeningType.UNKNOWN
+
+
+class TestAPIRelays:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_relays(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [
+                {
+                    "act_id": 31,
+                    "floor_ind": 2,
+                    "name": "relay_Garden",
+                    "room_ind": 3,
+                    "status": 1,
+                },
+                {
+                    "act_id": 32,
+                    "floor_ind": 1,
+                    "name": "relay_Gate",
+                    "room_ind": 4,
+                    "status": 0,
+                },
+            ],
+            "cmd_name": "relays_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        relays = await api.async_get_relays()
+        assert len(relays) == 2
+        assert isinstance(relays[0], Relay)
+        assert isinstance(relays[1], Relay)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_relays_empty_array(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [],
+            "cmd_name": "relays_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        relays = await api.async_get_relays()
+        assert len(relays) == 0
+        assert isinstance(relays, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_relays_missing_array_key(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "cmd_name": "relays_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        relays = await api.async_get_relays()
+        assert len(relays) == 0
+        assert isinstance(relays, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_relays_null_array(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": None,
+            "cmd_name": "relays_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        relays = await api.async_get_relays()
+        assert relays == []
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_relays_missing_act_id(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [
+                {
+                    "floor_ind": 2,
+                    "name": "relay_Garden",
+                    "room_ind": 3,
+                    "status": 1,
+                }
+            ],
+            "cmd_name": "relays_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: act_id"):
+            await api.async_get_relays()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_relays_missing_name(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [
+                {
+                    "act_id": 31,
+                    "floor_ind": 2,
+                    "room_ind": 3,
+                    "status": 1,
+                }
+            ],
+            "cmd_name": "relays_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: name"):
+            await api.async_get_relays()
 
 
 class TestAPIScenarios:

@@ -38,19 +38,22 @@ Entity models
 .. automodule:: aiocamedomotic.models.base
    :members:
 
+.. automodule:: aiocamedomotic.models.digital_input
+   :members:
+
 .. automodule:: aiocamedomotic.models.light
    :members:
 
 .. automodule:: aiocamedomotic.models.opening
    :members:
 
+.. automodule:: aiocamedomotic.models.relay
+   :members:
+
 .. automodule:: aiocamedomotic.models.scenario
    :members:
 
 .. automodule:: aiocamedomotic.models.thermo_zone
-   :members:
-
-.. automodule:: aiocamedomotic.models.digital_input
    :members:
 
 .. automodule:: aiocamedomotic.models.update

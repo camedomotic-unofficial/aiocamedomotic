@@ -38,6 +38,7 @@ from .digital_input import (  # noqa: F401
 )
 from .light import Light, LightStatus, LightType  # noqa: F401
 from .opening import Opening, OpeningStatus, OpeningType  # noqa: F401
+from .relay import Relay, RelayStatus  # noqa: F401
 from .scenario import Scenario, ScenarioStatus  # noqa: F401
 from .thermo_zone import (  # noqa: F401
     AnalogSensor,
@@ -54,6 +55,7 @@ from .update import (  # noqa: F401
     LightUpdate,
     OpeningUpdate,
     PlantUpdate,
+    RelayUpdate,
     ScenarioUpdate,
     ThermoZoneUpdate,
     UpdateList,
@@ -82,6 +84,9 @@ __all__ = [
     "OpeningUpdate",
     "PlantTopology",
     "PlantUpdate",
+    "Relay",
+    "RelayStatus",
+    "RelayUpdate",
     "Room",
     "Scenario",
     "ScenarioStatus",

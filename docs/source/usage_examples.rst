@@ -32,10 +32,11 @@ and controlling devices, and monitoring real-time changes. For a minimal
         from aiocamedomotic import CameDomoticAPI
         from aiocamedomotic.models import (
             AnalogSensorType, DeviceType, DigitalInputStatus, LightStatus,
-            LightType, OpeningStatus, ScenarioStatus, ThermoZoneFanSpeed,
+            LightType, OpeningStatus, RelayStatus, ScenarioStatus,
+            ThermoZoneFanSpeed,
             ThermoZoneMode, ThermoZoneSeason, ThermoZoneStatus,
-            DeviceUpdate, LightUpdate, OpeningUpdate, ThermoZoneUpdate,
-            ScenarioUpdate, DigitalInputUpdate, PlantUpdate,
+            DeviceUpdate, LightUpdate, OpeningUpdate, RelayUpdate,
+            ThermoZoneUpdate, ScenarioUpdate, DigitalInputUpdate, PlantUpdate,
         )
         from aiocamedomotic.errors import (
             CameDomoticError,
@@ -231,6 +232,9 @@ You can use the features list to decide which device APIs to call:
 
     if "openings" in server_info.features:
         openings = await api.async_get_openings()
+
+    if "relays" in server_info.features:
+        relays = await api.async_get_relays()
 
     if "thermoregulation" in server_info.features:
         zones = await api.async_get_thermo_zones()
@@ -548,6 +552,53 @@ Example output:
     Some digital inputs do not report a ``status`` until their first state
     change. In that case, ``status`` returns ``DigitalInputStatus.UNKNOWN``.
 
+Relays
+^^^^^^
+
+Relays are simple on/off switches that can be controlled remotely. Unlike
+lights, they have no brightness or color capabilities.
+
+**Fetching and inspecting relays:**
+
+.. code-block:: python
+
+    from aiocamedomotic.models import RelayStatus
+
+    relays = await api.async_get_relays()
+
+    for relay in relays:
+        print(f"ID: {relay.act_id}, Name: {relay.name}, Status: {relay.status}")
+
+Example output:
+
+.. code-block:: text
+
+    ID: 31, Name: Garden Pump, Status: RelayStatus.ON
+    ID: 32, Name: Gate Motor, Status: RelayStatus.OFF
+
+**Finding a specific relay:**
+
+.. code-block:: python
+
+    # By ID
+    pump = next((r for r in relays if r.act_id == 31), None)
+
+    # By name
+    gate = next((r for r in relays if r.name == "Gate Motor"), None)
+
+**Controlling relays:**
+
+.. code-block:: python
+
+    if pump:
+        await pump.async_set_status(RelayStatus.ON)
+        await pump.async_set_status(RelayStatus.OFF)
+
+.. note::
+    The relay API commands are documented in the CAME API specification but
+    have not been verified against a real server. If you encounter unexpected
+    behaviour, please report it to the library developers.
+
 
 Monitoring real-time updates
 ----------------------------
@@ -657,6 +708,9 @@ compatibility. For **typed** update objects with convenient properties, use
         elif isinstance(update, DigitalInputUpdate):
             print(f"Input '{update.name}': status={update.status}, addr={update.addr}")
 
+        elif isinstance(update, RelayUpdate):
+            print(f"Relay '{update.name}': {update.status.name}")
+
         elif isinstance(update, PlantUpdate):
             print("Plant configuration changed, re-fetching devices...")
 
@@ -674,6 +728,7 @@ happens, all locally cached device lists must be discarded and re-fetched:
     if updates.has_plant_update:
         lights = await api.async_get_lights()
         openings = await api.async_get_openings()
+        relays = await api.async_get_relays()
         scenarios = await api.async_get_scenarios()
         thermo_zones = await api.async_get_thermo_zones()
         sensors = await api.async_get_analog_sensors()

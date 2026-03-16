@@ -159,6 +159,7 @@ class _CommandName(Enum):
     LIGHT_SWITCH = "light_switch_req"
     OPENING_MOVE = "opening_move_req"
     SCENARIO_ACTIVATION = "scenario_activation_req"
+    RELAY_ACTIVATION = "relay_activation_req"
     THERMO_ZONE_CONFIG = "thermo_zone_config_req"
     THERMO_SEASON = "thermo_season_req"
     TERMINALS_GROUPS_LIST = "terminals_groups_list_req"
@@ -239,6 +240,7 @@ class UpdateIndicator(Enum):
     Values:
         - LIGHT ("light_switch_ind")
         - OPENING ("opening_move_ind")
+        - RELAY ("relay_status_ind")
         - THERMOSTAT ("thermo_zone_info_ind")
         - DIGITAL_INPUT ("digitalin_status_ind")
         - SCENARIO_STATUS ("scenario_status_ind")
@@ -258,6 +260,7 @@ class UpdateIndicator(Enum):
     # Traffic-observed names
     LIGHT = "light_switch_ind"
     OPENING = "opening_move_ind"
+    RELAY = "relay_status_ind"
     THERMOSTAT = "thermo_zone_info_ind"
     DIGITAL_INPUT = "digitalin_status_ind"
     SCENARIO_STATUS = "scenario_status_ind"
@@ -285,6 +288,7 @@ _UPDATE_CMD_TO_DEVICE_TYPE: dict[str, DeviceType] = {
     "scenario_status_ind": DeviceType.SCENARIO,
     "scenario_activation_ind": DeviceType.SCENARIO,
     "meter_instant_power_ind": DeviceType.ENERGY_SENSOR,
+    "relay_status_ind": DeviceType.GENERIC_RELAY,
     # API_reference.md variant names (firmware compatibility)
     "light_update_ind": DeviceType.LIGHT,
     "opening_update_ind": DeviceType.OPENING,
