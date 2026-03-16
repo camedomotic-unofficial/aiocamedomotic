@@ -419,6 +419,7 @@ class AnalogSensorType(Enum):
     - TEMPERATURE ("temperature")
     - HUMIDITY ("humidity")
     - PRESSURE ("pressure")
+    - UNKNOWN ("unknown")
     """
 
     TEMPERATURE = "temperature"
@@ -452,6 +453,7 @@ class AnalogSensor(CameEntity):
 
     raw_data: dict[str, Any]
     sensor_type: AnalogSensorType = AnalogSensorType.UNKNOWN
+    """The type of sensor (temperature, humidity, or pressure)."""
 
     def __post_init__(self) -> None:
         EntityValidator.validate_data(

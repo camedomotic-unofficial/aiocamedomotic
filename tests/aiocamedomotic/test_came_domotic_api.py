@@ -31,6 +31,7 @@ from aiocamedomotic.errors import (
 from aiocamedomotic.models import (
     AnalogSensor,
     AnalogSensorType,
+    Camera,
     DigitalInput,
     Floor,
     Light,
@@ -52,6 +53,7 @@ from tests.aiocamedomotic.mocked_responses import (
     LIGHT_LIST_RESP,
     SCENARIOS_LIST_RESP,
     THERMO_LIST_RESP,
+    TVCC_CAMERAS_LIST_RESP,
 )
 
 
@@ -1481,6 +1483,67 @@ class TestAPIDigitalInputs:
 
         with pytest.raises(ValueError, match="Data is missing required keys: name"):
             await api.async_get_digital_inputs()
+
+
+class TestAPICameras:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_cameras(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = TVCC_CAMERAS_LIST_RESP
+
+        cameras = await api.async_get_cameras()
+        assert len(cameras) == len(TVCC_CAMERAS_LIST_RESP["array"])
+        assert isinstance(cameras[0], Camera)
+        assert isinstance(cameras[1], Camera)
+
+        # Verify the payload includes username
+        call_args = mock_send_command.call_args
+        payload = call_args[0][0]
+        assert "username" in payload
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_cameras_empty_array(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [],
+            "cmd_name": "tvcc_cameras_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        cameras = await api.async_get_cameras()
+        assert len(cameras) == 0
+        assert isinstance(cameras, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_cameras_missing_array_key(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "cmd_name": "tvcc_cameras_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        cameras = await api.async_get_cameras()
+        assert len(cameras) == 0
+        assert isinstance(cameras, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_cameras_null_array(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": None,
+            "cmd_name": "tvcc_cameras_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        cameras = await api.async_get_cameras()
+        assert cameras == []
 
 
 class TestAPIThermoSeason:

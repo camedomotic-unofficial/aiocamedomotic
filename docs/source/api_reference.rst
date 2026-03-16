@@ -38,6 +38,9 @@ Entity models
 .. automodule:: aiocamedomotic.models.base
    :members:
 
+.. automodule:: aiocamedomotic.models.camera
+   :members:
+
 .. automodule:: aiocamedomotic.models.digital_input
    :members:
 

@@ -31,6 +31,7 @@ from .base import (  # noqa: F401
     TopologyRoom,
     User,
 )
+from .camera import Camera  # noqa: F401
 from .digital_input import (  # noqa: F401
     DigitalInput,
     DigitalInputStatus,
@@ -66,6 +67,7 @@ from .update import (  # noqa: F401
 __all__ = [
     "AnalogSensor",
     "AnalogSensorType",
+    "Camera",
     "CameEntity",
     "DeviceType",
     "DeviceUpdate",
