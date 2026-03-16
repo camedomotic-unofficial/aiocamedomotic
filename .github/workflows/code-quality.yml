@@ -58,8 +58,8 @@ jobs:
       - name: Install package and its dependencies
         run: poetry install --with code-quality
 
-      - name: Check formatting with black
-        run: poetry run black aiocamedomotic --check
+      - name: Check formatting with ruff
+        run: poetry run ruff format aiocamedomotic --check
 
       - name: Run mypy
         run: poetry run mypy aiocamedomotic
@@ -67,14 +67,8 @@ jobs:
       - name: Run pylint
         run: poetry run pylint --disable=W,R,C aiocamedomotic
 
-      # - name: Run flake8
-      #   # The Black formatter uses 88 chars wide lines and conflicts with E203
-      #   run: poetry run flake8 . --max-line-length=88 --extend-ignore=E203
-      # #   run: |
-      # #     # stop the build if there are Python syntax errors or undefined names
-      # #     poetry run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-      # #     # exit-zero treats all errors as warnings. The Black formatter uses 88 chars wide lines and conflicts with E203
-      # #     poetry run flake8 . --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics --extend-ignore=E203
+      - name: Check linting with ruff
+        run: poetry run ruff check aiocamedomotic
 
       - name: SonarCloud Scan
         # continue-on-error for PRs where SONAR_TOKEN may not be available (e.g., dependabot)
