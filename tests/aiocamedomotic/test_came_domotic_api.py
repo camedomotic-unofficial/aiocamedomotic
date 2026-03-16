@@ -35,6 +35,7 @@ from aiocamedomotic.models import (
     DigitalInput,
     Floor,
     Light,
+    MapPage,
     Opening,
     PlantTopology,
     Relay,
@@ -51,6 +52,7 @@ from tests.aiocamedomotic.mocked_responses import (
     DIGITALIN_LIST_RESP,
     FEATURE_LIST_RESP,
     LIGHT_LIST_RESP,
+    MAPS_LIST_RESP,
     SCENARIOS_LIST_RESP,
     THERMO_LIST_RESP,
     TVCC_CAMERAS_LIST_RESP,
@@ -2255,3 +2257,68 @@ class TestAPITopology:
 
         assert floors == {2: "Good Floor"}
         assert rooms == {}
+
+
+class TestAPIMapPages:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_map_pages(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = MAPS_LIST_RESP
+
+        pages = await api.async_get_map_pages()
+        assert len(pages) == len(MAPS_LIST_RESP["map"])
+        assert isinstance(pages[0], MapPage)
+        assert isinstance(pages[1], MapPage)
+
+        # Verify the payload includes username and map_id
+        call_args = mock_send_command.call_args
+        payload = call_args[0][0]
+        assert payload["cmd_name"] == "map_descr_req"
+        assert payload["map_id"] == 0
+        assert "username" in payload
+
+        # Verify response_command was passed
+        call_kwargs = call_args[1]
+        assert call_kwargs["response_command"] == "map_descr_resp"
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_map_pages_empty(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "map": [],
+            "cmd_name": "map_descr_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        pages = await api.async_get_map_pages()
+        assert len(pages) == 0
+        assert isinstance(pages, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_map_pages_missing_key(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "cmd_name": "map_descr_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        pages = await api.async_get_map_pages()
+        assert len(pages) == 0
+        assert isinstance(pages, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_map_pages_null(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "map": None,
+            "cmd_name": "map_descr_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        pages = await api.async_get_map_pages()
+        assert pages == []

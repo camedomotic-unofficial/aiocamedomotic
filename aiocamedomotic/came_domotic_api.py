@@ -44,6 +44,7 @@ from .models import (
     DigitalInput,
     Floor,
     Light,
+    MapPage,
     Opening,
     PlantTopology,
     Relay,
@@ -531,6 +532,43 @@ class CameDomoticAPI:
         cameras_list = json_response.get("array", []) or []
         LOGGER.info("Retrieved %d camera(s)", len(cameras_list))
         return [Camera(camera_data, self.auth) for camera_data in cameras_list]
+
+    async def async_get_map_pages(self) -> list[MapPage]:
+        """Get the list of all map pages (floor plans) from the server.
+
+        Maps provide a spatial view of the installation with positioned
+        device elements overlaid on background images. Map data is
+        read-only and cannot be modified through the API.
+
+        .. note::
+            This method uses API commands documented in the CAME JS client
+            but not yet verified against a real server. Behaviour may differ
+            across firmware versions.
+
+        Returns:
+            list[MapPage]: List of map pages, each containing positioned
+            elements. Returns an empty list if no maps are defined.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Fetching map pages")
+        payload = {
+            "cmd_name": _CommandName.MAP_DESCR.value,
+            "username": self.auth.current_username,
+            "map_id": 0,
+        }
+
+        json_response = await self.auth.async_send_command(
+            payload,
+            response_command=_CommandNameResponse.MAP_DESCR.value,
+        )
+
+        # Defaults to an empty list if the key is missing from the response JSON
+        map_list = json_response.get("map", []) or []
+        LOGGER.info("Retrieved %d map page(s)", len(map_list))
+        return [MapPage(page_data) for page_data in map_list]
 
     async def async_get_openings(self) -> list[Opening]:
         """Get the list of all opening devices defined on the server.
