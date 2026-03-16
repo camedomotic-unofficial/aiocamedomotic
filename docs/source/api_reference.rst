@@ -44,6 +44,9 @@ Entity models
 .. automodule:: aiocamedomotic.models.opening
    :members:
 
+.. automodule:: aiocamedomotic.models.relay
+   :members:
+
 .. automodule:: aiocamedomotic.models.scenario
    :members:
 

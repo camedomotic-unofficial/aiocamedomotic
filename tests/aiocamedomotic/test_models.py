@@ -49,6 +49,9 @@ from aiocamedomotic.models import (
     OpeningType,
     OpeningUpdate,
     PlantUpdate,
+    Relay,
+    RelayStatus,
+    RelayUpdate,
     Room,
     Scenario,
     ScenarioStatus,
@@ -112,6 +115,9 @@ class TestDeviceType:
         assert _UPDATE_CMD_TO_DEVICE_TYPE["scenario_status_ind"] == DeviceType.SCENARIO
         assert (
             _UPDATE_CMD_TO_DEVICE_TYPE["scenario_activation_ind"] == DeviceType.SCENARIO
+        )
+        assert (
+            _UPDATE_CMD_TO_DEVICE_TYPE["relay_status_ind"] == DeviceType.GENERIC_RELAY
         )
         assert (
             _UPDATE_CMD_TO_DEVICE_TYPE["meter_instant_power_ind"]
@@ -587,6 +593,50 @@ class TestDeviceUpdate:
         assert isinstance(update, OpeningUpdate)
         assert update.status == OpeningStatus.UNKNOWN
 
+    def test_parse_relay_update(self):
+        raw = {
+            "cmd_name": "relay_status_ind",
+            "act_id": 31,
+            "name": "Garden Pump",
+            "floor_ind": 2,
+            "room_ind": 3,
+            "status": 1,
+        }
+        update = parse_update(raw)
+        assert isinstance(update, RelayUpdate)
+        assert update.act_id == 31
+        assert update.name == "Garden Pump"
+        assert update.floor_ind == 2
+        assert update.room_ind == 3
+        assert update.status == RelayStatus.ON
+        assert update.device_type == DeviceType.GENERIC_RELAY
+        assert update.device_id == 31
+        assert update.update_indicator == UpdateIndicator.RELAY
+
+    def test_parse_relay_update_legacy(self):
+        raw = {
+            "cmd_name": "relay_update_ind",
+            "act_id": 32,
+            "name": "Gate Motor",
+            "status": 0,
+        }
+        update = parse_update(raw)
+        assert isinstance(update, RelayUpdate)
+        assert update.act_id == 32
+        assert update.status == RelayStatus.OFF
+        assert update.update_indicator == UpdateIndicator.RELAY_LEGACY
+
+    def test_parse_relay_update_unknown_status(self):
+        raw = {
+            "cmd_name": "relay_status_ind",
+            "act_id": 1,
+            "name": "Test",
+            "status": 99,
+        }
+        update = parse_update(raw)
+        assert isinstance(update, RelayUpdate)
+        assert update.status == RelayStatus.UNKNOWN
+
     def test_parse_thermo_zone_update(self):
         raw = {
             "cmd_name": "thermo_zone_info_ind",
@@ -756,6 +806,10 @@ class TestDeviceUpdate:
                 {"cmd_name": "thermo_update_ind", "act_id": 1, "temp_dec": 200}
             ),
             ThermoZoneUpdate,
+        )
+        assert isinstance(
+            parse_update({"cmd_name": "relay_update_ind", "act_id": 1, "status": 0}),
+            RelayUpdate,
         )
         assert isinstance(
             parse_update(
@@ -1843,6 +1897,123 @@ class TestOpening:
             ValueError, match="'auth' must be an instance of Auth, got dict"
         ):
             Opening(opening_data, {"fake": "auth"})
+
+
+class TestRelay:
+    def test_initialization(self, relay_data_on, auth_instance):
+        relay = Relay(relay_data_on, auth_instance)
+        assert relay.raw_data == relay_data_on
+        assert relay.auth == auth_instance
+
+        # Test post_init validation - missing act_id
+        with pytest.raises(ValueError, match="Data is missing required keys: act_id"):
+            Relay({"name": "Test"}, auth_instance)
+
+        # Test post_init validation - missing name
+        with pytest.raises(ValueError, match="Data is missing required keys: name"):
+            Relay({"act_id": 1}, auth_instance)
+
+    def test_properties(self, relay_data_on, auth_instance):
+        relay = Relay(relay_data_on, auth_instance)
+        assert relay.act_id == relay_data_on["act_id"]
+        assert relay.floor_ind == relay_data_on["floor_ind"]
+        assert relay.name == relay_data_on["name"]
+        assert relay.room_ind == relay_data_on["room_ind"]
+        assert relay.status == RelayStatus(relay_data_on["status"])
+
+    def test_properties_off(self, relay_data_off, auth_instance):
+        relay = Relay(relay_data_off, auth_instance)
+        assert relay.act_id == 32
+        assert relay.status == RelayStatus.OFF
+
+    def test_unknown_status(self, auth_instance):
+        unknown_relay_data = {
+            "act_id": 1,
+            "name": "Unknown Relay",
+            "status": 99,
+            "floor_ind": 2,
+            "room_ind": 3,
+        }
+
+        relay = Relay(unknown_relay_data, auth_instance)
+
+        assert relay.raw_data == unknown_relay_data
+        assert relay.name == "Unknown Relay"
+        assert relay.status == RelayStatus.UNKNOWN
+        assert relay.act_id == 1
+
+    @pytest.mark.asyncio
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="my_session_id",
+    )
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_status(
+        self,
+        mock_send_command,
+        mock_get_client_id,  # pylint: disable=unused-argument
+        relay_data_off,
+        auth_instance,
+    ):
+        relay = Relay(relay_data_off, auth_instance)
+
+        # Turn ON
+        await relay.async_set_status(RelayStatus.ON)
+        mock_send_command.assert_called_once()
+        payload = mock_send_command.call_args[0][0]
+        assert payload["act_id"] == relay_data_off["act_id"]
+        assert payload["cmd_name"] == "relay_activation_req"
+        assert payload["wanted_status"] == RelayStatus.ON.value
+        assert relay.status == RelayStatus.ON
+
+        # Turn OFF
+        await relay.async_set_status(RelayStatus.OFF)
+        assert mock_send_command.call_count == 2
+        payload = mock_send_command.call_args[0][0]
+        assert payload["wanted_status"] == RelayStatus.OFF.value
+        assert relay.status == RelayStatus.OFF
+
+    @pytest.mark.asyncio
+    async def test_async_set_status_unknown_raises(self, relay_data_on, auth_instance):
+        relay = Relay(relay_data_on, auth_instance)
+
+        with pytest.raises(ValueError, match="Cannot set relay status to UNKNOWN"):
+            await relay.async_set_status(RelayStatus.UNKNOWN)
+
+    def test_edge_case_missing_optional_field(self, auth_instance):
+        relay_data = {
+            "act_id": 1,
+            "name": "Test Relay",
+            "status": 1,
+            # Missing optional fields like floor_ind, room_ind
+        }
+
+        relay = Relay(relay_data, auth_instance)
+
+        assert relay.name == "Test Relay"
+        assert relay.act_id == 1
+        assert relay.status == RelayStatus.ON
+
+    def test_auth_type_validation(self):
+        relay_data = {
+            "act_id": 1,
+            "name": "Test Relay",
+            "status": 0,
+        }
+
+        # Test with non-Auth object (string)
+        with pytest.raises(
+            ValueError, match="'auth' must be an instance of Auth, got str"
+        ):
+            Relay(relay_data, "not_an_auth_instance")
+
+        # Test with non-Auth object (dict)
+        with pytest.raises(
+            ValueError, match="'auth' must be an instance of Auth, got dict"
+        ):
+            Relay(relay_data, {"fake": "auth"})
 
 
 class TestFloor:

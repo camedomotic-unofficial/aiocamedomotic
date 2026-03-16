@@ -181,6 +181,30 @@ def light_data_rgb():
 
 
 @pytest.fixture
+def relay_data_on():
+    """Mock data for a relay that is ON."""
+    return {
+        "act_id": 31,
+        "name": "Test Relay",
+        "status": 1,
+        "floor_ind": 2,
+        "room_ind": 3,
+    }
+
+
+@pytest.fixture
+def relay_data_off():
+    """Mock data for a relay that is OFF."""
+    return {
+        "act_id": 32,
+        "name": "Test Relay Off",
+        "status": 0,
+        "floor_ind": 1,
+        "room_ind": 4,
+    }
+
+
+@pytest.fixture
 def opening_data_shutter_stopped():
     """Mock data for a stopped shutter opening."""
     return {
