@@ -958,7 +958,7 @@ Create a CameDomoticAPI object.
   * **password** (*str*) – The password to use for the API.
   * **websession** (*aiohttp.ClientSession* *,* *optional*) – The aiohttp session to use for
     the API. If not provided, a new aiohttp.ClientSession will be created.
-  * **close_websession_on_disposal** (*bool* *,* *default False*) – 
+  * **close_websession_on_disposal** (*bool* *,* *default False*) –
 
     Controls whether the
     aiohttp session is closed when this object is disposed.
