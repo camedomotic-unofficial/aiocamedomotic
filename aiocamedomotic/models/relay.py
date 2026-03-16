@@ -47,6 +47,8 @@ class RelayStatus(Enum):
     Allowed values are:
         - OFF (0)
         - ON (1)
+        - UNKNOWN (-1): Returned when the server reports an unrecognised
+          status value. Not a valid target for ``async_set_status``.
     """
 
     OFF = 0
@@ -92,7 +94,7 @@ class Relay(CameEntity):
     @property
     def floor_ind(self) -> int:
         """Floor index of the relay."""
-        return self.raw_data["floor_ind"]
+        return self.raw_data.get("floor_ind", 0)
 
     @property
     def name(self) -> str:
@@ -102,7 +104,7 @@ class Relay(CameEntity):
     @property
     def room_ind(self) -> int:
         """Room index of the relay."""
-        return self.raw_data["room_ind"]
+        return self.raw_data.get("room_ind", 0)
 
     @property
     def status(self) -> RelayStatus:

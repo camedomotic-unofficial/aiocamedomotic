@@ -38,6 +38,9 @@ Entity models
 .. automodule:: aiocamedomotic.models.base
    :members:
 
+.. automodule:: aiocamedomotic.models.digital_input
+   :members:
+
 .. automodule:: aiocamedomotic.models.light
    :members:
 
@@ -51,9 +54,6 @@ Entity models
    :members:
 
 .. automodule:: aiocamedomotic.models.thermo_zone
-   :members:
-
-.. automodule:: aiocamedomotic.models.digital_input
    :members:
 
 .. automodule:: aiocamedomotic.models.update
