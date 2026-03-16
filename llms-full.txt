@@ -992,6 +992,55 @@ representations such as `001cb2aabbcc`, `00-1C-B2-AA-BB-CC`, or
 lowercase `00:1c:b2:aa:bb:cc` will **not** match directly — normalize
 to uppercase colon-separated format first, as shown in the example above.
 
+#### Debugging with traffic logging
+
+The library includes a built-in traffic logger that records every HTTP
+request and response exchanged with the CAME server. **Sensitive data
+(passwords, session tokens, server identifiers) is automatically
+anonymized**, so the output is safe to share publicly — for example, when
+reporting issues on GitHub.
+
+The traffic logger uses the `aiocamedomotic.traffic` logger name (a child
+of the main `aiocamedomotic` logger). Since it is a child logger, it
+inherits the handler and formatter already configured by the library — you
+only need to lower its level to `DEBUG`:
+
+```python
+import logging
+
+# Enable traffic logging (anonymized request/response payloads)
+logging.getLogger("aiocamedomotic.traffic").setLevel(logging.DEBUG)
+```
+
+That single line is all you need. The traffic log messages will appear
+alongside the normal library output, using the same format.
+
+Example output:
+
+```text
+2025-03-15 10:23:01.123 DEBUG (MainThread) [aiocamedomotic.traffic] HTTP POST http://192.168.1.***/domo/ [status=200, 42.5ms]
+--> {"sl_cmd":"sl_registration_req","sl_login":"ad***","sl_pwd":"***"}
+<-- {"sl_client_id":"504***","sl_keep_alive_timeout_sec":900,"sl_data_ack_reason":0}
+```
+
+The following fields are redacted automatically:
+
+- `sl_pwd`, `sl_new_pwd` → fully replaced with `***`
+- `sl_login` → first 2 characters preserved (e.g. `ad***`)
+- `sl_client_id`, `client` → first 3 characters preserved (e.g. `504***`)
+- `keycode` → first 8 characters preserved (e.g. `61305E97********`)
+- `serial` → first 3 characters preserved (e.g. `037***`)
+- Camera URIs (`uri`, `uri_still`) → embedded credentials redacted
+- Host IP in the URL → last octet masked (e.g. `192.168.1.***`)
+- Usernames inside `sl_users_list` items → partially masked
+
+##### NOTE
+The traffic logger level is independent from the main library logger.
+Setting `aiocamedomotic` to `WARNING` and
+`aiocamedomotic.traffic` to `DEBUG` is a valid configuration —
+you will see only the HTTP traffic, without the library’s internal
+debug messages.
+
 ##### SEE ALSO
 For full API details, see the [API Reference](#api-reference).
 
@@ -3995,6 +4044,43 @@ autodiscovery alongside `CAME_MAC_PREFIXES`.
 * **Returns:**
   `True` if the host responds with HTTP 200 on the CAME API endpoint,
   `False` otherwise (network error, timeout, wrong status, etc.).
+
+Anonymization utilities for HTTP traffic logging.
+
+This module provides automatic redaction of sensitive fields in CAME Domotic
+API request and response payloads, enabling safe sharing of traffic logs
+for debugging purposes.
+
+The traffic logger (`aiocamedomotic.traffic`) is a child of the main
+library logger and can be configured independently:
+
+```default
+import logging
+logging.getLogger("aiocamedomotic.traffic").setLevel(logging.DEBUG)
+```
+
+#### aiocamedomotic.anonymizer.TRAFFIC_LOGGER *= <Logger aiocamedomotic.traffic (WARNING)>*
+
+Dedicated logger for HTTP traffic. Enable at DEBUG level to see
+anonymized request/response payloads with elapsed times.
+
+#### aiocamedomotic.anonymizer.anonymize_payload(data: dict[str, Any]) → dict[str, Any]
+
+Return a deep copy of *data* with sensitive fields anonymized.
+
+This function never modifies the original dictionary. The following
+fields are redacted:
+
+- `sl_pwd`, `sl_new_pwd`: fully replaced with `"***"`
+- `sl_login`, `sl_client_id`, `client`, `keycode`, `serial`:
+  partially masked (first N characters preserved)
+- `uri`, `uri_still`: embedded credentials redacted
+- `sl_users_list` items: `name` / `sl_login` partially masked
+
+* **Parameters:**
+  **data** – The request or response payload dictionary.
+* **Returns:**
+  A new dictionary with sensitive values redacted.
 
 ### Errors
 
