@@ -254,10 +254,11 @@ import asyncio
 from aiocamedomotic import CameDomoticAPI
 from aiocamedomotic.models import (
     AnalogSensorType, DeviceType, DigitalInputStatus, LightStatus,
-    LightType, OpeningStatus, ScenarioStatus, ThermoZoneFanSpeed,
+    LightType, OpeningStatus, RelayStatus, ScenarioStatus,
+    ThermoZoneFanSpeed,
     ThermoZoneMode, ThermoZoneSeason, ThermoZoneStatus,
-    DeviceUpdate, LightUpdate, OpeningUpdate, ThermoZoneUpdate,
-    ScenarioUpdate, DigitalInputUpdate, PlantUpdate,
+    DeviceUpdate, LightUpdate, OpeningUpdate, RelayUpdate,
+    ThermoZoneUpdate, ScenarioUpdate, DigitalInputUpdate, PlantUpdate,
 )
 from aiocamedomotic.errors import (
     CameDomoticError,
@@ -444,6 +445,9 @@ if "lights" in server_info.features:
 
 if "openings" in server_info.features:
     openings = await api.async_get_openings()
+
+if "relays" in server_info.features:
+    relays = await api.async_get_relays()
 
 if "thermoregulation" in server_info.features:
     zones = await api.async_get_thermo_zones()
@@ -754,6 +758,52 @@ sensor = next((di for di in digital_inputs if di.name == "Front Door"), None)
 Some digital inputs do not report a `status` until their first state
 change. In that case, `status` returns `DigitalInputStatus.UNKNOWN`.
 
+#### Relays
+
+Relays are simple on/off switches that can be controlled remotely. Unlike
+lights, they have no brightness or color capabilities.
+
+**Fetching and inspecting relays:**
+
+```python
+from aiocamedomotic.models import RelayStatus
+
+relays = await api.async_get_relays()
+
+for relay in relays:
+    print(f"ID: {relay.act_id}, Name: {relay.name}, Status: {relay.status}")
+```
+
+Example output:
+
+```text
+ID: 31, Name: Garden Pump, Status: RelayStatus.ON
+ID: 32, Name: Gate Motor, Status: RelayStatus.OFF
+```
+
+**Finding a specific relay:**
+
+```python
+# By ID
+pump = next((r for r in relays if r.act_id == 31), None)
+
+# By name
+gate = next((r for r in relays if r.name == "Gate Motor"), None)
+```
+
+**Controlling relays:**
+
+```python
+if pump:
+    await pump.async_set_status(RelayStatus.ON)
+    await pump.async_set_status(RelayStatus.OFF)
+```
+
+##### NOTE
+The relay API commands are documented in the CAME API specification but
+have not been verified against a real server. If you encounter unexpected
+behaviour, please report it to the library developers.
+
 ### Monitoring real-time updates
 
 The CAME Domotic server supports **long polling** for real-time status updates.
@@ -857,6 +907,9 @@ for update in updates.get_typed_updates():
     elif isinstance(update, DigitalInputUpdate):
         print(f"Input '{update.name}': status={update.status}, addr={update.addr}")
 
+    elif isinstance(update, RelayUpdate):
+        print(f"Relay '{update.name}': {update.status.name}")
+
     elif isinstance(update, PlantUpdate):
         print("Plant configuration changed, re-fetching devices...")
 ```
@@ -873,6 +926,7 @@ updates = await api.async_get_updates()
 if updates.has_plant_update:
     lights = await api.async_get_lights()
     openings = await api.async_get_openings()
+    relays = await api.async_get_relays()
     scenarios = await api.async_get_scenarios()
     thermo_zones = await api.async_get_thermo_zones()
     sensors = await api.async_get_analog_sensors()
@@ -1082,6 +1136,25 @@ Get the list of all opening devices defined on the server.
   List of openings.
 * **Return type:**
   list[[Opening](#aiocamedomotic.models.opening.Opening)]
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_get_relays() → list[[Relay](#aiocamedomotic.models.relay.Relay)]
+
+Get the list of all relay devices defined on the server.
+
+Relays are simple on/off switches that can be controlled remotely.
+
+##### NOTE
+This method uses API commands documented in the CAME API
+specification but not yet verified against a real server.
+Behaviour may differ across firmware versions.
+
+* **Returns:**
+  List of relays.
+* **Return type:**
+  list[[Relay](#aiocamedomotic.models.relay.Relay)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
@@ -1715,6 +1788,81 @@ re-fetched from the server.
 
 Always returns `True`.
 
+#### *class* aiocamedomotic.models.Relay(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+
+Relay entity in the CameDomotic API.
+
+Represents a generic relay (simple on/off switch) in the CAME Domotic
+system. Provides properties to read relay attributes and a method to
+control relay state.
+
+* **Raises:**
+  **ValueError** – If `name` or `act_id` keys are missing from the
+      input data or the auth argument is not an instance of the
+      expected `Auth` class.
+
+##### *property* act_id *: int*
+
+ID of the relay.
+
+##### *async* async_set_status(status: [RelayStatus](#aiocamedomotic.models.relay.RelayStatus)) → None
+
+Control the relay.
+
+* **Parameters:**
+  **status** ([*RelayStatus*](#aiocamedomotic.models.relay.RelayStatus)) – Desired relay status (ON or OFF).
+* **Raises:**
+  * **ValueError** – If `status` is `RelayStatus.UNKNOWN`.
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *property* floor_ind *: int*
+
+Floor index of the relay.
+
+##### *property* name *: str*
+
+Name of the relay.
+
+##### *property* room_ind *: int*
+
+Room index of the relay.
+
+##### *property* status *: [RelayStatus](#aiocamedomotic.models.relay.RelayStatus)*
+
+Status of the relay. Allowed values are OFF (0) and ON (1).
+
+#### *class* aiocamedomotic.models.RelayStatus(\*values)
+
+Status of a relay.
+
+Allowed values are:
+: - OFF (0)
+  - ON (1)
+  - UNKNOWN (-1): Returned when the server reports an unrecognised
+    status value. Not a valid target for `async_set_status`.
+
+#### *class* aiocamedomotic.models.RelayUpdate(raw_data: dict[str, Any])
+
+Typed update for a relay device (`relay_status_ind` /
+`relay_update_ind`).
+
+##### *property* act_id *: int*
+
+Relay actuator ID.
+
+##### *property* floor_ind *: int*
+
+Floor index.
+
+##### *property* room_ind *: int*
+
+Room index.
+
+##### *property* status *: [RelayStatus](#aiocamedomotic.models.relay.RelayStatus)*
+
+Relay status (OFF, ON).
+
 #### *class* aiocamedomotic.models.Room(raw_data: dict[str, Any])
 
 Room entity in the CAME Domotic API.
@@ -2159,6 +2307,7 @@ compatibility.
 Values:
 : - LIGHT (“light_switch_ind”)
   - OPENING (“opening_move_ind”)
+  - RELAY (“relay_status_ind”)
   - THERMOSTAT (“thermo_zone_info_ind”)
   - DIGITAL_INPUT (“digitalin_status_ind”)
   - SCENARIO_STATUS (“scenario_status_ind”)
@@ -2519,6 +2668,79 @@ In case of failure, the previous user is restored.
 
 Name of the user.
 
+CAME Domotic digital input (binary sensor) entity models.
+
+This module implements the classes for working with digital inputs in a CAME
+Domotic system. Digital inputs represent read-only binary sensors such as
+physical buttons, contact sensors, and similar devices. They provide properties
+to access device attributes but do not support control commands.
+
+#### *class* aiocamedomotic.models.digital_input.DigitalInput(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+
+Digital input (binary sensor) entity in the CameDomotic API.
+
+Digital inputs are read-only devices that report their binary state
+(ACTIVE/IDLE). They cannot be controlled remotely.
+
+* **Raises:**
+  **ValueError** – If `name` or `act_id` keys are missing from the
+      input data or the auth argument is not an instance of the
+      expected `Auth` class.
+
+##### *property* act_id *: int*
+
+ID of the digital input.
+
+##### *property* addr *: int*
+
+Address of the digital input.
+
+##### *property* name *: str*
+
+Name of the digital input.
+
+##### *property* status *: [DigitalInputStatus](#aiocamedomotic.models.digital_input.DigitalInputStatus)*
+
+ACTIVE (0) or IDLE (1).
+
+`ACTIVE` means the input is triggered (e.g. a button is being
+pressed). `IDLE` means the input is in its normal resting state.
+
+Returns `DigitalInputStatus.UNKNOWN` when the status field is
+absent from the server response (some digital inputs do not
+report a status until their first state change).
+
+* **Type:**
+  Status of the digital input
+
+##### *property* type *: [DigitalInputType](#aiocamedomotic.models.digital_input.DigitalInputType)*
+
+Type of the digital input.
+
+Returns `DigitalInputType.UNKNOWN` when the type value is not
+recognized.
+
+##### *property* utc_time *: int*
+
+UTC timestamp of the last event (Unix epoch seconds).
+
+Returns `0` if the digital input has never been triggered.
+
+#### *class* aiocamedomotic.models.digital_input.DigitalInputStatus(\*values)
+
+Status of a digital input.
+
+Allowed values are:
+: - ACTIVE (0): the input is active (e.g. a button is pressed)
+  - IDLE (1): the input is idle (e.g. a button is not pressed)
+
+#### *class* aiocamedomotic.models.digital_input.DigitalInputType(\*values)
+
+Type of a digital input.
+
+Allowed values are:
+: - STATUS (1): standard status input
+
 CAME Domotic light entity models and control functionality.
 
 This module implements the classes for working with lights in a CAME Domotic
@@ -2689,6 +2911,72 @@ Type of an opening.
 
 Allowed values are:
 : - SHUTTER (0)
+
+CAME Domotic relay entity models and control functionality.
+
+This module implements the classes for working with generic relays in a CAME
+Domotic system. Generic relays are simple on/off switches that can be
+controlled remotely. They provide binary state control without brightness,
+color, or position capabilities.
+
+##### NOTE
+The relay API commands (`relays_list_req`, `relay_activation_req`)
+are documented in the CAME API specification but have not been verified
+against a real server. Behaviour may differ across firmware versions.
+
+#### *class* aiocamedomotic.models.relay.Relay(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+
+Relay entity in the CameDomotic API.
+
+Represents a generic relay (simple on/off switch) in the CAME Domotic
+system. Provides properties to read relay attributes and a method to
+control relay state.
+
+* **Raises:**
+  **ValueError** – If `name` or `act_id` keys are missing from the
+      input data or the auth argument is not an instance of the
+      expected `Auth` class.
+
+##### *property* act_id *: int*
+
+ID of the relay.
+
+##### *async* async_set_status(status: [RelayStatus](#aiocamedomotic.models.relay.RelayStatus)) → None
+
+Control the relay.
+
+* **Parameters:**
+  **status** ([*RelayStatus*](#aiocamedomotic.models.relay.RelayStatus)) – Desired relay status (ON or OFF).
+* **Raises:**
+  * **ValueError** – If `status` is `RelayStatus.UNKNOWN`.
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *property* floor_ind *: int*
+
+Floor index of the relay.
+
+##### *property* name *: str*
+
+Name of the relay.
+
+##### *property* room_ind *: int*
+
+Room index of the relay.
+
+##### *property* status *: [RelayStatus](#aiocamedomotic.models.relay.RelayStatus)*
+
+Status of the relay. Allowed values are OFF (0) and ON (1).
+
+#### *class* aiocamedomotic.models.relay.RelayStatus(\*values)
+
+Status of a relay.
+
+Allowed values are:
+: - OFF (0)
+  - ON (1)
+  - UNKNOWN (-1): Returned when the server reports an unrecognised
+    status value. Not a valid target for `async_set_status`.
 
 CAME Domotic scenario entity models and control functionality.
 
@@ -2998,79 +3286,6 @@ Allowed values are:
 : - OFF (0)
   - ON (1)
 
-CAME Domotic digital input (binary sensor) entity models.
-
-This module implements the classes for working with digital inputs in a CAME
-Domotic system. Digital inputs represent read-only binary sensors such as
-physical buttons, contact sensors, and similar devices. They provide properties
-to access device attributes but do not support control commands.
-
-#### *class* aiocamedomotic.models.digital_input.DigitalInput(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
-
-Digital input (binary sensor) entity in the CameDomotic API.
-
-Digital inputs are read-only devices that report their binary state
-(ACTIVE/IDLE). They cannot be controlled remotely.
-
-* **Raises:**
-  **ValueError** – If `name` or `act_id` keys are missing from the
-      input data or the auth argument is not an instance of the
-      expected `Auth` class.
-
-##### *property* act_id *: int*
-
-ID of the digital input.
-
-##### *property* addr *: int*
-
-Address of the digital input.
-
-##### *property* name *: str*
-
-Name of the digital input.
-
-##### *property* status *: [DigitalInputStatus](#aiocamedomotic.models.digital_input.DigitalInputStatus)*
-
-ACTIVE (0) or IDLE (1).
-
-`ACTIVE` means the input is triggered (e.g. a button is being
-pressed). `IDLE` means the input is in its normal resting state.
-
-Returns `DigitalInputStatus.UNKNOWN` when the status field is
-absent from the server response (some digital inputs do not
-report a status until their first state change).
-
-* **Type:**
-  Status of the digital input
-
-##### *property* type *: [DigitalInputType](#aiocamedomotic.models.digital_input.DigitalInputType)*
-
-Type of the digital input.
-
-Returns `DigitalInputType.UNKNOWN` when the type value is not
-recognized.
-
-##### *property* utc_time *: int*
-
-UTC timestamp of the last event (Unix epoch seconds).
-
-Returns `0` if the digital input has never been triggered.
-
-#### *class* aiocamedomotic.models.digital_input.DigitalInputStatus(\*values)
-
-Status of a digital input.
-
-Allowed values are:
-: - ACTIVE (0): the input is active (e.g. a button is pressed)
-  - IDLE (1): the input is idle (e.g. a button is not pressed)
-
-#### *class* aiocamedomotic.models.digital_input.DigitalInputType(\*values)
-
-Type of a digital input.
-
-Allowed values are:
-: - STATUS (1): standard status input
-
 CAME Domotic status update handling.
 
 This module provides classes for processing and representing status updates
@@ -3207,6 +3422,27 @@ re-fetched from the server.
 ##### *property* is_plant_update *: bool*
 
 Always returns `True`.
+
+#### *class* aiocamedomotic.models.update.RelayUpdate(raw_data: dict[str, Any])
+
+Typed update for a relay device (`relay_status_ind` /
+`relay_update_ind`).
+
+##### *property* act_id *: int*
+
+Relay actuator ID.
+
+##### *property* floor_ind *: int*
+
+Floor index.
+
+##### *property* room_ind *: int*
+
+Room index.
+
+##### *property* status *: [RelayStatus](#aiocamedomotic.models.relay.RelayStatus)*
+
+Relay status (OFF, ON).
 
 #### *class* aiocamedomotic.models.update.ScenarioUpdate(raw_data: dict[str, Any])
 
@@ -3399,6 +3635,7 @@ compatibility.
 Values:
 : - LIGHT (“light_switch_ind”)
   - OPENING (“opening_move_ind”)
+  - RELAY (“relay_status_ind”)
   - THERMOSTAT (“thermo_zone_info_ind”)
   - DIGITAL_INPUT (“digitalin_status_ind”)
   - SCENARIO_STATUS (“scenario_status_ind”)
