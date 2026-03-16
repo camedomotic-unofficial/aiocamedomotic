@@ -41,6 +41,7 @@ from .opening import Opening, OpeningStatus, OpeningType  # noqa: F401
 from .scenario import Scenario, ScenarioStatus  # noqa: F401
 from .thermo_zone import (  # noqa: F401
     AnalogSensor,
+    AnalogSensorType,
     ThermoZone,
     ThermoZoneFanSpeed,
     ThermoZoneMode,
@@ -62,6 +63,7 @@ from .update import (  # noqa: F401
 
 __all__ = [
     "AnalogSensor",
+    "AnalogSensorType",
     "CameEntity",
     "DeviceType",
     "DeviceUpdate",

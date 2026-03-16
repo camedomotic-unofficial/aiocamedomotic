@@ -39,6 +39,7 @@ from .const import (
 from .errors import CameDomoticAuthError
 from .models import (
     AnalogSensor,
+    AnalogSensorType,
     DigitalInput,
     Floor,
     Light,
@@ -378,7 +379,17 @@ class CameDomoticAPI:
         for key in ("temperature", "humidity", "pressure"):
             sensor_data = json_response.get(key)
             if sensor_data and isinstance(sensor_data, dict):
-                sensors.append(AnalogSensor(sensor_data))
+                try:
+                    sensor_type = AnalogSensorType(key)
+                except ValueError:
+                    LOGGER.warning(
+                        "Unknown analog sensor type '%s'. "
+                        "Returning AnalogSensorType.UNKNOWN. "
+                        "Please report this to the library developers.",
+                        key,
+                    )
+                    sensor_type = AnalogSensorType.UNKNOWN
+                sensors.append(AnalogSensor(sensor_data, sensor_type))
         LOGGER.info("Retrieved %d analog sensor(s)", len(sensors))
         return sensors
 

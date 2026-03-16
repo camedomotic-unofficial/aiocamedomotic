@@ -33,6 +33,7 @@ from aiocamedomotic.const import (
 from aiocamedomotic.errors import CameDomoticAuthError, CameDomoticServerError
 from aiocamedomotic.models import (
     AnalogSensor,
+    AnalogSensorType,
     DeviceUpdate,
     DigitalInput,
     DigitalInputStatus,
@@ -2365,34 +2366,58 @@ class TestThermoZoneFanSpeed:
         assert ThermoZoneFanSpeed.UNKNOWN.value == -1
 
 
+class TestAnalogSensorType:
+    def test_values(self):
+        assert AnalogSensorType.TEMPERATURE.value == "temperature"
+        assert AnalogSensorType.HUMIDITY.value == "humidity"
+        assert AnalogSensorType.PRESSURE.value == "pressure"
+        assert AnalogSensorType.UNKNOWN.value == "unknown"
+
+    def test_from_value(self):
+        assert AnalogSensorType("temperature") == AnalogSensorType.TEMPERATURE
+        assert AnalogSensorType("humidity") == AnalogSensorType.HUMIDITY
+        assert AnalogSensorType("pressure") == AnalogSensorType.PRESSURE
+
+    def test_invalid_value(self):
+        with pytest.raises(ValueError):
+            AnalogSensorType("invalid")
+
+
 class TestAnalogSensor:
     def test_initialization(self, analog_sensor_data_temperature):
-        sensor = AnalogSensor(analog_sensor_data_temperature)
+        sensor = AnalogSensor(
+            analog_sensor_data_temperature, AnalogSensorType.TEMPERATURE
+        )
         assert sensor.raw_data == analog_sensor_data_temperature
+        assert sensor.sensor_type == AnalogSensorType.TEMPERATURE
 
     def test_properties(self, analog_sensor_data_temperature):
-        sensor = AnalogSensor(analog_sensor_data_temperature)
+        sensor = AnalogSensor(
+            analog_sensor_data_temperature, AnalogSensorType.TEMPERATURE
+        )
         assert sensor.act_id == 100
         assert sensor.name == "Outdoor Temperature"
         assert sensor.value == 21.5
-        assert sensor.unit == "\u00b0C"
+        assert sensor.unit == "C"
+        assert sensor.sensor_type == AnalogSensorType.TEMPERATURE
 
     def test_humidity_properties(self, analog_sensor_data_humidity):
-        sensor = AnalogSensor(analog_sensor_data_humidity)
+        sensor = AnalogSensor(analog_sensor_data_humidity, AnalogSensorType.HUMIDITY)
         assert sensor.act_id == 101
         assert sensor.name == "Indoor Humidity"
         assert sensor.value == 55.0
         assert sensor.unit == "%"
+        assert sensor.sensor_type == AnalogSensorType.HUMIDITY
 
     def test_missing_name(self):
         sensor_data = {"act_id": 100, "value": 215}
         with pytest.raises(ValueError, match="Data is missing required keys: name"):
-            AnalogSensor(sensor_data)
+            AnalogSensor(sensor_data, AnalogSensorType.TEMPERATURE)
 
     def test_missing_act_id(self):
         sensor_data = {"name": "Test Sensor", "value": 215}
         with pytest.raises(ValueError, match="Data is missing required keys: act_id"):
-            AnalogSensor(sensor_data)
+            AnalogSensor(sensor_data, AnalogSensorType.TEMPERATURE)
 
     def test_optional_fields_missing(self):
         sensor_data = {"name": "Minimal Sensor", "act_id": 200}
@@ -2401,6 +2426,24 @@ class TestAnalogSensor:
         assert sensor.act_id == 200
         assert sensor.value == 0.0
         assert sensor.unit == ""
+        assert sensor.sensor_type == AnalogSensorType.UNKNOWN
+
+    def test_value_scaling_uses_sensor_type(self):
+        """Temperature scaling is driven by sensor_type, not unit string."""
+        data = {"name": "Test", "act_id": 1, "value": 215, "unit": "C"}
+        sensor = AnalogSensor(data, AnalogSensorType.HUMIDITY)
+        assert sensor.value == 215.0
+
+    def test_pressure_sensor_type(self):
+        sensor_data = {
+            "name": "Barometric Pressure",
+            "act_id": 102,
+            "value": 1013,
+            "unit": "hPa",
+        }
+        sensor = AnalogSensor(sensor_data, AnalogSensorType.PRESSURE)
+        assert sensor.sensor_type == AnalogSensorType.PRESSURE
+        assert sensor.value == 1013.0
 
 
 class TestDigitalInput:
