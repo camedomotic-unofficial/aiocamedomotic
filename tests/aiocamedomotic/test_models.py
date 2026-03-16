@@ -34,6 +34,7 @@ from aiocamedomotic.errors import CameDomoticAuthError, CameDomoticServerError
 from aiocamedomotic.models import (
     AnalogSensor,
     AnalogSensorType,
+    Camera,
     DeviceUpdate,
     DigitalInput,
     DigitalInputStatus,
@@ -2683,3 +2684,60 @@ class TestDigitalInput:
         assert di.utc_time == 0
         assert di.status == DigitalInputStatus.UNKNOWN
         assert di.type == DigitalInputType.UNKNOWN
+
+
+class TestCamera:
+    def test_init_valid_data(self, auth_instance, camera_data_flash):
+        camera = Camera(camera_data_flash, auth_instance)
+        assert camera.id == 1
+        assert camera.name == "Front Door Camera"
+        assert camera.uri == "http://192.168.1.100:8080/stream.swf"
+        assert camera.uri_still == "http://192.168.1.100:8080/snapshot.jpg"
+        assert camera.stream_type == "swf"
+
+    def test_init_standard_stream(self, auth_instance, camera_data_standard):
+        camera = Camera(camera_data_standard, auth_instance)
+        assert camera.id == 2
+        assert camera.name == "Garden Camera"
+        assert camera.uri == "http://192.168.1.101:8080/video"
+        assert camera.uri_still == "http://192.168.1.101:8080/snapshot.jpg"
+        assert camera.stream_type == "mjpeg"
+
+    def test_missing_name_raises(self, auth_instance):
+        data = {"id": 1}
+        with pytest.raises(ValueError, match="Data is missing required keys: name"):
+            Camera(data, auth_instance)
+
+    def test_missing_id_raises(self, auth_instance):
+        data = {"name": "Test Camera"}
+        with pytest.raises(ValueError, match="Data is missing required keys: id"):
+            Camera(data, auth_instance)
+
+    def test_invalid_id_type_raises(self, auth_instance):
+        data = {"id": "not_an_int", "name": "Test Camera"}
+        with pytest.raises(ValueError, match="id"):
+            Camera(data, auth_instance)
+
+    def test_invalid_auth_raises(self, camera_data_flash):
+        with pytest.raises(ValueError, match="'auth' must be an instance of Auth"):
+            Camera(camera_data_flash, "not_an_auth")
+
+    def test_optional_fields_defaults(self, auth_instance):
+        data = {"id": 5, "name": "Minimal Camera"}
+        camera = Camera(data, auth_instance)
+        assert camera.uri == ""
+        assert camera.uri_still == ""
+        assert camera.stream_type == ""
+
+    def test_is_flash_true(self, auth_instance, camera_data_flash):
+        camera = Camera(camera_data_flash, auth_instance)
+        assert camera.is_flash is True
+
+    def test_is_flash_false(self, auth_instance, camera_data_standard):
+        camera = Camera(camera_data_standard, auth_instance)
+        assert camera.is_flash is False
+
+    def test_is_flash_empty_string(self, auth_instance):
+        data = {"id": 3, "name": "No Stream Type Camera"}
+        camera = Camera(data, auth_instance)
+        assert camera.is_flash is False

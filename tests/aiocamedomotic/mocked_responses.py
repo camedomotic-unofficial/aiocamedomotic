@@ -481,6 +481,28 @@ SL_CHANGE_USER_PASSWORD_RESP = {
     "sl_data_ack_reason": 0,
 }
 
+TVCC_CAMERAS_LIST_RESP = {
+    "cmd_name": "tvcc_cameras_list_resp",
+    "cseq": 7,
+    "sl_data_ack_reason": 0,
+    "array": [
+        {
+            "id": 1,
+            "name": "Front Door Camera",
+            "uri": "http://192.168.1.100:8080/stream.swf",
+            "uri_still": "http://192.168.1.100:8080/snapshot.jpg",
+            "stream_type": "swf",
+        },
+        {
+            "id": 2,
+            "name": "Garden Camera",
+            "uri": "http://192.168.1.101:8080/video",
+            "uri_still": "http://192.168.1.101:8080/snapshot.jpg",
+            "stream_type": "other_format",
+        },
+    ],
+}
+
 GENERIC_REPLY = {
     "cseq": 4,
     "cmd_name": "generic_reply",

@@ -40,6 +40,7 @@ from .errors import CameDomoticAuthError
 from .models import (
     AnalogSensor,
     AnalogSensorType,
+    Camera,
     DigitalInput,
     Floor,
     Light,
@@ -497,6 +498,39 @@ class CameDomoticAPI:
         return [
             DigitalInput(digitalin_data, self.auth) for digitalin_data in digitalin_list
         ]
+
+    async def async_get_cameras(self) -> list[Camera]:
+        """Get the list of all TVCC cameras defined on the server.
+
+        Cameras are read-only entities providing access to IP camera
+        stream URIs. They do not support control commands.
+
+        .. note::
+            This method uses API commands documented in the CAME JS client
+            but not yet verified against a real server. Behaviour may differ
+            across firmware versions.
+
+        Returns:
+            list[Camera]: List of cameras.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Fetching cameras list")
+        payload = {
+            "cmd_name": _CommandName.TVCC_CAMERAS_LIST.value,
+            "username": self.auth.current_username,
+        }
+
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.TVCC_CAMERAS_LIST.value
+        )
+
+        # Defaults to an empty list if the key is missing from the response JSON
+        cameras_list = json_response.get("array", []) or []
+        LOGGER.info("Retrieved %d camera(s)", len(cameras_list))
+        return [Camera(camera_data, self.auth) for camera_data in cameras_list]
 
     async def async_get_openings(self) -> list[Opening]:
         """Get the list of all opening devices defined on the server.

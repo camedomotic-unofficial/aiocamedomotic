@@ -149,6 +149,7 @@ class _CommandName(Enum):
     THERMO_LIST = "thermo_list_req"
     METERS_LIST = "meters_list_req"
     DIGITALIN_LIST = "digitalin_list_req"
+    TVCC_CAMERAS_LIST = "tvcc_cameras_list_req"
     # Nested lists (topology-aware)
     NESTED_LIGHT_LIST = "nested_light_list_req"
     NESTED_OPENINGS_LIST = "nested_openings_list_req"
@@ -179,6 +180,7 @@ class _CommandNameResponse(Enum):
     THERMO_LIST = "thermo_list_resp"
     METERS_LIST = "meters_list_resp"
     DIGITALIN_LIST = "digitalin_list_resp"
+    TVCC_CAMERAS_LIST = "tvcc_cameras_list_resp"
     TERMINALS_GROUPS_LIST = "terminals_groups_list_resp"
     # Status
     STATUS_UPDATE = "status_update_resp"

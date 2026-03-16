@@ -371,4 +371,28 @@ def digital_input_data_without_status():
     }
 
 
+@pytest.fixture
+def camera_data_flash():
+    """Mock data for a camera with Flash (SWF) stream."""
+    return {
+        "id": 1,
+        "name": "Front Door Camera",
+        "uri": "http://192.168.1.100:8080/stream.swf",
+        "uri_still": "http://192.168.1.100:8080/snapshot.jpg",
+        "stream_type": "swf",
+    }
+
+
+@pytest.fixture
+def camera_data_standard():
+    """Mock data for a camera with standard (non-Flash) stream."""
+    return {
+        "id": 2,
+        "name": "Garden Camera",
+        "uri": "http://192.168.1.101:8080/video",
+        "uri_still": "http://192.168.1.101:8080/snapshot.jpg",
+        "stream_type": "mjpeg",
+    }
+
+
 # endregion
