@@ -411,6 +411,22 @@ class ThermoZone(CameEntity):
         )
 
 
+class AnalogSensorType(Enum):
+    """Type of an analog sensor.
+
+    Allowed values are:
+
+    - TEMPERATURE ("temperature")
+    - HUMIDITY ("humidity")
+    - PRESSURE ("pressure")
+    """
+
+    TEMPERATURE = "temperature"
+    HUMIDITY = "humidity"
+    PRESSURE = "pressure"
+    UNKNOWN = "unknown"
+
+
 @dataclass
 class AnalogSensor(CameEntity):
     """
@@ -419,6 +435,11 @@ class AnalogSensor(CameEntity):
     Represents a top-level temperature, humidity, or pressure sensor
     reading from the thermoregulation list response. These sensors are
     separate from the thermoregulation zones.
+
+    Args:
+        raw_data: Dictionary containing the sensor data from the API.
+        sensor_type: The type of sensor (temperature, humidity, or pressure).
+            Defaults to ``AnalogSensorType.UNKNOWN`` if not specified.
 
     Note:
         The ``value`` property returns the real sensor reading in the
@@ -430,6 +451,7 @@ class AnalogSensor(CameEntity):
     """
 
     raw_data: dict[str, Any]
+    sensor_type: AnalogSensorType = AnalogSensorType.UNKNOWN
 
     def __post_init__(self) -> None:
         EntityValidator.validate_data(
@@ -452,11 +474,11 @@ class AnalogSensor(CameEntity):
     def value(self) -> float:
         """Sensor reading in the unit reported by ``unit``."""
         raw = self.raw_data.get("value", 0)
-        if self.unit == "°C":
+        if self.sensor_type == AnalogSensorType.TEMPERATURE:
             return raw / 10.0
         return float(raw)
 
     @property
     def unit(self) -> str:
-        """Unit of measurement (e.g., '°C', '%', 'hPa')."""
+        """Unit of measurement (e.g., 'C', '%', 'hPa')."""
         return self.raw_data.get("unit", "")

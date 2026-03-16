@@ -300,7 +300,7 @@ def analog_sensor_data_temperature():
     return {
         "name": "Outdoor Temperature",
         "value": 215,
-        "unit": "\u00b0C",
+        "unit": "C",
         "act_id": 100,
     }
 

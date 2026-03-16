@@ -30,6 +30,7 @@ from aiocamedomotic.errors import (
 )
 from aiocamedomotic.models import (
     AnalogSensor,
+    AnalogSensorType,
     DigitalInput,
     Floor,
     Light,
@@ -1172,7 +1173,7 @@ class TestAPIAnalogSensors:
             "temperature": {
                 "name": "Outdoor Temp",
                 "value": 215,
-                "unit": "\u00b0C",
+                "unit": "C",
                 "act_id": 100,
             },
             "humidity": {
@@ -1194,11 +1195,14 @@ class TestAPIAnalogSensors:
         assert isinstance(sensors[0], AnalogSensor)
         assert sensors[0].name == "Outdoor Temp"
         assert sensors[0].value == 21.5
-        assert sensors[0].unit == "\u00b0C"
+        assert sensors[0].unit == "C"
+        assert sensors[0].sensor_type == AnalogSensorType.TEMPERATURE
         assert sensors[1].name == "Indoor Humidity"
         assert sensors[1].value == 55.0
+        assert sensors[1].sensor_type == AnalogSensorType.HUMIDITY
         assert sensors[2].name == "Barometric Pressure"
         assert sensors[2].value == 1013.0
+        assert sensors[2].sensor_type == AnalogSensorType.PRESSURE
 
     @patch.object(Auth, "async_send_command")
     async def test_async_get_analog_sensors_partial(
@@ -1213,7 +1217,7 @@ class TestAPIAnalogSensors:
             "temperature": {
                 "name": "Outdoor Temp",
                 "value": 215,
-                "unit": "\u00b0C",
+                "unit": "C",
                 "act_id": 100,
             },
         }
@@ -1221,6 +1225,7 @@ class TestAPIAnalogSensors:
         sensors = await api.async_get_analog_sensors()
         assert len(sensors) == 1
         assert sensors[0].name == "Outdoor Temp"
+        assert sensors[0].sensor_type == AnalogSensorType.TEMPERATURE
 
     @patch.object(Auth, "async_send_command")
     async def test_async_get_analog_sensors_none_present(
@@ -1250,7 +1255,7 @@ class TestAPIAnalogSensors:
             "sl_data_ack_reason": 0,
             "temperature": {
                 "value": 215,
-                "unit": "\u00b0C",
+                "unit": "C",
                 "act_id": 100,
             },
         }
