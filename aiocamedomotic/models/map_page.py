@@ -62,7 +62,7 @@ class MapPage(CameEntity):
         EntityValidator.validate_data(
             self.raw_data,
             required_keys=["page_id", "page_label"],
-            typed_keys={"page_id": int},
+            typed_keys={"page_id": int, "page_label": str},
         )
 
     @property
