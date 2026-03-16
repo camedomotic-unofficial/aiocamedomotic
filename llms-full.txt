@@ -1232,13 +1232,18 @@ each zone stays `OFF` until its mode is changed explicitly via
 This module defines the Python representation of each of the entity types used by the
 CAME Domotic API.
 
-#### *class* aiocamedomotic.models.AnalogSensor(raw_data: dict[str, Any])
+#### *class* aiocamedomotic.models.AnalogSensor(raw_data: dict[str, Any], sensor_type: [AnalogSensorType](#aiocamedomotic.models.thermo_zone.AnalogSensorType) = AnalogSensorType.UNKNOWN)
 
 Analog sensor from the CAME Domotic thermoregulation system.
 
 Represents a top-level temperature, humidity, or pressure sensor
 reading from the thermoregulation list response. These sensors are
 separate from the thermoregulation zones.
+
+* **Parameters:**
+  * **raw_data** – Dictionary containing the sensor data from the API.
+  * **sensor_type** – The type of sensor (temperature, humidity, or pressure).
+    Defaults to `AnalogSensorType.UNKNOWN` if not specified.
 
 ##### NOTE
 The `value` property returns the real sensor reading in the
@@ -1258,11 +1263,21 @@ Name of the analog sensor.
 
 ##### *property* unit *: str*
 
-Unit of measurement (e.g., ‘°C’, ‘%’, ‘hPa’).
+Unit of measurement (e.g., ‘C’, ‘%’, ‘hPa’).
 
 ##### *property* value *: float*
 
 Sensor reading in the unit reported by `unit`.
+
+#### *class* aiocamedomotic.models.AnalogSensorType(\*values)
+
+Type of an analog sensor.
+
+Allowed values are:
+
+- TEMPERATURE (“temperature”)
+- HUMIDITY (“humidity”)
+- PRESSURE (“pressure”)
 
 #### *class* aiocamedomotic.models.CameEntity
 
@@ -2720,13 +2735,18 @@ analog sensor readings (temperature, humidity, pressure), as well as
 control methods to configure zone settings such as target temperature,
 operating mode, and fan speed.
 
-#### *class* aiocamedomotic.models.thermo_zone.AnalogSensor(raw_data: dict[str, Any])
+#### *class* aiocamedomotic.models.thermo_zone.AnalogSensor(raw_data: dict[str, Any], sensor_type: [AnalogSensorType](#aiocamedomotic.models.thermo_zone.AnalogSensorType) = AnalogSensorType.UNKNOWN)
 
 Analog sensor from the CAME Domotic thermoregulation system.
 
 Represents a top-level temperature, humidity, or pressure sensor
 reading from the thermoregulation list response. These sensors are
 separate from the thermoregulation zones.
+
+* **Parameters:**
+  * **raw_data** – Dictionary containing the sensor data from the API.
+  * **sensor_type** – The type of sensor (temperature, humidity, or pressure).
+    Defaults to `AnalogSensorType.UNKNOWN` if not specified.
 
 ##### NOTE
 The `value` property returns the real sensor reading in the
@@ -2746,11 +2766,21 @@ Name of the analog sensor.
 
 ##### *property* unit *: str*
 
-Unit of measurement (e.g., ‘°C’, ‘%’, ‘hPa’).
+Unit of measurement (e.g., ‘C’, ‘%’, ‘hPa’).
 
 ##### *property* value *: float*
 
 Sensor reading in the unit reported by `unit`.
+
+#### *class* aiocamedomotic.models.thermo_zone.AnalogSensorType(\*values)
+
+Type of an analog sensor.
+
+Allowed values are:
+
+- TEMPERATURE (“temperature”)
+- HUMIDITY (“humidity”)
+- PRESSURE (“pressure”)
 
 #### *class* aiocamedomotic.models.thermo_zone.ThermoZone(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
 
