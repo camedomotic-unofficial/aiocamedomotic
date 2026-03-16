@@ -503,6 +503,73 @@ TVCC_CAMERAS_LIST_RESP = {
     ],
 }
 
+MAPS_LIST_RESP = {
+    "cseq": 11,
+    "cmd_name": "map_descr_resp",
+    "map": [
+        {
+            "background": "maps/maps_pianta piano terra.png",
+            "page_label": "Piano Terra",
+            "page_scale": 1024,
+            "page_id": 0,
+            "array": [
+                {
+                    "x": 208,
+                    "y": 405,
+                    "width": 89,
+                    "height": 120,
+                    "label": "Bagno",
+                    "aspect": "maps_pages_Generico",
+                    "icon_id": 0,
+                    "permission": 1048575,
+                    "read_only": 0,
+                    "address": 0,
+                    "type": 3,
+                    "page": 1,
+                },
+                {
+                    "x": 234,
+                    "y": 714,
+                    "width": 74,
+                    "height": 118,
+                    "label": "Soggiorno",
+                    "aspect": "maps_pages_Generico",
+                    "icon_id": 0,
+                    "permission": 1048575,
+                    "read_only": 0,
+                    "address": 0,
+                    "type": 3,
+                    "page": 12,
+                },
+            ],
+        },
+        {
+            "background": "maps/maps_pianta piano terra_bagno.png",
+            "page_label": "Bagno",
+            "page_scale": 1024,
+            "page_id": 1,
+            "array": [
+                {
+                    "x": 685,
+                    "y": 450,
+                    "width": 123,
+                    "height": 194,
+                    "label": "Specchio Bagno",
+                    "aspect": "maps_lights_Generico",
+                    "icon_id": 0,
+                    "permission": 1048575,
+                    "read_only": 0,
+                    "address": 14,
+                    "type": 0,
+                    "act_id": 4,
+                    "status": 0,
+                }
+            ],
+        },
+    ],
+    "sl_data_ack_reason": 0,
+}
+
 GENERIC_REPLY = {
     "cseq": 4,
     "cmd_name": "generic_reply",
