@@ -1338,3 +1338,108 @@ class TestKeepAliveClamping:
                 auth_instance_not_logged_in.keep_alive_timeout_sec
                 == _KEEP_ALIVE_MAX_SEC
             )
+
+
+class TestTrafficLogging:
+    """Tests for traffic logging integration in Auth methods."""
+
+    @freezegun.freeze_time("2020-01-01")
+    async def test_send_command_logs_traffic(self, auth_instance):
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {"sl_data_ack_reason": 0}
+
+        with (
+            patch.object(
+                auth_instance.websession, "post", new_callable=AsyncMock
+            ) as mock_post,
+            patch.object(
+                auth_instance, "async_get_valid_client_id", new_callable=AsyncMock
+            ) as mock_get_client_id,
+            patch("aiocamedomotic.auth.log_traffic") as mock_log_traffic,
+        ):
+            mock_post.return_value = mock_response
+            mock_get_client_id.return_value = "test_client_id"
+
+            await auth_instance.async_send_command({"cmd_name": "test"})
+
+            mock_log_traffic.assert_called_once()
+            call_args = mock_log_traffic.call_args
+            assert call_args[0][0] == "POST"
+            assert "domo" in call_args[0][1]
+            assert isinstance(call_args[0][2], dict)  # request payload
+            assert call_args[0][3] == {"sl_data_ack_reason": 0}  # response
+            assert call_args[0][4] == 200  # HTTP status
+            assert isinstance(call_args[0][5], float)  # elapsed_ms
+
+    async def test_validate_host_logs_traffic(self):
+        mock_response = Mock()
+        mock_response.status = 200
+        mock_response.raise_for_status = Mock()
+
+        async with aiohttp.ClientSession() as session:
+            with patch("aiohttp.ClientSession.get") as mock_get:
+                mock_get.return_value.__aenter__.return_value = mock_response
+
+                async with await Auth.async_create(
+                    session, "192.168.x.x", "username", "password"
+                ) as auth:
+                    with patch("aiocamedomotic.auth.log_traffic") as mock_log_traffic:
+                        await auth.async_validate_host()
+
+                        mock_log_traffic.assert_called_once()
+                        call_args = mock_log_traffic.call_args
+                        assert call_args[0][0] == "GET"
+                        assert call_args[0][2] is None  # no request payload
+                        assert call_args[0][3] is None  # no response payload
+
+    @freezegun.freeze_time("2020-01-01")
+    async def test_send_command_logs_on_error(self, auth_instance):
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {"sl_data_ack_reason": 1}
+
+        with (
+            patch.object(
+                auth_instance.websession, "post", new_callable=AsyncMock
+            ) as mock_post,
+            patch.object(
+                auth_instance, "async_get_valid_client_id", new_callable=AsyncMock
+            ) as mock_get_client_id,
+            patch("aiocamedomotic.auth.log_traffic") as mock_log_traffic,
+        ):
+            mock_post.return_value = mock_response
+            mock_get_client_id.return_value = "test_client_id"
+
+            with pytest.raises(CameDomoticAuthError):
+                await auth_instance.async_send_command({"cmd_name": "test"})
+
+            mock_log_traffic.assert_called_once()
+
+    @freezegun.freeze_time("2020-01-01")
+    async def test_traffic_logging_failure_does_not_affect_command(self, auth_instance):
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {"sl_data_ack_reason": 0}
+
+        with (
+            patch.object(
+                auth_instance.websession, "post", new_callable=AsyncMock
+            ) as mock_post,
+            patch.object(
+                auth_instance, "async_get_valid_client_id", new_callable=AsyncMock
+            ) as mock_get_client_id,
+            patch(
+                "aiocamedomotic.auth.log_traffic",
+                side_effect=RuntimeError("logging broken"),
+            ),
+        ):
+            mock_post.return_value = mock_response
+            mock_get_client_id.return_value = "test_client_id"
+
+            # Command should succeed despite log_traffic raising
+            result = await auth_instance.async_send_command({"cmd_name": "test"})
+            assert result == {"sl_data_ack_reason": 0}
