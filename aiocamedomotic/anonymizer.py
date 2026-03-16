@@ -139,7 +139,9 @@ def _anonymize_url(url: str) -> str:
         return "<url-redacted>"
 
 
-def _anonymize_value(key: str, value: Any) -> Any:  # pylint: disable=too-many-return-statements
+def _anonymize_value(  # pylint: disable=too-many-return-statements
+    key: str, value: Any
+) -> Any:
     """Return an anonymized version of *value* based on *key*.
 
     Dispatches to full redaction, partial redaction, URI sanitization, or
