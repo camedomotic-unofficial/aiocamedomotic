@@ -78,6 +78,9 @@ Utilities
 
 .. autofunction:: aiocamedomotic.utils.async_is_came_endpoint
 
+.. automodule:: aiocamedomotic.anonymizer
+   :members: TRAFFIC_LOGGER, anonymize_payload
+
 
 Errors
 ------

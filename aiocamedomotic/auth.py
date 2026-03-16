@@ -53,6 +53,7 @@ try:
     _LIBRARY_VERSION = version(__package__ or "aiocamedomotic")
 except PackageNotFoundError:
     _LIBRARY_VERSION = "unknown"
+from .anonymizer import log_traffic
 from .errors import (
     CameDomoticAuthError,
     CameDomoticServerError,
@@ -347,7 +348,7 @@ class Auth:
             return self.client_id
 
     @handle_came_domotic_errors
-    async def async_send_command(  # pylint: disable=too-many-branches
+    async def async_send_command(  # pylint: disable=too-many-branches,too-many-locals,too-many-statements
         self,
         command: dict[str, Any],
         *,
@@ -437,6 +438,10 @@ class Auth:
             self.get_endpoint_url(),
         )
 
+        _traffic_start = time.monotonic()
+        _traffic_response: dict[str, Any] | None = None
+        _traffic_status: int | None = None
+
         try:
             response = await self.websession.post(
                 self.get_endpoint_url(),
@@ -447,6 +452,7 @@ class Auth:
                 ),
             )
 
+            _traffic_status = response.status
             LOGGER.debug("HTTP response status: %s", response.status)
 
             if not skip_ack_check:
@@ -470,6 +476,8 @@ class Auth:
                 raise CameDomoticServerError(
                     "Error decoding the response to JSON"
                 ) from e
+
+            _traffic_response = json_response
 
             resp_cmd_name = json_response.get("cmd_name")
             if response_command is not None and resp_cmd_name != response_command:
@@ -507,6 +515,18 @@ class Auth:
             cmd_name = (command or {}).get("cmd_name")
             LOGGER.exception("Error sending command '%s': %s", cmd_name, e)
             raise CameDomoticServerError("Error sending command") from e
+        finally:
+            try:
+                log_traffic(
+                    "POST",
+                    self.get_endpoint_url(),
+                    request_payload,
+                    _traffic_response,
+                    _traffic_status,
+                    (time.monotonic() - _traffic_start) * 1000,
+                )
+            except Exception:  # pylint: disable=broad-except
+                LOGGER.debug("Traffic logging failed", exc_info=True)
 
     # The following method is not async because it is used in the __init__ method
     async def async_validate_host(self, timeout: int = 10) -> None:
@@ -523,10 +543,13 @@ class Auth:
         client_timeout = aiohttp.ClientTimeout(total=timeout)
         LOGGER.debug("Validating host at '%s'", endpoint_url)
 
+        _traffic_start = time.monotonic()
+        _traffic_status: int | None = None
         try:
             async with self.websession.get(
                 endpoint_url, timeout=client_timeout
             ) as resp:
+                _traffic_status = resp.status
                 # Ensure that the server URL is available
                 resp.raise_for_status()
                 if resp.status != 200:
@@ -565,6 +588,18 @@ class Auth:
             raise CameDomoticServerNotFoundError(
                 f"HTTP GET of '{endpoint_url}' resulted in an unexpected error ({e})'"
             ) from e
+        finally:
+            try:
+                log_traffic(
+                    "GET",
+                    endpoint_url,
+                    None,
+                    None,
+                    _traffic_status,
+                    (time.monotonic() - _traffic_start) * 1000,
+                )
+            except Exception:  # pylint: disable=broad-except
+                LOGGER.debug("Traffic logging failed", exc_info=True)
 
     async def async_login(self) -> None:
         """Login to the CAME Domotic server.

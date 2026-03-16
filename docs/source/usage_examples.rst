@@ -797,5 +797,69 @@ credentials:
     lowercase ``00:1c:b2:aa:bb:cc`` will **not** match directly — normalize
     to uppercase colon-separated format first, as shown in the example above.
 
+Debugging with traffic logging
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The library includes a built-in traffic logger that records every HTTP
+request and response exchanged with the CAME server. **Sensitive data
+(passwords, session tokens, server identifiers) is automatically
+anonymized**, so the output is safe to share publicly — for example, when
+reporting issues on GitHub.
+
+The traffic logger uses the ``aiocamedomotic.traffic`` logger name (a child
+of the main ``aiocamedomotic`` logger). Since it is a child logger, it
+inherits the handler and formatter already configured by the library — you
+only need to lower its level to ``DEBUG``:
+
+.. code-block:: python
+
+    import logging
+
+    # Enable traffic logging (anonymized request/response payloads)
+    logging.getLogger("aiocamedomotic.traffic").setLevel(logging.DEBUG)
+
+That single line is all you need. The traffic log messages will appear
+alongside the normal library output, using the same format.
+
+Example output:
+
+.. code-block:: text
+
+    2025-03-15 10:23:01.123 DEBUG (MainThread) [aiocamedomotic.traffic] HTTP POST http://192.168.1.***/domo/ [status=200, 42.5ms]
+    --> {"sl_cmd":"sl_registration_req","sl_login":"ad***","sl_pwd":"***"}
+    <-- {"sl_client_id":"504***","sl_keep_alive_timeout_sec":900,"sl_data_ack_reason":0}
+
+The following fields are redacted automatically:
+
+- ``sl_pwd``, ``sl_new_pwd`` → fully replaced with ``***``
+- ``sl_login`` → first 2 characters preserved (e.g. ``ad***``)
+- ``sl_client_id``, ``client`` → first 3 characters preserved (e.g. ``504***``)
+- ``keycode`` → first 8 characters preserved (e.g. ``61305E97********``)
+- ``serial`` → first 3 characters preserved (e.g. ``037***``)
+- Camera URIs (``uri``, ``uri_still``) → embedded credentials redacted
+- Host IP in the URL → last octet masked (e.g. ``192.168.1.***``)
+- Usernames inside ``sl_users_list`` items → partially masked
+
+.. note::
+    The traffic logger level is independent from the main library logger.
+    Setting ``aiocamedomotic`` to ``WARNING`` and
+    ``aiocamedomotic.traffic`` to ``DEBUG`` is a valid configuration —
+    you will see only the HTTP traffic, without the library's internal
+    debug messages.
+
+.. tip::
+    To write the traffic log to a **file** for later analysis, add a
+    dedicated ``FileHandler``. Use ``propagate = False`` if you want the
+    traffic to go *only* to the file and not to the console:
+
+    .. code-block:: python
+
+        import logging
+
+        traffic_logger = logging.getLogger("aiocamedomotic.traffic")
+        traffic_logger.setLevel(logging.DEBUG)
+        traffic_logger.addHandler(logging.FileHandler("came_traffic.log"))
+        traffic_logger.propagate = False  # file only, no console output
+
 .. seealso::
     For full API details, see the :doc:`api_reference`.
