@@ -544,10 +544,12 @@ class Auth:
         LOGGER.debug("Validating host at '%s'", endpoint_url)
 
         _traffic_start = time.monotonic()
+        _traffic_status: int | None = None
         try:
             async with self.websession.get(
                 endpoint_url, timeout=client_timeout
             ) as resp:
+                _traffic_status = resp.status
                 # Ensure that the server URL is available
                 resp.raise_for_status()
                 if resp.status != 200:
@@ -593,7 +595,7 @@ class Auth:
                     endpoint_url,
                     None,
                     None,
-                    None,
+                    _traffic_status,
                     (time.monotonic() - _traffic_start) * 1000,
                 )
             except Exception:  # pylint: disable=broad-except
