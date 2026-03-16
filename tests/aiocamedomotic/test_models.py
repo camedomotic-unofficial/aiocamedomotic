@@ -2377,6 +2377,16 @@ class TestAnalogSensorType:
         assert AnalogSensorType("temperature") == AnalogSensorType.TEMPERATURE
         assert AnalogSensorType("humidity") == AnalogSensorType.HUMIDITY
         assert AnalogSensorType("pressure") == AnalogSensorType.PRESSURE
+        assert AnalogSensorType("unknown") == AnalogSensorType.UNKNOWN
+
+    def test_members(self):
+        members = set(AnalogSensorType)
+        assert members == {
+            AnalogSensorType.TEMPERATURE,
+            AnalogSensorType.HUMIDITY,
+            AnalogSensorType.PRESSURE,
+            AnalogSensorType.UNKNOWN,
+        }
 
     def test_invalid_value(self):
         with pytest.raises(ValueError):

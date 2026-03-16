@@ -31,8 +31,8 @@ and controlling devices, and monitoring real-time changes. For a minimal
 
         from aiocamedomotic import CameDomoticAPI
         from aiocamedomotic.models import (
-            DeviceType, DigitalInputStatus, LightStatus, LightType,
-            OpeningStatus, ScenarioStatus, ThermoZoneFanSpeed,
+            AnalogSensorType, DeviceType, DigitalInputStatus, LightStatus,
+            LightType, OpeningStatus, ScenarioStatus, ThermoZoneFanSpeed,
             ThermoZoneMode, ThermoZoneSeason, ThermoZoneStatus,
             DeviceUpdate, LightUpdate, OpeningUpdate, ThermoZoneUpdate,
             ScenarioUpdate, DigitalInputUpdate, PlantUpdate,
@@ -462,22 +462,50 @@ Analog sensors
 ^^^^^^^^^^^^^^
 
 Analog sensors provide top-level readings (temperature, humidity, pressure)
-from the thermoregulation system:
+from the thermoregulation system. Each sensor carries an ``AnalogSensorType``
+that identifies the kind of measurement it represents.
+
+**Fetching and inspecting sensors:**
 
 .. code-block:: python
+
+    from aiocamedomotic.models import AnalogSensorType
 
     sensors = await api.async_get_analog_sensors()
 
     for sensor in sensors:
-        print(f"Name: {sensor.name}, Value: {sensor.value}, Unit: {sensor.unit}")
+        print(
+            f"Name: {sensor.name}, Type: {sensor.sensor_type}, "
+            f"Value: {sensor.value}, Unit: {sensor.unit}"
+        )
 
 Example output:
 
 .. code-block:: text
 
-    Name: Outdoor Temperature, Value: 21.5, Unit: °C
-    Name: Indoor Humidity, Value: 55, Unit: %
-    Name: Barometric Pressure, Value: 1013, Unit: hPa
+    Name: Outdoor Temperature, Type: AnalogSensorType.TEMPERATURE, Value: 21.5, Unit: C
+    Name: Indoor Humidity, Type: AnalogSensorType.HUMIDITY, Value: 55, Unit: %
+    Name: Barometric Pressure, Type: AnalogSensorType.PRESSURE, Value: 1013, Unit: hPa
+
+**Filtering by sensor type:**
+
+.. code-block:: python
+
+    # Get only temperature sensors
+    temp_sensors = [
+        s for s in sensors if s.sensor_type == AnalogSensorType.TEMPERATURE
+    ]
+    for s in temp_sensors:
+        print(f"{s.name}: {s.value}°{s.unit}")
+
+    # Find a specific sensor by ID
+    outdoor = next((s for s in sensors if s.act_id == 100), None)
+
+.. note::
+    Temperature sensor values are automatically scaled from the raw
+    integer-times-10 representation (e.g. ``215`` becomes ``21.5``).
+    Humidity and pressure values are returned as-is. The ``sensor_type``
+    property (an ``AnalogSensorType`` enum) determines the scaling behavior.
 
 Digital inputs (binary sensors)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
