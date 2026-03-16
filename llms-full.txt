@@ -1089,6 +1089,26 @@ readings from the thermoregulation list response.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
+##### *async* async_get_cameras() → list[[Camera](#aiocamedomotic.models.camera.Camera)]
+
+Get the list of all TVCC cameras defined on the server.
+
+Cameras are read-only entities providing access to IP camera
+stream URIs. They do not support control commands.
+
+##### NOTE
+This method uses API commands documented in the CAME JS client
+but not yet verified against a real server. Behaviour may differ
+across firmware versions.
+
+* **Returns:**
+  List of cameras.
+* **Return type:**
+  list[[Camera](#aiocamedomotic.models.camera.Camera)]
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
 ##### *async* async_get_digital_inputs() → list[[DigitalInput](#aiocamedomotic.models.digital_input.DigitalInput)]
 
 Get the list of all digital input devices defined on the server.
@@ -1362,6 +1382,10 @@ ID of the analog sensor.
 
 Name of the analog sensor.
 
+##### sensor_type *: [AnalogSensorType](#aiocamedomotic.models.thermo_zone.AnalogSensorType)* *= 'unknown'*
+
+The type of sensor (temperature, humidity, or pressure).
+
 ##### *property* unit *: str*
 
 Unit of measurement (e.g., ‘C’, ‘%’, ‘hPa’).
@@ -1379,10 +1403,79 @@ Allowed values are:
 - TEMPERATURE (“temperature”)
 - HUMIDITY (“humidity”)
 - PRESSURE (“pressure”)
+- UNKNOWN (“unknown”)
 
 #### *class* aiocamedomotic.models.CameEntity
 
 Base class for all the CAME entities.
+
+#### *class* aiocamedomotic.models.Camera(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+
+TVCC camera entity in the CameDomotic API.
+
+Cameras are read-only devices that provide streaming video and still-image
+URIs for IP cameras connected to the CAME Domotic system. They cannot be
+controlled remotely — this is purely a viewing/monitoring feature.
+
+##### WARNING
+The `uri` and `uri_still` fields point directly to camera HTTP
+endpoints on the local network. These URIs may contain embedded
+authentication credentials (e.g. `http://user:pass@camera/stream`).
+Avoid logging or displaying these values without sanitisation.
+
+* **Raises:**
+  **ValueError** – If `name` or `id` keys are missing from the input
+      data or the auth argument is not an instance of the expected
+      `Auth` class.
+
+##### *property* id *: int*
+
+Unique camera identifier.
+
+Unlike other device models which use `act_id`, cameras use a plain
+`id` field as their primary key (JS field: `id`, `idProperty`).
+
+##### *property* is_flash *: bool*
+
+Whether this camera uses a Flash (SWF) stream.
+
+Flash streams are obsolete — consumers should fall back to
+`uri_still` for cameras where this is `True`.
+
+Derived from: `stream_type == "swf"` (same check as JS client,
+line 5493).
+
+##### *property* name *: str*
+
+`name`).
+
+* **Type:**
+  Camera display name (JS field
+
+##### *property* stream_type *: str*
+
+Raw stream format string as returned by the server.
+
+The only known value with special semantics is `"swf"` (Flash).
+All other values are treated identically by the JS client
+(JS field: `stream_type`).
+
+##### *property* uri *: str*
+
+Primary streaming video URI.
+
+Points directly to the camera’s stream endpoint on the LAN.
+The actual protocol/format is opaque — the JS client loads it
+in an iframe (JS field: `uri`).
+
+##### *property* uri_still *: str*
+
+Snapshot/still-image URI.
+
+Returns a single JPEG frame from the camera. Useful for thumbnails
+or as a fallback when the primary stream format is not supported.
+Append `?t=<timestamp>` for cache busting on repeated fetches
+(JS field: `uri_still`).
 
 #### *class* aiocamedomotic.models.DeviceType(\*values)
 
@@ -2668,6 +2761,86 @@ In case of failure, the previous user is restored.
 
 Name of the user.
 
+CAME Domotic TVCC camera entity models.
+
+This module implements the classes for working with TVCC (closed-circuit
+television) cameras in a CAME Domotic system. Cameras are read-only entities
+that provide access to IP camera stream URIs but do not support control
+commands.
+
+##### NOTE
+This module is based on reverse-engineered API documentation from the
+CAME JS client and has not been verified against a real CAME Domotic
+server. Behaviour may differ across firmware versions.
+
+#### *class* aiocamedomotic.models.camera.Camera(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+
+TVCC camera entity in the CameDomotic API.
+
+Cameras are read-only devices that provide streaming video and still-image
+URIs for IP cameras connected to the CAME Domotic system. They cannot be
+controlled remotely — this is purely a viewing/monitoring feature.
+
+##### WARNING
+The `uri` and `uri_still` fields point directly to camera HTTP
+endpoints on the local network. These URIs may contain embedded
+authentication credentials (e.g. `http://user:pass@camera/stream`).
+Avoid logging or displaying these values without sanitisation.
+
+* **Raises:**
+  **ValueError** – If `name` or `id` keys are missing from the input
+      data or the auth argument is not an instance of the expected
+      `Auth` class.
+
+##### *property* id *: int*
+
+Unique camera identifier.
+
+Unlike other device models which use `act_id`, cameras use a plain
+`id` field as their primary key (JS field: `id`, `idProperty`).
+
+##### *property* is_flash *: bool*
+
+Whether this camera uses a Flash (SWF) stream.
+
+Flash streams are obsolete — consumers should fall back to
+[`uri_still`](#aiocamedomotic.models.camera.Camera.uri_still) for cameras where this is `True`.
+
+Derived from: `stream_type == "swf"` (same check as JS client,
+line 5493).
+
+##### *property* name *: str*
+
+`name`).
+
+* **Type:**
+  Camera display name (JS field
+
+##### *property* stream_type *: str*
+
+Raw stream format string as returned by the server.
+
+The only known value with special semantics is `"swf"` (Flash).
+All other values are treated identically by the JS client
+(JS field: `stream_type`).
+
+##### *property* uri *: str*
+
+Primary streaming video URI.
+
+Points directly to the camera’s stream endpoint on the LAN.
+The actual protocol/format is opaque — the JS client loads it
+in an iframe (JS field: `uri`).
+
+##### *property* uri_still *: str*
+
+Snapshot/still-image URI.
+
+Returns a single JPEG frame from the camera. Useful for thumbnails
+or as a fallback when the primary stream format is not supported.
+Append `?t=<timestamp>` for cache busting on repeated fetches
+(JS field: `uri_still`).
+
 CAME Domotic digital input (binary sensor) entity models.
 
 This module implements the classes for working with digital inputs in a CAME
@@ -3080,6 +3253,10 @@ ID of the analog sensor.
 
 Name of the analog sensor.
 
+##### sensor_type *: [AnalogSensorType](#aiocamedomotic.models.thermo_zone.AnalogSensorType)* *= 'unknown'*
+
+The type of sensor (temperature, humidity, or pressure).
+
 ##### *property* unit *: str*
 
 Unit of measurement (e.g., ‘C’, ‘%’, ‘hPa’).
@@ -3097,6 +3274,7 @@ Allowed values are:
 - TEMPERATURE (“temperature”)
 - HUMIDITY (“humidity”)
 - PRESSURE (“pressure”)
+- UNKNOWN (“unknown”)
 
 #### *class* aiocamedomotic.models.thermo_zone.ThermoZone(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
 
