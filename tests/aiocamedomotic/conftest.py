@@ -395,4 +395,57 @@ def camera_data_standard():
     }
 
 
+@pytest.fixture
+def map_page_data():
+    """Mock data for a map page with elements."""
+    return {
+        "background": "maps/maps_pianta piano terra.png",
+        "page_label": "Piano Terra",
+        "page_scale": 1024,
+        "page_id": 0,
+        "array": [
+            {
+                "x": 208,
+                "y": 405,
+                "width": 89,
+                "height": 120,
+                "label": "Bagno",
+                "aspect": "maps_pages_Generico",
+                "icon_id": 0,
+                "permission": 1048575,
+                "read_only": 0,
+                "address": 0,
+                "type": 3,
+                "page": 1,
+            },
+            {
+                "x": 685,
+                "y": 450,
+                "width": 123,
+                "height": 194,
+                "label": "Specchio Bagno",
+                "aspect": "maps_lights_Generico",
+                "icon_id": 0,
+                "permission": 1048575,
+                "read_only": 0,
+                "address": 14,
+                "type": 0,
+                "act_id": 4,
+                "status": 0,
+            },
+        ],
+    }
+
+
+@pytest.fixture
+def map_page_data_empty():
+    """Mock data for a map page with no elements."""
+    return {
+        "page_label": "Empty Floor",
+        "page_scale": 1024,
+        "page_id": 2,
+        "array": [],
+    }
+
+
 # endregion

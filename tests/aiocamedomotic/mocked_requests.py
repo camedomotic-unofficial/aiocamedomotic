@@ -286,3 +286,16 @@ TVCC_CAMERAS_LIST_REQ = {
     "sl_client_id": "my_session_id",
     "sl_cmd": "sl_data_req",
 }
+
+MAP_DESCR_REQ = {
+    "sl_appl_msg": {
+        "client": "my_session_id",
+        "cmd_name": "map_descr_req",
+        "cseq": 1,
+        "username": "username",
+        "map_id": 0,
+    },
+    "sl_appl_msg_type": "domo",
+    "sl_client_id": "my_session_id",
+    "sl_cmd": "sl_data_req",
+}

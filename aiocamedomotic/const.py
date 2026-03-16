@@ -164,6 +164,7 @@ class _CommandName(Enum):
     THERMO_ZONE_CONFIG = "thermo_zone_config_req"
     THERMO_SEASON = "thermo_season_req"
     TERMINALS_GROUPS_LIST = "terminals_groups_list_req"
+    MAP_DESCR = "map_descr_req"
 
 
 class _CommandNameResponse(Enum):
@@ -182,6 +183,7 @@ class _CommandNameResponse(Enum):
     DIGITALIN_LIST = "digitalin_list_resp"
     TVCC_CAMERAS_LIST = "tvcc_cameras_list_resp"
     TERMINALS_GROUPS_LIST = "terminals_groups_list_resp"
+    MAP_DESCR = "map_descr_resp"
     # Status
     STATUS_UPDATE = "status_update_resp"
     # Actions

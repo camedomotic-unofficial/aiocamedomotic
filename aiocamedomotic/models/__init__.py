@@ -38,6 +38,7 @@ from .digital_input import (  # noqa: F401
     DigitalInputType,
 )
 from .light import Light, LightStatus, LightType  # noqa: F401
+from .map_page import MapPage  # noqa: F401
 from .opening import Opening, OpeningStatus, OpeningType  # noqa: F401
 from .relay import Relay, RelayStatus  # noqa: F401
 from .scenario import Scenario, ScenarioStatus  # noqa: F401
@@ -80,6 +81,7 @@ __all__ = [
     "LightStatus",
     "LightType",
     "LightUpdate",
+    "MapPage",
     "Opening",
     "OpeningStatus",
     "OpeningType",

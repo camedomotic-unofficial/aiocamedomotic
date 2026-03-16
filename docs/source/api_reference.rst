@@ -47,6 +47,9 @@ Entity models
 .. automodule:: aiocamedomotic.models.light
    :members:
 
+.. automodule:: aiocamedomotic.models.map_page
+   :members:
+
 .. automodule:: aiocamedomotic.models.opening
    :members:
 
