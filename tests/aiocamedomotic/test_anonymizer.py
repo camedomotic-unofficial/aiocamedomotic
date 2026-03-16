@@ -162,7 +162,7 @@ class TestAnonymizeValue:
         assert _anonymize_value("keycode", "61305E975DE3F469") == "61305E97********"
 
     def test_serial_partial(self):
-        assert _anonymize_value("serial", "03718b9a") == "037***"
+        assert _anonymize_value("serial", "03718b9a") == "037*****"
 
     def test_partial_non_string_unchanged(self):
         assert _anonymize_value("sl_client_id", 12345) == 12345
@@ -265,7 +265,7 @@ class TestAnonymizePayload:
         }
         result = anonymize_payload(payload)
         assert result["keycode"] == "0000FFFF********"
-        assert result["serial"] == "001***"
+        assert result["serial"] == "001*****"
         assert result["swver"] == "1.2.3"
 
     def test_users_list_response(self):
