@@ -45,11 +45,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Drafts your next Release notes as Pull Requests are merged into "main"
-      - uses: release-drafter/release-drafter@v6 # v6.0.0
+      - uses: release-drafter/release-drafter@v7
         with:
           prerelease: true
           prerelease-identifier: alpha
-        #   config-name: my-config.yml
-        #   disable-autolabeler: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Autolabeler (split into dedicated action in v7)
+      - uses: release-drafter/release-drafter/autolabeler@v7
