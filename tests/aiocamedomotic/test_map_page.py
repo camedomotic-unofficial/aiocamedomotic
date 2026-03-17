@@ -26,9 +26,9 @@ class TestMapPage:
         page = MapPage(map_page_data)
 
         assert page.page_id == 0
-        assert page.page_label == "Piano Terra"
+        assert page.page_label == "Living Room"
         assert page.page_scale == 1024
-        assert page.background == "maps/maps_pianta piano terra.png"
+        assert page.background == "maps/maps_living_room.jpg"
         assert len(page.elements) == 2
 
     def test_init_empty_page(self, map_page_data_empty):
@@ -76,9 +76,9 @@ class TestMapPage:
         page = MapPage(data)
         assert page.background == ""
 
-    def test_background_with_spaces(self, map_page_data):
+    def test_background_value(self, map_page_data):
         page = MapPage(map_page_data)
-        assert " " in page.background
+        assert page.background == "maps/maps_living_room.jpg"
 
     def test_elements_missing_array_key(self):
         data = {"page_id": 0, "page_label": "Test"}
@@ -97,18 +97,19 @@ class TestMapPage:
         assert isinstance(elements, list)
         assert all(isinstance(elem, dict) for elem in elements)
 
-        # Verify page link element (type 3) has expected keys
-        page_link = elements[0]
-        assert page_link["type"] == 3
-        assert page_link["label"] == "Bagno"
-        assert page_link["page"] == 1
-
         # Verify light element (type 0) has expected keys
-        light = elements[1]
+        light = elements[0]
         assert light["type"] == 0
-        assert light["label"] == "Specchio Bagno"
-        assert light["act_id"] == 4
+        assert light["label"] == "Ceiling Light"
+        assert light["act_id"] == 13
         assert light["status"] == 0
+        assert light["perc"] == 12
+
+        # Verify opening element (type 1) has expected keys
+        opening = elements[1]
+        assert opening["type"] == 1
+        assert opening["label"] == "Living Room Shutter"
+        assert opening["act_id"] == 68
 
     def test_raw_data_preserved(self, map_page_data):
         page = MapPage(map_page_data)
