@@ -2439,12 +2439,12 @@ class TestAPIMapPages:
         assert isinstance(pages[0], MapPage)
         assert isinstance(pages[1], MapPage)
 
-        # Verify the payload includes username and map_id
+        # Verify the payload has only cmd_name (no username or map_id)
         call_args = mock_send_command.call_args
         payload = call_args[0][0]
         assert payload["cmd_name"] == "map_descr_req"
-        assert payload["map_id"] == 0
-        assert "username" in payload
+        assert "map_id" not in payload
+        assert "username" not in payload
 
         # Verify response_command was passed
         call_kwargs = call_args[1]

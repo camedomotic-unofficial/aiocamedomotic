@@ -570,11 +570,6 @@ class CameDomoticAPI:
         device elements overlaid on background images. Map data is
         read-only and cannot be modified through the API.
 
-        .. note::
-            This method uses API commands documented in the CAME JS client
-            but not yet verified against a real server. Behaviour may differ
-            across firmware versions.
-
         Returns:
             list[MapPage]: List of map pages, each containing positioned
             elements. Returns an empty list if no maps are defined.
@@ -586,8 +581,6 @@ class CameDomoticAPI:
         LOGGER.debug("Fetching map pages")
         payload = {
             "cmd_name": _CommandName.MAP_DESCR.value,
-            "username": self.auth.current_username,
-            "map_id": 0,
         }
 
         json_response = await self.auth.async_send_command(

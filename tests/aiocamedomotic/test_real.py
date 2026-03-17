@@ -33,6 +33,7 @@ from aiocamedomotic.models import (
     DigitalInputUpdate,
     LightStatus,
     LightUpdate,
+    MapPage,
     OpeningUpdate,
     PlantTopology,
     PlantUpdate,
@@ -937,6 +938,35 @@ async def test_async_keep_alive(api_instance_real: CameDomoticAPI):
     await api_instance_real.auth.async_keep_alive()
     print("Keep-alive succeeded — session is still valid")
     assert api_instance_real.auth.is_session_valid()
+
+
+async def test_async_get_map_pages(api_instance_real: CameDomoticAPI):
+    """Tests fetching all map pages from the server."""
+    print("\nFetching map pages...")
+    pages = await api_instance_real.async_get_map_pages()
+
+    assert isinstance(pages, list)
+    print(f"Found {len(pages)} map page(s)")
+
+    for page in pages:
+        assert isinstance(page, MapPage)
+        assert isinstance(page.page_id, int)
+        assert isinstance(page.page_label, str)
+        print(
+            f"\n  Page ID: {page.page_id}, Label: '{page.page_label}'"
+            f"\n    Background: {page.background}"
+            f"\n    Scale: {page.page_scale}"
+            f"\n    Elements: {len(page.elements)}"
+        )
+        for elem in page.elements:
+            assert isinstance(elem, dict)
+            assert "type" in elem
+            assert "x" in elem
+            assert "y" in elem
+            print(
+                f"      - '{elem.get('label', '')}' type={elem['type']} "
+                f"at ({elem['x']}, {elem['y']})"
+            )
 
 
 async def test_async_get_timers(api_instance_real: CameDomoticAPI):
