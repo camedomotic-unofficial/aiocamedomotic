@@ -41,6 +41,7 @@ from aiocamedomotic.models import (
     ThermoZoneMode,
     ThermoZoneSeason,
     ThermoZoneUpdate,
+    Timer,
     User,
 )
 from aiocamedomotic.models.opening import OpeningStatus
@@ -936,6 +937,177 @@ async def test_async_keep_alive(api_instance_real: CameDomoticAPI):
     await api_instance_real.auth.async_keep_alive()
     print("Keep-alive succeeded — session is still valid")
     assert api_instance_real.auth.is_session_valid()
+
+
+async def test_async_get_timers(api_instance_real: CameDomoticAPI):
+    """Test getting all timers from the server."""
+    timers = await api_instance_real.async_get_timers()
+    assert isinstance(timers, list)
+    print(f"Found {len(timers)} timer(s)")
+    for timer in timers:
+        assert isinstance(timer, Timer)
+        assert timer.name
+        assert isinstance(timer.id, int)
+        print(
+            f"  Timer '{timer.name}' (ID: {timer.id}): "
+            f"enabled={timer.enabled}, days={timer.days} ({timer.active_days}), "
+            f"timetable_entries={len(timer.timetable)}"
+        )
+
+
+@pytest.mark.timeout(60)
+async def test_timer_control_sequence(api_instance_real: CameDomoticAPI):
+    """End-to-end timer control: toggle enabled, toggle Sunday, set/clear slot 4.
+
+    Each step waits 4 seconds so the effect can be verified in the CAME app.
+    All changes are reverted to the original state at the end.
+    """
+    wait_sec = 4
+
+    timers = await api_instance_real.async_get_timers()
+    if not timers:
+        pytest.skip("No timers found on server")
+        return
+
+    timer = timers[0]
+    print(
+        f"\nUsing timer '{timer.name}' (ID: {timer.id})"
+        f"\n  enabled={timer.enabled}, days={timer.days} ({timer.active_days})"
+        f"\n  timetable slots: {len(timer.timetable)}"
+    )
+
+    # Save original state for revert
+    original_enabled = timer.enabled
+    original_sunday_active = timer.is_active_on_day(6)
+    original_timetable_raw = list(timer.raw_data.get("timetable", []))
+
+    try:
+        # --- Step 1: Toggle enabled status ---
+        if timer.enabled:
+            print("\n[Step 1] Disabling timer...")
+            await timer.async_disable()
+            assert timer.enabled is False
+        else:
+            print("\n[Step 1] Enabling timer...")
+            await timer.async_enable()
+            assert timer.enabled is True
+        print(f"  enabled={timer.enabled}  (check the app now)")
+        await asyncio.sleep(wait_sec)
+
+        # Revert enabled
+        print("  Reverting enabled status...")
+        if original_enabled:
+            await timer.async_enable()
+        else:
+            await timer.async_disable()
+        assert timer.enabled == original_enabled
+        print(f"  enabled={timer.enabled}")
+        await asyncio.sleep(wait_sec)
+
+        # --- Step 2: Toggle Sunday (day index 6) ---
+        if original_sunday_active:
+            print("\n[Step 2] Disabling Sunday...")
+            await timer.async_disable_day(6)
+            assert timer.is_active_on_day(6) is False
+        else:
+            print("\n[Step 2] Enabling Sunday...")
+            await timer.async_enable_day(6)
+            assert timer.is_active_on_day(6) is True
+        print(f"  days={timer.days} ({timer.active_days})  (check the app now)")
+        await asyncio.sleep(wait_sec)
+
+        # Revert Sunday
+        print("  Reverting Sunday...")
+        if original_sunday_active:
+            await timer.async_enable_day(6)
+        else:
+            await timer.async_disable_day(6)
+        assert timer.is_active_on_day(6) == original_sunday_active
+        print(f"  days={timer.days} ({timer.active_days})")
+        await asyncio.sleep(wait_sec)
+
+        # --- Step 3: Set start time on slot 3 (fourth slot, zero-based) ---
+        # Build 4-slot array preserving existing slots, setting slot 3 to 14:30:00
+        slots: list[tuple[int, int, int] | None] = [None, None, None, None]
+        for entry in original_timetable_raw:
+            idx = entry.get("index")
+            if idx is not None and 0 <= idx <= 3:
+                start = entry.get("start", {})
+                slots[idx] = (
+                    start.get("hour", 0),
+                    start.get("min", 0),
+                    start.get("sec", 0),
+                )
+        slots[3] = (14, 30, 0)
+
+        print("\n[Step 3] Setting slot 4 start to 14:30:00...")
+        await timer.async_set_timetable(slots)
+        timetable = timer.timetable
+        slot3 = next((s for s in timetable if s.index == 3), None)
+        assert slot3 is not None, "Slot 3 should exist after setting"
+        assert slot3.start_hour == 14
+        assert slot3.start_min == 30
+        print(
+            f"  timetable has {len(timetable)} slot(s), "
+            f"slot 4 start={slot3.start_hour}"
+            f":{slot3.start_min:02d}:{slot3.start_sec:02d}"
+            f"  (check the app now)"
+        )
+        await asyncio.sleep(wait_sec)
+
+        # --- Step 4: Clear slot 3 (revert timetable) ---
+        revert_slots: list[tuple[int, int, int] | None] = [None, None, None, None]
+        for entry in original_timetable_raw:
+            idx = entry.get("index")
+            if idx is not None and 0 <= idx <= 3:
+                start = entry.get("start", {})
+                revert_slots[idx] = (
+                    start.get("hour", 0),
+                    start.get("min", 0),
+                    start.get("sec", 0),
+                )
+
+        print("\n[Step 4] Clearing slot 4 (reverting timetable)...")
+        await timer.async_set_timetable(revert_slots)
+        timetable = timer.timetable
+        slot3 = next((s for s in timetable if s.index == 3), None)
+        assert slot3 is None, "Slot 3 should be cleared"
+        print(f"  timetable has {len(timetable)} slot(s)  (check the app now)")
+        await asyncio.sleep(wait_sec)
+
+        print("\nAll steps completed, timer restored to original state.")
+
+    except Exception:
+        # Best-effort revert on failure
+        print("\nERROR — attempting to revert timer...")
+        try:
+            if original_enabled:
+                await timer.async_enable()
+            else:
+                await timer.async_disable()
+            revert_slots_err: list[tuple[int, int, int] | None] = [
+                None,
+                None,
+                None,
+                None,
+            ]
+            for entry in original_timetable_raw:
+                idx = entry.get("index")
+                if idx is not None and 0 <= idx <= 3:
+                    start = entry.get("start", {})
+                    revert_slots_err[idx] = (
+                        start.get("hour", 0),
+                        start.get("min", 0),
+                        start.get("sec", 0),
+                    )
+            await timer.async_set_timetable(revert_slots_err)
+            if original_sunday_active:
+                await timer.async_enable_day(6)
+            else:
+                await timer.async_disable_day(6)
+        except Exception as revert_err:
+            print(f"  Revert failed: {revert_err}")
+        raise
 
 
 async def test_autodiscovery(real_server_config):

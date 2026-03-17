@@ -67,6 +67,7 @@ from aiocamedomotic.models import (
     ThermoZoneSeason,
     ThermoZoneStatus,
     ThermoZoneUpdate,
+    TimerUpdate,
     UpdateList,
     User,
     get_update_device_type,
@@ -94,6 +95,7 @@ class TestDeviceType:
         assert DeviceType.GENERIC_TEXT == 12
         assert DeviceType.SOUND_ZONE == 13
         assert DeviceType.DIGITAL_INPUT == 14
+        assert DeviceType.TIMER == 15
 
     def test_lookup_by_value(self):
         assert DeviceType(0) == DeviceType.LIGHT
@@ -2849,3 +2851,130 @@ class TestCamera:
         data = {"id": 3, "name": "No Stream Type Camera"}
         camera = Camera(data, auth_instance)
         assert camera.is_flash is False
+
+
+class TestTimerUpdate:
+    def test_parse_timer_info_ind_disabled(self):
+        """Real traffic: timer disabled via timers_enable_req."""
+        raw = {
+            "name": "Test timer",
+            "id": 163,
+            "enabled": 0,
+            "days": 15,
+            "bars": 1,
+            "timetable": [{"start": {"hour": 10, "min": 0, "sec": 0}, "index": 0}],
+            "cmd_name": "timer_info_ind",
+        }
+        update = parse_update(raw)
+        assert isinstance(update, TimerUpdate)
+        assert update.id == 163
+        assert update.enabled is False
+        assert update.days == 15
+        assert update.bars == 1
+        assert len(update.timetable) == 1
+        assert update.timetable[0]["index"] == 0
+        assert update.device_id == 163
+        assert update.name == "Test timer"
+
+    def test_parse_timer_info_ind_enabled(self):
+        """Real traffic: timer re-enabled via timers_enable_req."""
+        raw = {
+            "name": "Test timer",
+            "id": 163,
+            "enabled": 1,
+            "days": 15,
+            "bars": 1,
+            "timetable": [{"start": {"hour": 10, "min": 0, "sec": 0}, "index": 0}],
+            "cmd_name": "timer_info_ind",
+        }
+        update = parse_update(raw)
+        assert isinstance(update, TimerUpdate)
+        assert update.enabled is True
+
+    def test_parse_timer_info_ind_day_toggled(self):
+        """Real traffic: Sunday enabled via timers_enable_day_req."""
+        raw = {
+            "name": "Test timer",
+            "id": 163,
+            "enabled": 1,
+            "days": 79,
+            "bars": 1,
+            "timetable": [{"start": {"hour": 10, "min": 0, "sec": 0}, "index": 0}],
+            "cmd_name": "timer_info_ind",
+        }
+        update = parse_update(raw)
+        assert isinstance(update, TimerUpdate)
+        assert update.days == 79
+        # 79 = 15 + 64, so Sunday (bit 6) was added
+        assert update.days & (1 << 6)
+
+    def test_parse_timer_info_ind_slot_added(self):
+        """Real traffic: slot 3 added via timers_set_req."""
+        raw = {
+            "name": "Test timer",
+            "id": 163,
+            "enabled": 1,
+            "days": 15,
+            "bars": 1,
+            "timetable": [
+                {"start": {"hour": 10, "min": 0, "sec": 0}, "index": 0},
+                {"start": {"hour": 14, "min": 30, "sec": 0}, "index": 3},
+            ],
+            "cmd_name": "timer_info_ind",
+        }
+        update = parse_update(raw)
+        assert isinstance(update, TimerUpdate)
+        assert len(update.timetable) == 2
+        assert update.timetable[0]["index"] == 0
+        assert update.timetable[1]["index"] == 3
+        assert update.timetable[1]["start"]["hour"] == 14
+        assert update.timetable[1]["start"]["min"] == 30
+
+    def test_parse_timer_info_ind_slot_removed(self):
+        """Real traffic: slot 3 cleared via timers_set_req."""
+        raw = {
+            "name": "Test timer",
+            "id": 163,
+            "enabled": 1,
+            "days": 15,
+            "bars": 1,
+            "timetable": [{"start": {"hour": 10, "min": 0, "sec": 0}, "index": 0}],
+            "cmd_name": "timer_info_ind",
+        }
+        update = parse_update(raw)
+        assert isinstance(update, TimerUpdate)
+        assert len(update.timetable) == 1
+
+    def test_parse_timer_update_ind(self):
+        """Legacy indicator variant (firmware compatibility)."""
+        raw = {
+            "cmd_name": "timer_update_ind",
+            "name": "Timer 2",
+            "id": 164,
+            "enabled": 0,
+            "days": 74,
+        }
+        update = parse_update(raw)
+        assert isinstance(update, TimerUpdate)
+        assert update.id == 164
+        assert update.enabled is False
+        assert update.days == 74
+        assert update.timetable == []
+        assert update.bars == 0
+
+    def test_device_type(self):
+        raw = {"cmd_name": "timer_info_ind", "id": 163}
+        assert get_update_device_type(raw) == DeviceType.TIMER
+
+    def test_device_type_legacy(self):
+        raw = {"cmd_name": "timer_update_ind", "id": 163}
+        assert get_update_device_type(raw) == DeviceType.TIMER
+
+    def test_defaults_when_fields_missing(self):
+        raw = {"cmd_name": "timer_info_ind", "id": 1}
+        update = parse_update(raw)
+        assert isinstance(update, TimerUpdate)
+        assert update.enabled is False
+        assert update.days == 0
+        assert update.bars == 0
+        assert update.timetable == []

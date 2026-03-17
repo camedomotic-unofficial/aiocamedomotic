@@ -52,6 +52,7 @@ from .thermo_zone import (  # noqa: F401
     ThermoZoneSeason,
     ThermoZoneStatus,
 )
+from .timer import Timer, TimerTimeSlot  # noqa: F401
 from .update import (  # noqa: F401
     AnalogInUpdate,
     DeviceUpdate,
@@ -62,6 +63,7 @@ from .update import (  # noqa: F401
     RelayUpdate,
     ScenarioUpdate,
     ThermoZoneUpdate,
+    TimerUpdate,
     UpdateList,
     get_update_device_type,
     parse_update,
@@ -103,6 +105,9 @@ __all__ = [
     "TerminalGroup",
     "TopologyFloor",
     "TopologyRoom",
+    "Timer",
+    "TimerTimeSlot",
+    "TimerUpdate",
     "ThermoZone",
     "ThermoZoneFanSpeed",
     "ThermoZoneMode",

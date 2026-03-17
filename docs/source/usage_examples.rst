@@ -35,6 +35,7 @@ and controlling devices, and monitoring real-time changes. For a minimal
             LightType, OpeningStatus, RelayStatus, ScenarioStatus,
             ThermoZoneFanSpeed,
             ThermoZoneMode, ThermoZoneSeason, ThermoZoneStatus,
+            Timer, TimerTimeSlot, TimerUpdate,
             DeviceUpdate, LightUpdate, OpeningUpdate, RelayUpdate,
             ThermoZoneUpdate, ScenarioUpdate, DigitalInputUpdate, PlantUpdate,
         )
@@ -249,6 +250,9 @@ You can use the features list to decide which device APIs to call:
 
     if "analogin" in server_info.features:
         analog_inputs = await api.async_get_analog_inputs()
+
+    if "timers" in server_info.features:
+        timers = await api.async_get_timers()
 
 Floors and rooms
 ^^^^^^^^^^^^^^^^
@@ -650,6 +654,260 @@ Example output:
     have not been verified against a real server. If you encounter unexpected
     behaviour, please report it to the library developers.
 
+Timers
+^^^^^^
+
+Timers are scheduling entities that define time-based activation windows for
+associated devices. Each timer has an enabled/disabled state, a day-of-week
+schedule, and up to 4 time slots. Timers support remote control: you can
+enable/disable them, toggle individual days, and configure the timetable.
+
+**Fetching and inspecting timers:**
+
+.. code-block:: python
+
+    timers = await api.async_get_timers()
+
+    for timer in timers:
+        print(
+            f"ID: {timer.id}, Name: {timer.name}, "
+            f"Enabled: {timer.enabled}, "
+            f"Days: {timer.active_days}"
+        )
+
+        for slot in timer.timetable:
+            print(
+                f"  Slot {slot.index}: "
+                f"start={slot.start_hour:02d}:{slot.start_min:02d}:{slot.start_sec:02d}"
+            )
+
+Example output:
+
+.. code-block:: text
+
+    ID: 163, Name: Test timer, Enabled: True, Days: ['Monday', 'Wednesday', 'Friday']
+      Slot 0: start=10:00:00
+    ID: 164, Name: Timer 2, Enabled: True, Days: ['Tuesday', 'Thursday', 'Sunday']
+      Slot 1: start=12:00:00
+      Slot 2: start=11:00:00
+
+**Finding a specific timer:**
+
+.. code-block:: python
+
+    # By ID
+    my_timer = next((t for t in timers if t.id == 163), None)
+
+    # By name
+    irrigation = next((t for t in timers if t.name == "Irrigation"), None)
+
+Understanding the days bitmask
+""""""""""""""""""""""""""""""
+
+The ``days`` property is a 7-bit integer bitmask where each bit represents a
+day of the week. Bit 0 is Monday, bit 6 is Sunday:
+
+.. code-block:: text
+
+    Bit:   6    5    4    3    2    1    0
+    Day:  Sun  Sat  Fri  Thu  Wed  Tue  Mon
+
+Common values:
+
+- ``1`` — Monday only
+- ``15`` — Monday through Thursday (1+2+4+8)
+- ``31`` — Monday through Friday (weekdays)
+- ``96`` — Saturday and Sunday (weekend)
+- ``127`` — every day
+
+The ``active_days`` property returns a human-readable list, and
+``is_active_on_day()`` checks a specific day:
+
+.. code-block:: python
+
+    timer = timers[0]
+
+    print(timer.days)                    # 21
+    print(timer.active_days)             # ['Monday', 'Wednesday', 'Friday']
+    print(timer.is_active_on_day(0))     # True  (Monday)
+    print(timer.is_active_on_day(1))     # False (Tuesday)
+
+Understanding the timetable
+"""""""""""""""""""""""""""
+
+Each timer has up to **4 time slots** (indices 0--3). The ``timetable``
+property returns a list of :class:`~aiocamedomotic.models.timer.TimerTimeSlot`
+objects for the slots that are currently configured. Empty slots are simply
+absent from the list.
+
+Each ``TimerTimeSlot`` exposes:
+
+- ``index`` — the slot position (0--3)
+- ``start_hour``, ``start_min``, ``start_sec`` — the activation start time
+- ``stop_hour``, ``stop_min``, ``stop_sec`` — the stop time (``None`` on
+  some firmware versions)
+- ``active`` — whether the slot is individually active (``None`` on some
+  firmware versions)
+
+.. code-block:: python
+
+    for slot in timer.timetable:
+        start = f"{slot.start_hour:02d}:{slot.start_min:02d}:{slot.start_sec:02d}"
+        if slot.stop_hour is not None:
+            stop = f"{slot.stop_hour:02d}:{slot.stop_min:02d}:{slot.stop_sec:02d}"
+        else:
+            stop = "N/A"
+        print(f"  Slot {slot.index}: {start} → {stop}")
+
+.. note::
+    On firmware version 3.0.1, the ``stop`` and ``active`` fields are not
+    present in the server response. The corresponding properties return
+    ``None`` in that case. Your code should handle both cases.
+
+Enabling and disabling timers
+"""""""""""""""""""""""""""""
+
+Toggle a timer's global enabled state:
+
+.. code-block:: python
+
+    timer = timers[0]
+
+    # Disable the timer
+    await timer.async_disable()
+    print(timer.enabled)  # False
+
+    # Re-enable the timer
+    await timer.async_enable()
+    print(timer.enabled)  # True
+
+Toggling days of the week
+"""""""""""""""""""""""""
+
+Add or remove individual days from the timer's schedule. The ``day``
+parameter is a zero-based index: 0 = Monday, 6 = Sunday.
+
+.. code-block:: python
+
+    # Enable Sunday (day index 6)
+    await timer.async_enable_day(6)
+    print(timer.active_days)  # [..., 'Sunday']
+
+    # Disable Friday (day index 4)
+    await timer.async_disable_day(4)
+    print(timer.is_active_on_day(4))  # False
+
+Setting the timetable
+"""""""""""""""""""""
+
+Use ``async_set_timetable()`` to configure all 4 time slots at once. Pass a
+list of exactly 4 entries — each is either a ``(hour, minute, second)`` tuple
+for an active slot, or ``None`` for an empty slot:
+
+.. code-block:: python
+
+    # Set slot 0 to 06:30:00, slot 2 to 22:00:00, leave slots 1 and 3 empty
+    await timer.async_set_timetable([
+        (6, 30, 0),     # slot 0
+        None,           # slot 1 (empty)
+        (22, 0, 0),     # slot 2
+        None,           # slot 3 (empty)
+    ])
+
+    # Verify
+    for slot in timer.timetable:
+        print(f"  Slot {slot.index}: {slot.start_hour:02d}:{slot.start_min:02d}")
+
+    # Clear all slots
+    await timer.async_set_timetable([None, None, None, None])
+
+.. important::
+    ``async_set_timetable()`` always sends **all 4 slots** to the server.
+    To keep existing slots unchanged, read the current timetable first and
+    merge your changes:
+
+    .. code-block:: python
+
+        # Read current slots into a 4-element list
+        current: list[tuple[int, int, int] | None] = [None, None, None, None]
+        for slot in timer.timetable:
+            current[slot.index] = (slot.start_hour, slot.start_min, slot.start_sec)
+
+        # Modify only slot 3
+        current[3] = (14, 30, 0)
+
+        # Send the merged timetable
+        await timer.async_set_timetable(current)
+
+Complete timer example
+""""""""""""""""""""""
+
+This example fetches timers, prints their configuration, toggles the enabled
+state, adds a day, sets a time slot, and reverts everything:
+
+.. code-block:: python
+
+    import asyncio
+    from aiocamedomotic import CameDomoticAPI
+
+    async def main():
+        async with await CameDomoticAPI.async_create(
+            "192.168.x.x", "username", "password"
+        ) as api:
+            timers = await api.async_get_timers()
+            if not timers:
+                print("No timers found")
+                return
+
+            timer = timers[0]
+            print(f"Timer: {timer.name} (ID: {timer.id})")
+            print(f"  Enabled: {timer.enabled}")
+            print(f"  Days: {timer.active_days}")
+            print(f"  Slots: {len(timer.timetable)}")
+
+            # Save original state
+            was_enabled = timer.enabled
+            had_sunday = timer.is_active_on_day(6)
+
+            # Toggle enabled
+            if was_enabled:
+                await timer.async_disable()
+            else:
+                await timer.async_enable()
+            print(f"  Enabled toggled to: {timer.enabled}")
+
+            # Toggle Sunday
+            if had_sunday:
+                await timer.async_disable_day(6)
+            else:
+                await timer.async_enable_day(6)
+            print(f"  Days now: {timer.active_days}")
+
+            # Add a time slot
+            current: list[tuple[int, int, int] | None] = [None] * 4
+            for slot in timer.timetable:
+                current[slot.index] = (
+                    slot.start_hour, slot.start_min, slot.start_sec
+                )
+            current[3] = (14, 30, 0)
+            await timer.async_set_timetable(current)
+            print(f"  Slots after adding slot 3: {len(timer.timetable)}")
+
+            # Revert everything
+            current[3] = None
+            await timer.async_set_timetable(current)
+            if had_sunday:
+                await timer.async_enable_day(6)
+            else:
+                await timer.async_disable_day(6)
+            if was_enabled:
+                await timer.async_enable()
+            else:
+                await timer.async_disable()
+            print("  Reverted to original state")
+
+    asyncio.run(main())
+
 
 Monitoring real-time updates
 ----------------------------
@@ -762,6 +1020,12 @@ compatibility. For **typed** update objects with convenient properties, use
         elif isinstance(update, RelayUpdate):
             print(f"Relay '{update.name}': {update.status.name}")
 
+        elif isinstance(update, TimerUpdate):
+            print(
+                f"Timer '{update.name}': enabled={update.enabled}, "
+                f"days={update.days}, slots={len(update.timetable)}"
+            )
+
         elif isinstance(update, PlantUpdate):
             print("Plant configuration changed, re-fetching devices...")
 
@@ -781,6 +1045,7 @@ happens, all locally cached device lists must be discarded and re-fetched:
         openings = await api.async_get_openings()
         relays = await api.async_get_relays()
         scenarios = await api.async_get_scenarios()
+        timers = await api.async_get_timers()
         thermo_zones = await api.async_get_thermo_zones()
         sensors = await api.async_get_analog_sensors()
         digital_inputs = await api.async_get_digital_inputs()
@@ -789,6 +1054,73 @@ happens, all locally cached device lists must be discarded and re-fetched:
     Plant updates are relatively rare. They typically occur when an installer
     modifies the system configuration. Failing to handle them may result in
     stale device data or missing newly added devices.
+
+Timer status updates
+^^^^^^^^^^^^^^^^^^^^
+
+When a timer is modified (enabled/disabled, day toggled, timetable changed),
+the server sends a ``timer_info_ind`` status update containing the **full
+current state** of the affected timer. This happens regardless of whether the
+change was made through this library, the CAME app, or the physical panel.
+
+The update payload mirrors the timer list response — it includes ``name``,
+``id``, ``enabled``, ``days``, ``bars``, and the complete ``timetable``
+array. The library parses this into a
+:class:`~aiocamedomotic.models.update.TimerUpdate` object.
+
+**Applying timer updates to cached objects:**
+
+If you maintain a local cache of ``Timer`` objects, you can update them when
+a ``timer_info_ind`` arrives:
+
+.. code-block:: python
+
+    # Assume `timers_cache` is a dict mapping timer ID → Timer object
+    timers_cache = {t.id: t for t in await api.async_get_timers()}
+
+    while True:
+        try:
+            updates = await api.async_get_updates(timeout=120)
+        except CameDomoticServerTimeoutError:
+            continue
+
+        for update in updates.get_typed_updates():
+            if isinstance(update, TimerUpdate):
+                cached = timers_cache.get(update.device_id)
+                if cached:
+                    # Replace the raw_data with the fresh state from the
+                    # server — this updates all properties automatically
+                    cached.raw_data.update(update.raw_data)
+                    print(
+                        f"Timer '{cached.name}' updated: "
+                        f"enabled={cached.enabled}, "
+                        f"days={cached.active_days}, "
+                        f"slots={len(cached.timetable)}"
+                    )
+
+        await asyncio.sleep(1)
+
+**Sequence of updates during a typical control session:**
+
+When you run a series of timer commands, the server sends one
+``timer_info_ind`` for each change. For example, disabling a timer, then
+enabling Sunday, then adding a time slot, produces three consecutive
+updates:
+
+.. code-block:: text
+
+    timer_info_ind: enabled=0, days=15, timetable=[{index: 0, start: 10:00:00}]
+    timer_info_ind: enabled=1, days=79, timetable=[{index: 0, start: 10:00:00}]
+    timer_info_ind: enabled=1, days=79, timetable=[{index: 0, ...}, {index: 3, start: 14:30:00}]
+
+Each update is a **complete snapshot** of the timer's state — not a delta.
+You can safely overwrite the cached timer data with the update payload
+without needing to merge changes.
+
+.. note::
+    The ``timer_info_ind`` indication name was confirmed from real server
+    traffic (firmware 3.0.1). A legacy variant ``timer_update_ind`` is also
+    handled for firmware compatibility.
 
 
 Advanced topics

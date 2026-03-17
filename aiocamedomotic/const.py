@@ -99,6 +99,7 @@ class DeviceType(IntEnum):
         - GENERIC_TEXT (12)
         - SOUND_ZONE (13)
         - DIGITAL_INPUT (14)
+        - TIMER (15)
     """
 
     ANALOG_INPUT = -3
@@ -119,6 +120,7 @@ class DeviceType(IntEnum):
     GENERIC_TEXT = 12
     SOUND_ZONE = 13
     DIGITAL_INPUT = 14
+    TIMER = 15
 
 
 # region Enums for building the JSON commands to be sent to the Came Domotic server
@@ -152,6 +154,7 @@ class _CommandName(Enum):
     METERS_LIST = "meters_list_req"
     DIGITALIN_LIST = "digitalin_list_req"
     ANALOGIN_LIST = "analogin_list_req"
+    TIMERS_LIST = "timers_list_req"
     TVCC_CAMERAS_LIST = "tvcc_cameras_list_req"
     # Nested lists (topology-aware)
     NESTED_LIGHT_LIST = "nested_light_list_req"
@@ -166,6 +169,9 @@ class _CommandName(Enum):
     RELAY_ACTIVATION = "relay_activation_req"
     THERMO_ZONE_CONFIG = "thermo_zone_config_req"
     THERMO_SEASON = "thermo_season_req"
+    TIMERS_ENABLE = "timers_enable_req"
+    TIMERS_ENABLE_DAY = "timers_enable_day_req"
+    TIMERS_SET = "timers_set_req"
     TERMINALS_GROUPS_LIST = "terminals_groups_list_req"
     MAP_DESCR = "map_descr_req"
 
@@ -185,6 +191,7 @@ class _CommandNameResponse(Enum):
     METERS_LIST = "meters_list_resp"
     DIGITALIN_LIST = "digitalin_list_resp"
     ANALOGIN_LIST = "analogin_list_resp"
+    TIMERS_LIST = "timers_list_resp"
     TVCC_CAMERAS_LIST = "tvcc_cameras_list_resp"
     TERMINALS_GROUPS_LIST = "terminals_groups_list_resp"
     MAP_DESCR = "map_descr_resp"
@@ -209,6 +216,7 @@ class _ServerFeature(Enum):
     ANALOGIN = "analogin"
     ENERGY = "energy"
     LOADSCTRL = "loadsctrl"
+    TIMERS = "timers"
 
 
 # Mapping from server feature to (nested request cmd_name, expected response cmd_name).
@@ -265,7 +273,9 @@ class UpdateIndicator(Enum):
         - RELAY_LEGACY ("relay_update_ind")
         - DIGITAL_INPUT_LEGACY ("digitalin_update_ind")
         - ANALOG_INPUT_LEGACY ("analogin_update_ind")
+        - TIMER ("timer_info_ind")
         - SCENARIO_USER_LEGACY ("scenario_user_ind")
+        - TIMER_LEGACY ("timer_update_ind")
     """
 
     # Traffic-observed names
@@ -280,6 +290,7 @@ class UpdateIndicator(Enum):
     ENERGY_METER = "meter_instant_power_ind"
     LOADSCTRL_METER = "loadsctrl_meter_ind"
     LOADSCTRL_RELAY = "loadsctrl_relay_ind"
+    TIMER = "timer_info_ind"
     PLANT = "plant_update_ind"
     # API_reference.md variants (kept for firmware compatibility)
     LIGHT_LEGACY = "light_update_ind"
@@ -289,6 +300,7 @@ class UpdateIndicator(Enum):
     DIGITAL_INPUT_LEGACY = "digitalin_update_ind"
     ANALOG_INPUT_LEGACY = "analogin_update_ind"
     SCENARIO_USER_LEGACY = "scenario_user_ind"
+    TIMER_LEGACY = "timer_update_ind"
 
 
 # Mapping from status update cmd_name to DeviceType
@@ -311,6 +323,9 @@ _UPDATE_CMD_TO_DEVICE_TYPE: dict[str, DeviceType] = {
     "digitalin_update_ind": DeviceType.DIGITAL_INPUT,
     "analogin_update_ind": DeviceType.ANALOG_INPUT,
     "scenario_user_ind": DeviceType.SCENARIO,
+    # Timer indicators
+    "timer_info_ind": DeviceType.TIMER,
+    "timer_update_ind": DeviceType.TIMER,
     # plant_update_ind intentionally omitted: it requires full cache
     # invalidation, not a per-device update
 }
@@ -325,4 +340,5 @@ _DEVICE_TYPE_TO_FEATURE: dict[DeviceType, _ServerFeature] = {
     DeviceType.DIGITAL_INPUT: _ServerFeature.DIGITALIN,
     DeviceType.ENERGY_SENSOR: _ServerFeature.ENERGY,
     DeviceType.ANALOG_INPUT: _ServerFeature.ANALOGIN,
+    DeviceType.TIMER: _ServerFeature.TIMERS,
 }

@@ -481,4 +481,45 @@ def map_page_data_empty():
     }
 
 
+@pytest.fixture
+def timer_data():
+    """Mock data for a timer with full timetable fields (stop, active)."""
+    return {
+        "name": "Temporizzatore",
+        "id": 117,
+        "enabled": 0,
+        "days": 1,
+        "bars": 2,
+        "timetable": [
+            {
+                "start": {"hour": 2, "min": 0, "sec": 0},
+                "stop": {"hour": 8, "min": 0, "sec": 0},
+                "active": 0,
+                "index": 0,
+            },
+            {
+                "start": {"hour": 18, "min": 30, "sec": 0},
+                "stop": {"hour": 22, "min": 0, "sec": 0},
+                "active": 1,
+                "index": 1,
+            },
+        ],
+    }
+
+
+@pytest.fixture
+def timer_data_minimal():
+    """Mock data for a timer without stop/active fields (v3.0.1 format)."""
+    return {
+        "name": "Test timer",
+        "id": 163,
+        "enabled": 1,
+        "days": 21,
+        "bars": 1,
+        "timetable": [
+            {"start": {"hour": 10, "min": 0, "sec": 0}, "index": 0},
+        ],
+    }
+
+
 # endregion
