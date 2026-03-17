@@ -570,6 +570,32 @@ MAPS_LIST_RESP = {
     "sl_data_ack_reason": 0,
 }
 
+ANALOGIN_LIST_RESP = {
+    "cseq": 3,
+    "cmd_name": "analogin_list_resp",
+    "array": [
+        {
+            "name": "Igrometro",
+            "act_id": 89,
+            "value": 47,
+            "unit": "%",
+        },
+        {
+            "name": "Termometro esterno",
+            "act_id": 90,
+            "value": 215,
+            "unit": "C",
+        },
+        {
+            "name": "Barometro",
+            "act_id": 91,
+            "value": 1013,
+            "unit": "hPa",
+        },
+    ],
+    "sl_data_ack_reason": 0,
+}
+
 GENERIC_REPLY = {
     "cseq": 4,
     "cmd_name": "generic_reply",

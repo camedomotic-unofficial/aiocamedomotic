@@ -432,10 +432,9 @@ class Auth:
 
         cmd_name = (command or {}).get("cmd_name", command_type)
         LOGGER.debug(
-            "Sending command '%s' (type: %s) to %s",
+            "Sending command '%s' (type: %s)",
             cmd_name,
             command_type,
-            self.get_endpoint_url(),
         )
 
         _traffic_start = time.monotonic()

@@ -38,6 +38,7 @@ from .const import (
 )
 from .errors import CameDomoticAuthError
 from .models import (
+    AnalogIn,
     AnalogSensor,
     AnalogSensorType,
     Camera,
@@ -499,6 +500,34 @@ class CameDomoticAPI:
         return [
             DigitalInput(digitalin_data, self.auth) for digitalin_data in digitalin_list
         ]
+
+    async def async_get_analog_inputs(self) -> list[AnalogIn]:
+        """Get the list of all standalone analog input sensors on the server.
+
+        Analog inputs are read-only sensors (e.g. hygrometers, thermometers,
+        barometers) exposed via the ``analogin`` feature. They are independent
+        of the thermoregulation system's analog sensors.
+
+        Returns:
+            list[AnalogIn]: List of analog input sensors.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Fetching analog inputs list")
+        payload = {
+            "cmd_name": _CommandName.ANALOGIN_LIST.value,
+        }
+
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.ANALOGIN_LIST.value
+        )
+
+        # Defaults to an empty list if the key is missing from the response JSON
+        analogin_list = json_response.get("array", []) or []
+        LOGGER.info("Retrieved %d analog input(s)", len(analogin_list))
+        return [AnalogIn(analogin_data) for analogin_data in analogin_list]
 
     async def async_get_cameras(self) -> list[Camera]:
         """Get the list of all TVCC cameras defined on the server.

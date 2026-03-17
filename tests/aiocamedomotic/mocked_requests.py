@@ -264,6 +264,17 @@ SL_CHANGE_USER_PASSWORD_REQ = {
     "sl_new_pwd": "new_password",
 }
 
+ANALOGIN_LIST_REQ = {
+    "sl_appl_msg": {
+        "client": "my_session_id",
+        "cmd_name": "analogin_list_req",
+        "cseq": 1,
+    },
+    "sl_appl_msg_type": "domo",
+    "sl_client_id": "my_session_id",
+    "sl_cmd": "sl_data_req",
+}
+
 TERMINALS_GROUPS_LIST_REQ = {
     "sl_appl_msg": {
         "client": "my_session_id",

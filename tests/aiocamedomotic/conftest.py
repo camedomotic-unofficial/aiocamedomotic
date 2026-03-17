@@ -341,6 +341,39 @@ def analog_sensor_data_humidity():
 
 
 @pytest.fixture
+def analog_in_data_temperature():
+    """Mock data for a standalone analog input temperature sensor."""
+    return {
+        "name": "Termometro esterno",
+        "act_id": 90,
+        "value": 215,
+        "unit": "C",
+    }
+
+
+@pytest.fixture
+def analog_in_data_humidity():
+    """Mock data for a standalone analog input humidity sensor."""
+    return {
+        "name": "Igrometro",
+        "act_id": 89,
+        "value": 47,
+        "unit": "%",
+    }
+
+
+@pytest.fixture
+def analog_in_data_pressure():
+    """Mock data for a standalone analog input barometric pressure sensor."""
+    return {
+        "name": "Barometro",
+        "act_id": 91,
+        "value": 1013,
+        "unit": "hPa",
+    }
+
+
+@pytest.fixture
 def digital_input_data_with_status():
     """Mock data for a digital input that reports a status."""
     return {

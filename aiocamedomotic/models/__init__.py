@@ -20,6 +20,7 @@ CAME Domotic API.
 from __future__ import annotations
 
 from ..const import DeviceType, UpdateIndicator  # noqa: F401
+from .analog_in import AnalogIn  # noqa: F401
 from .base import (  # noqa: F401
     CameEntity,
     Floor,
@@ -52,6 +53,7 @@ from .thermo_zone import (  # noqa: F401
     ThermoZoneStatus,
 )
 from .update import (  # noqa: F401
+    AnalogInUpdate,
     DeviceUpdate,
     DigitalInputUpdate,
     LightUpdate,
@@ -66,6 +68,8 @@ from .update import (  # noqa: F401
 )
 
 __all__ = [
+    "AnalogIn",
+    "AnalogInUpdate",
     "AnalogSensor",
     "AnalogSensorType",
     "Camera",
