@@ -174,7 +174,7 @@ jobs:
   # Gate job: single required status check for branch protection
   code-quality:
     if: always()
-    needs: [ruff, mypy, pylint, sonarcloud]
+    needs: [ruff, mypy, pylint]
     runs-on: ubuntu-latest
     steps:
       - name: Check results
@@ -185,19 +185,3 @@ jobs:
             echo "One or more checks failed"
             exit 1
           fi
-
-  sonarcloud:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0 # Full clone needed for SonarCloud analysis
-
-      - name: SonarCloud Scan
-        # continue-on-error for PRs where SONAR_TOKEN may not be available (e.g., dependabot)
-        continue-on-error: true
-        uses: SonarSource/sonarqube-scan-action@v7
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Needed to get PR information, if any
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

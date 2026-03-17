@@ -37,27 +37,23 @@ permissions:
   security-events: write # For reporting security issues
 
 jobs:
-  security:
+  bandit:
     runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
 
+      - name: Run Bandit
+        run: |
+          pipx run "bandit[toml]" -c pyproject.toml -r ./aiocamedomotic
+
+  gitguardian:
+    runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0 # fetch all history so multiple commits can be scanned
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.14"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install "bandit[toml]"
-
-      - name: Run Bandit
-        run: bandit -c pyproject.toml -r ./aiocamedomotic
 
       - name: GitGuardian scan
         uses: GitGuardian/ggshield-action@v1.48.0
@@ -67,3 +63,17 @@ jobs:
           GITHUB_PULL_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           GITHUB_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+
+  # Gate job: single required status check for branch protection
+  security:
+    if: always()
+    needs: [bandit, gitguardian]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.bandit.result }}" != "success" || \
+                "${{ needs.gitguardian.result }}" != "success" ]]; then
+            echo "One or more security checks failed"
+            exit 1
+          fi
