@@ -1027,6 +1027,9 @@ async def test_timer_control_sequence(api_instance_real: CameDomoticAPI):
         await asyncio.sleep(wait_sec)
 
         # --- Step 3: Set start time on slot 3 (fourth slot, zero-based) ---
+        # Record the original slot 3 state before modification
+        original_slot3 = next((s for s in timer.timetable if s.index == 3), None)
+
         # Build 4-slot array preserving existing slots, setting slot 3 to 14:30:00
         slots: list[tuple[int, int, int] | None] = [None, None, None, None]
         for entry in original_timetable_raw:
@@ -1067,11 +1070,17 @@ async def test_timer_control_sequence(api_instance_real: CameDomoticAPI):
                     start.get("sec", 0),
                 )
 
-        print("\n[Step 4] Clearing slot 4 (reverting timetable)...")
+        print("\n[Step 4] Reverting timetable to original state...")
         await timer.async_set_timetable(revert_slots)
         timetable = timer.timetable
         slot3 = next((s for s in timetable if s.index == 3), None)
-        assert slot3 is None, "Slot 3 should be cleared"
+        if original_slot3 is None:
+            assert slot3 is None, "Slot 3 should be cleared (was empty originally)"
+        else:
+            assert slot3 is not None, "Slot 3 should exist (was present originally)"
+            assert slot3.start_hour == original_slot3.start_hour
+            assert slot3.start_min == original_slot3.start_min
+            assert slot3.start_sec == original_slot3.start_sec
         print(f"  timetable has {len(timetable)} slot(s)  (check the app now)")
         await asyncio.sleep(wait_sec)
 

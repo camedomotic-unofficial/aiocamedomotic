@@ -1064,8 +1064,8 @@ current state** of the affected timer. This happens regardless of whether the
 change was made through this library, the CAME app, or the physical panel.
 
 The update payload mirrors the timer list response — it includes ``name``,
-``id``, ``enabled``, ``days``, ``bars``, and the complete ``timetable``
-array. The library parses this into a
+``id``, ``enabled``, ``days``, ``bars`` (the number of timetable slots
+reported by the server), and the complete ``timetable`` array. The library parses this into a
 :class:`~aiocamedomotic.models.update.TimerUpdate` object.
 
 **Applying timer updates to cached objects:**

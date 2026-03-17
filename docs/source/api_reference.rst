@@ -62,10 +62,10 @@ Entity models
 .. automodule:: aiocamedomotic.models.scenario
    :members:
 
-.. automodule:: aiocamedomotic.models.timer
+.. automodule:: aiocamedomotic.models.thermo_zone
    :members:
 
-.. automodule:: aiocamedomotic.models.thermo_zone
+.. automodule:: aiocamedomotic.models.timer
    :members:
 
 .. automodule:: aiocamedomotic.models.update
