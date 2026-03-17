@@ -35,6 +35,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.12", "3.13", "3.14"]
     steps:
@@ -46,21 +47,28 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
-          # cache: pip
 
       - name: Install Poetry
-        run: |
-          pip install pipx
-          pipx ensurepath
-          pipx install poetry
+        run: pipx install poetry
+
+      - name: Cache Poetry virtualenv
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pypoetry
+            .venv
+          key: venv-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('pyproject.toml', 'poetry.lock') }}
 
       - name: Install package and its dependencies
-        run: poetry install --with tests
+        run: |
+          poetry config virtualenvs.in-project true
+          poetry install --with tests
 
       - name: Run pytest with coverage
         run: poetry run pytest --timeout 10 --cov=aiocamedomotic --cov-report xml --cov-report term-missing
 
       - name: Upload coverage reports to Codecov
+        if: matrix.python-version == '3.14'
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -68,3 +76,16 @@ jobs:
           flags: "pytest-coverage,python-${{ matrix.python-version }}"
           fail_ci_if_error: false
           files: ./coverage.xml
+
+  # Gate job: single required status check for branch protection
+  tests:
+    if: always()
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.test.result }}" != "success" ]]; then
+            echo "One or more test jobs failed"
+            exit 1
+          fi
