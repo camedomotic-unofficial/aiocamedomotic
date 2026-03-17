@@ -46,6 +46,7 @@ from aiocamedomotic.models import (
     TerminalGroup,
     ThermoZone,
     ThermoZoneSeason,
+    Timer,
     UpdateList,
     User,
 )
@@ -57,6 +58,7 @@ from tests.aiocamedomotic.mocked_responses import (
     MAPS_LIST_RESP,
     SCENARIOS_LIST_RESP,
     THERMO_LIST_RESP,
+    TIMERS_LIST_RESP,
     TVCC_CAMERAS_LIST_RESP,
 )
 
@@ -1068,6 +1070,82 @@ class TestAPIScenarios:
 
         with pytest.raises(ValueError, match="Data is missing required keys: name"):
             await api.async_get_scenarios()
+
+
+class TestAPITimers:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_timers(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = TIMERS_LIST_RESP
+
+        timers = await api.async_get_timers()
+        assert len(timers) == len(TIMERS_LIST_RESP["array"])
+        assert isinstance(timers[0], Timer)
+        assert isinstance(timers[1], Timer)
+        assert isinstance(timers[2], Timer)
+        assert timers[0].name == "Temporizzatore"
+        assert timers[0].id == 117
+        assert timers[0].enabled is False
+        assert timers[1].name == "Irrigazione giardino"
+        assert timers[1].id == 118
+        assert timers[1].enabled is True
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_timers_empty_array(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [],
+            "cmd_name": "timers_list_resp",
+            "cseq": 3,
+            "sl_data_ack_reason": 0,
+        }
+
+        timers = await api.async_get_timers()
+        assert len(timers) == 0
+        assert isinstance(timers, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_timers_missing_array_key(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "cmd_name": "timers_list_resp",
+            "cseq": 3,
+            "sl_data_ack_reason": 0,
+        }
+
+        timers = await api.async_get_timers()
+        assert len(timers) == 0
+        assert isinstance(timers, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_timers_missing_id(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [{"name": "Timer", "enabled": 1, "days": 0}],
+            "cmd_name": "timers_list_resp",
+            "cseq": 3,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: id"):
+            await api.async_get_timers()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_timers_missing_name(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [{"id": 1, "enabled": 1, "days": 0}],
+            "cmd_name": "timers_list_resp",
+            "cseq": 3,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: name"):
+            await api.async_get_timers()
 
 
 class TestAPIUpdates:

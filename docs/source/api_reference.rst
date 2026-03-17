@@ -65,6 +65,9 @@ Entity models
 .. automodule:: aiocamedomotic.models.thermo_zone
    :members:
 
+.. automodule:: aiocamedomotic.models.timer
+   :members:
+
 .. automodule:: aiocamedomotic.models.update
    :members:
 

@@ -481,6 +481,65 @@ SL_CHANGE_USER_PASSWORD_RESP = {
     "sl_data_ack_reason": 0,
 }
 
+TIMERS_LIST_RESP = {
+    "cseq": 3,
+    "cmd_name": "timers_list_resp",
+    "array": [
+        {
+            "name": "Temporizzatore",
+            "id": 117,
+            "enabled": 0,
+            "days": 1,
+            "bars": 2,
+            "timetable": [
+                {
+                    "start": {"hour": 2, "min": 0, "sec": 0},
+                    "stop": {"hour": 8, "min": 0, "sec": 0},
+                    "active": 0,
+                    "index": 0,
+                },
+                {
+                    "start": {"hour": 18, "min": 30, "sec": 0},
+                    "stop": {"hour": 22, "min": 0, "sec": 0},
+                    "active": 1,
+                    "index": 1,
+                },
+            ],
+        },
+        {
+            "name": "Irrigazione giardino",
+            "id": 118,
+            "enabled": 1,
+            "days": 85,
+            "bars": 1,
+            "timetable": [
+                {
+                    "start": {"hour": 6, "min": 0, "sec": 0},
+                    "stop": {"hour": 7, "min": 30, "sec": 0},
+                    "active": 1,
+                    "index": 0,
+                },
+            ],
+        },
+        {
+            "name": "Luci esterne",
+            "id": 119,
+            "enabled": 1,
+            "days": 127,
+            "bars": 1,
+            "timetable": [
+                {
+                    "start": {"hour": 19, "min": 0, "sec": 0},
+                    "stop": {"hour": 23, "min": 59, "sec": 59},
+                    "active": 1,
+                    "index": 0,
+                },
+            ],
+        },
+    ],
+    "sl_data_ack_reason": 0,
+}
+
 TVCC_CAMERAS_LIST_RESP = {
     "cmd_name": "tvcc_cameras_list_resp",
     "cseq": 7,

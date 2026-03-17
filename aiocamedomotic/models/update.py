@@ -409,6 +409,43 @@ class AnalogInUpdate(DeviceUpdate):
 
 
 @dataclass
+class TimerUpdate(DeviceUpdate):
+    """Typed update for a timer (``timer_info_ind`` /
+    ``timer_update_ind``).
+    """
+
+    @property
+    def id(self) -> int:
+        """Timer ID."""
+        return self.raw_data["id"]
+
+    @property
+    def enabled(self) -> bool:
+        """Whether the timer is enabled."""
+        return bool(self.raw_data.get("enabled", 0))
+
+    @property
+    def days(self) -> int:
+        """Days bitmask (bit 0 = Monday, ..., bit 6 = Sunday)."""
+        return self.raw_data.get("days", 0)
+
+    @property
+    def bars(self) -> int:
+        """Number of timetable bars reported by the server."""
+        return self.raw_data.get("bars", 0)
+
+    @property
+    def timetable(self) -> list[dict[str, Any]]:
+        """Raw timetable entries from the update."""
+        return self.raw_data.get("timetable", [])
+
+    @property
+    def device_id(self) -> int | None:
+        """For timers the primary ID is ``id``."""
+        return self.raw_data.get("id")
+
+
+@dataclass
 class PlantUpdate(DeviceUpdate):
     """Marker update for ``plant_update_ind``.
 
@@ -442,6 +479,8 @@ _INDICATOR_TO_UPDATE_CLASS: dict[str, type[DeviceUpdate]] = {
     "digitalin_update_ind": DigitalInputUpdate,
     "analogin_status_ind": AnalogInUpdate,
     "analogin_update_ind": AnalogInUpdate,
+    "timer_info_ind": TimerUpdate,
+    "timer_update_ind": TimerUpdate,
     "plant_update_ind": PlantUpdate,
 }
 

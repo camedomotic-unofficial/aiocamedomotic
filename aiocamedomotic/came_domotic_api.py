@@ -55,6 +55,7 @@ from .models import (
     TerminalGroup,
     ThermoZone,
     ThermoZoneSeason,
+    Timer,
     TopologyFloor,
     TopologyRoom,
     UpdateList,
@@ -678,6 +679,33 @@ class CameDomoticAPI:
         scenarios_list = json_response.get("array", []) or []
         LOGGER.info("Retrieved %d scenario(s)", len(scenarios_list))
         return [Scenario(scenario_data, self.auth) for scenario_data in scenarios_list]
+
+    async def async_get_timers(self) -> list[Timer]:
+        """Get the list of all timers defined on the server.
+
+        Timers are scheduling entities that define time-based activation
+        windows. They support enabling/disabling, day toggling, and
+        timetable configuration.
+
+        Returns:
+            list[Timer]: List of timers.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Fetching timers list")
+        payload = {
+            "cmd_name": _CommandName.TIMERS_LIST.value,
+        }
+
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.TIMERS_LIST.value
+        )
+
+        timers_list = json_response.get("array", []) or []
+        LOGGER.info("Retrieved %d timer(s)", len(timers_list))
+        return [Timer(timer_data, self.auth) for timer_data in timers_list]
 
     async def async_get_topology(self) -> PlantTopology:
         """Get the complete plant topology (floors and rooms).
