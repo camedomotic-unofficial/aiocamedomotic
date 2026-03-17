@@ -433,6 +433,7 @@ Feature: openings
 Feature: thermoregulation
 Feature: scenarios
 Feature: digitalin
+Feature: analogin
 Feature: energy
 Feature: loadsctrl
 ```
@@ -458,6 +459,9 @@ if "scenarios" in server_info.features:
 
 if "digitalin" in server_info.features:
     digital_inputs = await api.async_get_digital_inputs()
+
+if "analogin" in server_info.features:
+    analog_inputs = await api.async_get_analog_inputs()
 ```
 
 #### Floors and rooms
@@ -757,6 +761,52 @@ sensor = next((di for di in digital_inputs if di.name == "Front Door"), None)
 ##### NOTE
 Some digital inputs do not report a `status` until their first state
 change. In that case, `status` returns `DigitalInputStatus.UNKNOWN`.
+
+#### Analog inputs (standalone sensors)
+
+Analog inputs are read-only standalone sensors such as hygrometers,
+thermometers, and barometers exposed via the `analogin` feature. They
+provide a numeric reading and a unit of measurement but cannot be
+controlled remotely.
+
+##### NOTE
+These sensors are independent of the thermoregulation system’s
+`AnalogSensor`. The same physical sensor
+may appear in both endpoints.
+
+```python
+if "analogin" in server_info.features:
+    analog_inputs = await api.async_get_analog_inputs()
+
+    for ai in analog_inputs:
+        print(
+            f"ID: {ai.act_id}, Name: {ai.name}, "
+            f"Value: {ai.value}, Unit: {ai.unit}"
+        )
+```
+
+Example output:
+
+```text
+ID: 89, Name: Igrometro, Value: 47.0, Unit: %
+ID: 90, Name: Termometro esterno, Value: 21.5, Unit: C
+ID: 91, Name: Barometro, Value: 1013.0, Unit: hPa
+```
+
+**Finding a specific analog input:**
+
+```python
+# By ID
+thermo = next((ai for ai in analog_inputs if ai.act_id == 90), None)
+
+# By name
+hygro = next((ai for ai in analog_inputs if ai.name == "Igrometro"), None)
+```
+
+##### NOTE
+Temperature values (`unit == "C"`) are automatically scaled from the
+raw integer-times-10 representation (e.g. `215` becomes `21.5`).
+Humidity and pressure values are returned as-is.
 
 #### Relays
 
@@ -1123,6 +1173,22 @@ The session is not logged in until the first request is made.
 
 Dispose the CameDomoticAPI object.
 
+##### *async* async_get_analog_inputs() → list[[AnalogIn](#aiocamedomotic.models.analog_in.AnalogIn)]
+
+Get the list of all standalone analog input sensors on the server.
+
+Analog inputs are read-only sensors (e.g. hygrometers, thermometers,
+barometers) exposed via the `analogin` feature. They are independent
+of the thermoregulation system’s analog sensors.
+
+* **Returns:**
+  List of analog input sensors.
+* **Return type:**
+  list[[AnalogIn](#aiocamedomotic.models.analog_in.AnalogIn)]
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
 ##### *async* async_get_analog_sensors() → list[[AnalogSensor](#aiocamedomotic.models.thermo_zone.AnalogSensor)]
 
 Get analog sensor readings from the thermoregulation system.
@@ -1424,6 +1490,61 @@ each zone stays `OFF` until its mode is changed explicitly via
 This module defines the Python representation of each of the entity types used by the
 CAME Domotic API.
 
+#### *class* aiocamedomotic.models.AnalogIn(raw_data: dict[str, Any])
+
+Standalone analog input sensor from the `analogin_list_resp` endpoint.
+
+Represents a read-only analog sensor (e.g. hygrometer, thermometer,
+barometer) exposed via the `analogin` feature.
+
+* **Parameters:**
+  **raw_data** – Dictionary containing the sensor data from the API.
+* **Raises:**
+  **ValueError** – If `name` or `act_id` keys are missing from
+      the input data.
+
+##### NOTE
+Temperature values (`unit == "C"`) are stored as integers multiplied
+by 10 (e.g. 215 = 21.5 °C). The `value` property applies the
+conversion automatically.
+
+##### *property* act_id *: int*
+
+Unique actuator/sensor identifier.
+
+##### *property* name *: str*
+
+Display name of the sensor.
+
+##### *property* unit *: str*
+
+Unit of measurement (e.g. `'C'`, `'%'`, `'hPa'`).
+
+##### *property* value *: float*
+
+Sensor reading in the unit reported by `unit`.
+
+Temperature readings (`unit == "C"`) are divided by 10 to convert
+from the API’s integer encoding to degrees Celsius. All other units
+are returned as-is.
+
+#### *class* aiocamedomotic.models.AnalogInUpdate(raw_data: dict[str, Any])
+
+Typed update for an analog input sensor (`analogin_status_ind` /
+`analogin_update_ind`).
+
+##### *property* act_id *: int*
+
+Analog input actuator ID.
+
+##### *property* unit *: str*
+
+Unit of measurement.
+
+##### *property* value *: float*
+
+Sensor reading, with temperature scaling applied for unit `'C'`.
+
 #### *class* aiocamedomotic.models.AnalogSensor(raw_data: dict[str, Any], sensor_type: [AnalogSensorType](#aiocamedomotic.models.thermo_zone.AnalogSensorType) = AnalogSensorType.UNKNOWN)
 
 Analog sensor from the CAME Domotic thermoregulation system.
@@ -1556,7 +1677,8 @@ Each device in the CAME Domotic system is associated with one of these type
 identifiers. Not all device types are currently supported by this library.
 
 Values:
-: - ENERGY_SENSOR (-2)
+: - ANALOG_INPUT (-3)
+  - ENERGY_SENSOR (-2)
   - ANALOG_SENSOR (-1)
   - LIGHT (0)
   - OPENING (1)
@@ -2529,6 +2651,7 @@ Values:
   - RELAY (“relay_status_ind”)
   - THERMOSTAT (“thermo_zone_info_ind”)
   - DIGITAL_INPUT (“digitalin_status_ind”)
+  - ANALOG_INPUT (“analogin_status_ind”)
   - SCENARIO_STATUS (“scenario_status_ind”)
   - SCENARIO_ACTIVATION (“scenario_activation_ind”)
   - ENERGY_METER (“meter_instant_power_ind”)
@@ -2540,6 +2663,7 @@ Values:
   - THERMOSTAT_LEGACY (“thermo_update_ind”)
   - RELAY_LEGACY (“relay_update_ind”)
   - DIGITAL_INPUT_LEGACY (“digitalin_update_ind”)
+  - ANALOG_INPUT_LEGACY (“analogin_update_ind”)
   - SCENARIO_USER_LEGACY (“scenario_user_ind”)
 
 #### *class* aiocamedomotic.models.UpdateList(updates: UserList[dict[str, Any]] | None = None)
@@ -2886,6 +3010,57 @@ In case of failure, the previous user is restored.
 ##### *property* name *: str*
 
 Name of the user.
+
+CAME Domotic analog input entity models.
+
+This module implements the class for working with standalone analog input
+sensors in a CAME Domotic system. Analog inputs represent read-only analog
+sensors such as hygrometers, thermometers, and barometers exposed via the
+`analogin` feature. They provide sensor readings but do not support
+control commands.
+
+These sensors are independent of the thermoregulation system’s
+[`AnalogSensor`](#aiocamedomotic.models.thermo_zone.AnalogSensor), which is retrieved
+from the `thermo_list_resp` endpoint. The same physical sensor may appear
+in both endpoints.
+
+#### *class* aiocamedomotic.models.analog_in.AnalogIn(raw_data: dict[str, Any])
+
+Standalone analog input sensor from the `analogin_list_resp` endpoint.
+
+Represents a read-only analog sensor (e.g. hygrometer, thermometer,
+barometer) exposed via the `analogin` feature.
+
+* **Parameters:**
+  **raw_data** – Dictionary containing the sensor data from the API.
+* **Raises:**
+  **ValueError** – If `name` or `act_id` keys are missing from
+      the input data.
+
+##### NOTE
+Temperature values (`unit == "C"`) are stored as integers multiplied
+by 10 (e.g. 215 = 21.5 °C). The [`value`](#aiocamedomotic.models.analog_in.AnalogIn.value) property applies the
+conversion automatically.
+
+##### *property* act_id *: int*
+
+Unique actuator/sensor identifier.
+
+##### *property* name *: str*
+
+Display name of the sensor.
+
+##### *property* unit *: str*
+
+Unit of measurement (e.g. `'C'`, `'%'`, `'hPa'`).
+
+##### *property* value *: float*
+
+Sensor reading in the unit reported by [`unit`](#aiocamedomotic.models.analog_in.AnalogIn.unit).
+
+Temperature readings (`unit == "C"`) are divided by 10 to convert
+from the API’s integer encoding to degrees Celsius. All other units
+are returned as-is.
 
 CAME Domotic TVCC camera entity models.
 
@@ -3666,6 +3841,23 @@ update indication type, a factory function to parse raw update dicts, and a
 specialized list-based data structure to track chronological updates received
 from the CAME Domotic API.
 
+#### *class* aiocamedomotic.models.update.AnalogInUpdate(raw_data: dict[str, Any])
+
+Typed update for an analog input sensor (`analogin_status_ind` /
+`analogin_update_ind`).
+
+##### *property* act_id *: int*
+
+Analog input actuator ID.
+
+##### *property* unit *: str*
+
+Unit of measurement.
+
+##### *property* value *: float*
+
+Sensor reading, with temperature scaling applied for unit `'C'`.
+
 #### *class* aiocamedomotic.models.update.DeviceUpdate(raw_data: dict[str, Any])
 
 Base class for a typed status update from the CAME API.
@@ -3977,7 +4169,8 @@ Each device in the CAME Domotic system is associated with one of these type
 identifiers. Not all device types are currently supported by this library.
 
 Values:
-: - ENERGY_SENSOR (-2)
+: - ANALOG_INPUT (-3)
+  - ENERGY_SENSOR (-2)
   - ANALOG_SENSOR (-1)
   - LIGHT (0)
   - OPENING (1)
@@ -4010,6 +4203,7 @@ Values:
   - RELAY (“relay_status_ind”)
   - THERMOSTAT (“thermo_zone_info_ind”)
   - DIGITAL_INPUT (“digitalin_status_ind”)
+  - ANALOG_INPUT (“analogin_status_ind”)
   - SCENARIO_STATUS (“scenario_status_ind”)
   - SCENARIO_ACTIVATION (“scenario_activation_ind”)
   - ENERGY_METER (“meter_instant_power_ind”)
@@ -4021,6 +4215,7 @@ Values:
   - THERMOSTAT_LEGACY (“thermo_update_ind”)
   - RELAY_LEGACY (“relay_update_ind”)
   - DIGITAL_INPUT_LEGACY (“digitalin_update_ind”)
+  - ANALOG_INPUT_LEGACY (“analogin_update_ind”)
   - SCENARIO_USER_LEGACY (“scenario_user_ind”)
 
 ### Utilities
