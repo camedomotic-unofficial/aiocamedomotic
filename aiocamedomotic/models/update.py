@@ -384,6 +384,31 @@ class DigitalInputUpdate(DeviceUpdate):
 
 
 @dataclass
+class AnalogInUpdate(DeviceUpdate):
+    """Typed update for an analog input sensor (``analogin_status_ind`` /
+    ``analogin_update_ind``).
+    """
+
+    @property
+    def act_id(self) -> int:
+        """Analog input actuator ID."""
+        return self.raw_data["act_id"]
+
+    @property
+    def value(self) -> float:
+        """Sensor reading, with temperature scaling applied for unit ``'C'``."""
+        raw = self.raw_data.get("value", 0)
+        if self.raw_data.get("unit") == "C":
+            return raw / 10.0
+        return float(raw)
+
+    @property
+    def unit(self) -> str:
+        """Unit of measurement."""
+        return self.raw_data.get("unit", "")
+
+
+@dataclass
 class PlantUpdate(DeviceUpdate):
     """Marker update for ``plant_update_ind``.
 
@@ -415,6 +440,8 @@ _INDICATOR_TO_UPDATE_CLASS: dict[str, type[DeviceUpdate]] = {
     "relay_update_ind": RelayUpdate,
     "digitalin_status_ind": DigitalInputUpdate,
     "digitalin_update_ind": DigitalInputUpdate,
+    "analogin_status_ind": AnalogInUpdate,
+    "analogin_update_ind": AnalogInUpdate,
     "plant_update_ind": PlantUpdate,
 }
 

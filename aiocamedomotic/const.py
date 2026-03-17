@@ -81,6 +81,7 @@ class DeviceType(IntEnum):
     identifiers. Not all device types are currently supported by this library.
 
     Values:
+        - ANALOG_INPUT (-3)
         - ENERGY_SENSOR (-2)
         - ANALOG_SENSOR (-1)
         - LIGHT (0)
@@ -100,6 +101,7 @@ class DeviceType(IntEnum):
         - DIGITAL_INPUT (14)
     """
 
+    ANALOG_INPUT = -3
     ENERGY_SENSOR = -2
     ANALOG_SENSOR = -1
     LIGHT = 0
@@ -149,6 +151,7 @@ class _CommandName(Enum):
     THERMO_LIST = "thermo_list_req"
     METERS_LIST = "meters_list_req"
     DIGITALIN_LIST = "digitalin_list_req"
+    ANALOGIN_LIST = "analogin_list_req"
     TVCC_CAMERAS_LIST = "tvcc_cameras_list_req"
     # Nested lists (topology-aware)
     NESTED_LIGHT_LIST = "nested_light_list_req"
@@ -181,6 +184,7 @@ class _CommandNameResponse(Enum):
     THERMO_LIST = "thermo_list_resp"
     METERS_LIST = "meters_list_resp"
     DIGITALIN_LIST = "digitalin_list_resp"
+    ANALOGIN_LIST = "analogin_list_resp"
     TVCC_CAMERAS_LIST = "tvcc_cameras_list_resp"
     TERMINALS_GROUPS_LIST = "terminals_groups_list_resp"
     MAP_DESCR = "map_descr_resp"
@@ -202,6 +206,7 @@ class _ServerFeature(Enum):
     THERMOREGULATION = "thermoregulation"
     SCENARIOS = "scenarios"
     DIGITALIN = "digitalin"
+    ANALOGIN = "analogin"
     ENERGY = "energy"
     LOADSCTRL = "loadsctrl"
 
@@ -247,6 +252,7 @@ class UpdateIndicator(Enum):
         - RELAY ("relay_status_ind")
         - THERMOSTAT ("thermo_zone_info_ind")
         - DIGITAL_INPUT ("digitalin_status_ind")
+        - ANALOG_INPUT ("analogin_status_ind")
         - SCENARIO_STATUS ("scenario_status_ind")
         - SCENARIO_ACTIVATION ("scenario_activation_ind")
         - ENERGY_METER ("meter_instant_power_ind")
@@ -258,6 +264,7 @@ class UpdateIndicator(Enum):
         - THERMOSTAT_LEGACY ("thermo_update_ind")
         - RELAY_LEGACY ("relay_update_ind")
         - DIGITAL_INPUT_LEGACY ("digitalin_update_ind")
+        - ANALOG_INPUT_LEGACY ("analogin_update_ind")
         - SCENARIO_USER_LEGACY ("scenario_user_ind")
     """
 
@@ -267,6 +274,7 @@ class UpdateIndicator(Enum):
     RELAY = "relay_status_ind"
     THERMOSTAT = "thermo_zone_info_ind"
     DIGITAL_INPUT = "digitalin_status_ind"
+    ANALOG_INPUT = "analogin_status_ind"
     SCENARIO_STATUS = "scenario_status_ind"
     SCENARIO_ACTIVATION = "scenario_activation_ind"
     ENERGY_METER = "meter_instant_power_ind"
@@ -279,6 +287,7 @@ class UpdateIndicator(Enum):
     THERMOSTAT_LEGACY = "thermo_update_ind"
     RELAY_LEGACY = "relay_update_ind"
     DIGITAL_INPUT_LEGACY = "digitalin_update_ind"
+    ANALOG_INPUT_LEGACY = "analogin_update_ind"
     SCENARIO_USER_LEGACY = "scenario_user_ind"
 
 
@@ -289,6 +298,7 @@ _UPDATE_CMD_TO_DEVICE_TYPE: dict[str, DeviceType] = {
     "opening_move_ind": DeviceType.OPENING,
     "thermo_zone_info_ind": DeviceType.THERMOSTAT,
     "digitalin_status_ind": DeviceType.DIGITAL_INPUT,
+    "analogin_status_ind": DeviceType.ANALOG_INPUT,
     "scenario_status_ind": DeviceType.SCENARIO,
     "scenario_activation_ind": DeviceType.SCENARIO,
     "meter_instant_power_ind": DeviceType.ENERGY_SENSOR,
@@ -299,6 +309,7 @@ _UPDATE_CMD_TO_DEVICE_TYPE: dict[str, DeviceType] = {
     "thermo_update_ind": DeviceType.THERMOSTAT,
     "relay_update_ind": DeviceType.GENERIC_RELAY,
     "digitalin_update_ind": DeviceType.DIGITAL_INPUT,
+    "analogin_update_ind": DeviceType.ANALOG_INPUT,
     "scenario_user_ind": DeviceType.SCENARIO,
     # plant_update_ind intentionally omitted: it requires full cache
     # invalidation, not a per-device update
@@ -313,4 +324,5 @@ _DEVICE_TYPE_TO_FEATURE: dict[DeviceType, _ServerFeature] = {
     DeviceType.SCENARIO: _ServerFeature.SCENARIOS,
     DeviceType.DIGITAL_INPUT: _ServerFeature.DIGITALIN,
     DeviceType.ENERGY_SENSOR: _ServerFeature.ENERGY,
+    DeviceType.ANALOG_INPUT: _ServerFeature.ANALOGIN,
 }

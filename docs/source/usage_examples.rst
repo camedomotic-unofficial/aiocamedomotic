@@ -220,6 +220,7 @@ Example output:
     Feature: thermoregulation
     Feature: scenarios
     Feature: digitalin
+    Feature: analogin
     Feature: energy
     Feature: loadsctrl
 
@@ -245,6 +246,9 @@ You can use the features list to decide which device APIs to call:
 
     if "digitalin" in server_info.features:
         digital_inputs = await api.async_get_digital_inputs()
+
+    if "analogin" in server_info.features:
+        analog_inputs = await api.async_get_analog_inputs()
 
 Floors and rooms
 ^^^^^^^^^^^^^^^^
@@ -551,6 +555,53 @@ Example output:
 .. note::
     Some digital inputs do not report a ``status`` until their first state
     change. In that case, ``status`` returns ``DigitalInputStatus.UNKNOWN``.
+
+Analog inputs (standalone sensors)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Analog inputs are read-only standalone sensors such as hygrometers,
+thermometers, and barometers exposed via the ``analogin`` feature. They
+provide a numeric reading and a unit of measurement but cannot be
+controlled remotely.
+
+.. note::
+    These sensors are independent of the thermoregulation system's
+    :class:`~aiocamedomotic.models.AnalogSensor`. The same physical sensor
+    may appear in both endpoints.
+
+.. code-block:: python
+
+    if "analogin" in server_info.features:
+        analog_inputs = await api.async_get_analog_inputs()
+
+        for ai in analog_inputs:
+            print(
+                f"ID: {ai.act_id}, Name: {ai.name}, "
+                f"Value: {ai.value}, Unit: {ai.unit}"
+            )
+
+Example output:
+
+.. code-block:: text
+
+    ID: 89, Name: Igrometro, Value: 47.0, Unit: %
+    ID: 90, Name: Termometro esterno, Value: 21.5, Unit: C
+    ID: 91, Name: Barometro, Value: 1013.0, Unit: hPa
+
+**Finding a specific analog input:**
+
+.. code-block:: python
+
+    # By ID
+    thermo = next((ai for ai in analog_inputs if ai.act_id == 90), None)
+
+    # By name
+    hygro = next((ai for ai in analog_inputs if ai.name == "Igrometro"), None)
+
+.. note::
+    Temperature values (``unit == "C"``) are automatically scaled from the
+    raw integer-times-10 representation (e.g. ``215`` becomes ``21.5``).
+    Humidity and pressure values are returned as-is.
 
 Relays
 ^^^^^^

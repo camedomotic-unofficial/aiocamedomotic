@@ -32,6 +32,8 @@ from aiocamedomotic.const import (
 )
 from aiocamedomotic.errors import CameDomoticAuthError, CameDomoticServerError
 from aiocamedomotic.models import (
+    AnalogIn,
+    AnalogInUpdate,
     AnalogSensor,
     AnalogSensorType,
     Camera,
@@ -2626,6 +2628,112 @@ class TestAnalogSensor:
         sensor = AnalogSensor(sensor_data, AnalogSensorType.PRESSURE)
         assert sensor.sensor_type == AnalogSensorType.PRESSURE
         assert sensor.value == 1013.0
+
+
+class TestAnalogIn:
+    def test_init_temperature(self, analog_in_data_temperature):
+        sensor = AnalogIn(analog_in_data_temperature)
+        assert sensor.act_id == 90
+        assert sensor.name == "Termometro esterno"
+        assert sensor.value == 21.5
+        assert sensor.unit == "C"
+
+    def test_init_humidity(self, analog_in_data_humidity):
+        sensor = AnalogIn(analog_in_data_humidity)
+        assert sensor.act_id == 89
+        assert sensor.name == "Igrometro"
+        assert sensor.value == 47.0
+        assert sensor.unit == "%"
+
+    def test_init_pressure(self, analog_in_data_pressure):
+        sensor = AnalogIn(analog_in_data_pressure)
+        assert sensor.act_id == 91
+        assert sensor.name == "Barometro"
+        assert sensor.value == 1013.0
+        assert sensor.unit == "hPa"
+
+    def test_missing_name_raises(self):
+        data = {"act_id": 90, "value": 215, "unit": "C"}
+        with pytest.raises(ValueError, match="Data is missing required keys: name"):
+            AnalogIn(data)
+
+    def test_missing_act_id_raises(self):
+        data = {"name": "Test Sensor", "value": 215, "unit": "C"}
+        with pytest.raises(ValueError, match="Data is missing required keys: act_id"):
+            AnalogIn(data)
+
+    def test_optional_fields_defaults(self):
+        data = {"name": "Minimal Sensor", "act_id": 200}
+        sensor = AnalogIn(data)
+        assert sensor.name == "Minimal Sensor"
+        assert sensor.act_id == 200
+        assert sensor.value == 0.0
+        assert sensor.unit == ""
+
+    def test_temperature_scaling(self):
+        data = {"name": "Temp", "act_id": 1, "value": 215, "unit": "C"}
+        sensor = AnalogIn(data)
+        assert sensor.value == 21.5
+
+    def test_non_temperature_no_scaling(self):
+        data = {"name": "Humidity", "act_id": 2, "value": 47, "unit": "%"}
+        sensor = AnalogIn(data)
+        assert sensor.value == 47.0
+
+
+class TestAnalogInUpdate:
+    def test_parse_analogin_status_ind(self):
+        raw = {
+            "cmd_name": "analogin_status_ind",
+            "act_id": 90,
+            "name": "Termometro esterno",
+            "value": 215,
+            "unit": "C",
+        }
+        update = parse_update(raw)
+        assert isinstance(update, AnalogInUpdate)
+        assert update.act_id == 90
+        assert update.value == 21.5
+        assert update.unit == "C"
+
+    def test_parse_analogin_update_ind(self):
+        raw = {
+            "cmd_name": "analogin_update_ind",
+            "act_id": 89,
+            "name": "Igrometro",
+            "value": 55,
+            "unit": "%",
+        }
+        update = parse_update(raw)
+        assert isinstance(update, AnalogInUpdate)
+        assert update.act_id == 89
+        assert update.value == 55.0
+        assert update.unit == "%"
+
+    def test_device_id(self):
+        raw = {
+            "cmd_name": "analogin_status_ind",
+            "act_id": 90,
+            "value": 215,
+            "unit": "C",
+        }
+        update = parse_update(raw)
+        assert update.device_id == 90
+
+    def test_value_temperature_scaling(self):
+        raw = {
+            "cmd_name": "analogin_status_ind",
+            "act_id": 1,
+            "value": 215,
+            "unit": "C",
+        }
+        update = parse_update(raw)
+        assert update.value == 21.5
+
+    def test_value_no_scaling(self):
+        raw = {"cmd_name": "analogin_status_ind", "act_id": 1, "value": 47, "unit": "%"}
+        update = parse_update(raw)
+        assert update.value == 47.0
 
 
 class TestDigitalInput:

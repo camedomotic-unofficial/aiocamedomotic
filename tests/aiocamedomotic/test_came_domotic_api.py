@@ -29,6 +29,7 @@ from aiocamedomotic.errors import (
     CameDomoticServerTimeoutError,
 )
 from aiocamedomotic.models import (
+    AnalogIn,
     AnalogSensor,
     AnalogSensorType,
     Camera,
@@ -49,6 +50,7 @@ from aiocamedomotic.models import (
     User,
 )
 from tests.aiocamedomotic.mocked_responses import (
+    ANALOGIN_LIST_RESP,
     DIGITALIN_LIST_RESP,
     FEATURE_LIST_RESP,
     LIGHT_LIST_RESP,
@@ -1485,6 +1487,95 @@ class TestAPIDigitalInputs:
 
         with pytest.raises(ValueError, match="Data is missing required keys: name"):
             await api.async_get_digital_inputs()
+
+
+class TestAPIAnalogInputs:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_analog_inputs(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = ANALOGIN_LIST_RESP
+
+        analog_inputs = await api.async_get_analog_inputs()
+        assert len(analog_inputs) == 3
+        assert isinstance(analog_inputs[0], AnalogIn)
+        assert isinstance(analog_inputs[1], AnalogIn)
+        assert isinstance(analog_inputs[2], AnalogIn)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_analog_inputs_empty_array(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [],
+            "cmd_name": "analogin_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        analog_inputs = await api.async_get_analog_inputs()
+        assert len(analog_inputs) == 0
+        assert isinstance(analog_inputs, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_analog_inputs_missing_array_key(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "cmd_name": "analogin_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        analog_inputs = await api.async_get_analog_inputs()
+        assert len(analog_inputs) == 0
+        assert isinstance(analog_inputs, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_analog_inputs_null_array(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": None,
+            "cmd_name": "analogin_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        analog_inputs = await api.async_get_analog_inputs()
+        assert analog_inputs == []
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_analog_inputs_missing_act_id(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [{"name": "Test Sensor", "value": 215, "unit": "C"}],
+            "cmd_name": "analogin_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: act_id"):
+            await api.async_get_analog_inputs()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_analog_inputs_missing_name(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [{"act_id": 90, "value": 215, "unit": "C"}],
+            "cmd_name": "analogin_list_resp",
+            "cseq": 1,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: name"):
+            await api.async_get_analog_inputs()
 
 
 class TestAPICameras:
