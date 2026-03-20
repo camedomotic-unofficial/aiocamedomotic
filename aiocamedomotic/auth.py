@@ -45,6 +45,7 @@ from .const import (
     _DEFAULT_COMMAND_TIMEOUT,
     _KEEP_ALIVE_MAX_SEC,
     _KEEP_ALIVE_MIN_SEC,
+    AckErrorCode,
     _CommandType,
 )
 
@@ -498,8 +499,10 @@ class Auth:
             raise e
         except CameDomoticServerError as e:
             # Invalidate session on session-related ACK errors
-            # (7: no client ID, 8: wrong client ID)
-            if getattr(e, "ack_code", None) in {7, 8}:
+            if getattr(e, "ack_code", None) in {
+                AckErrorCode.NO_CLIENT_ID,
+                AckErrorCode.WRONG_CLIENT_ID,
+            }:
                 LOGGER.warning(
                     "Session invalidated due to ACK error %s,"
                     " will re-login on next command",

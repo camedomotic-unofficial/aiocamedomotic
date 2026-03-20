@@ -20,22 +20,62 @@ from __future__ import annotations
 
 from enum import Enum, IntEnum
 
-# ACK error codes and their meanings from the CAME Domotic server
-ACK_ERROR_CODES = {
-    1: "Invalid user.",
-    3: "Too many sessions during login.",
-    4: "Error occurred in JSON Syntax.",
-    5: "No session layer command tag.",
-    6: "Unrecognized session layer command.",
-    7: "No client ID in request.",
-    8: "Wrong client ID in request.",
-    9: "Wrong application command.",
-    10: "No reply to application command, maybe service down.",
-    11: "Wrong application data.",
-}
 
-# Authentication-related error codes that should raise CameDomoticAuthError
-AUTH_ERROR_CODES = {1, 3}
+class AckErrorCode(IntEnum):
+    """ACK error codes returned by the CAME Domotic server.
+
+    Each member carries a human-readable ``message`` and an ``is_auth``
+    flag indicating whether the error is authentication-related.
+
+    Because ``AckErrorCode`` is an :class:`~enum.IntEnum`, members compare
+    equal to their integer value (e.g. ``AckErrorCode.INVALID_USER == 1``).
+
+    Values:
+
+    - ``INVALID_USER`` (1): Invalid user. **[auth]**
+    - ``TOO_MANY_SESSIONS`` (3): Too many sessions during login. **[auth]**
+    - ``JSON_SYNTAX_ERROR`` (4): Error occurred in JSON Syntax.
+    - ``NO_SESSION_COMMAND_TAG`` (5): No session layer command tag.
+    - ``UNRECOGNIZED_SESSION_COMMAND`` (6): Unrecognized session layer command.
+    - ``NO_CLIENT_ID`` (7): No client ID in request.
+    - ``WRONG_CLIENT_ID`` (8): Wrong client ID in request.
+    - ``WRONG_APPLICATION_COMMAND`` (9): Wrong application command.
+    - ``NO_REPLY`` (10): No reply to application command, maybe service down.
+    - ``WRONG_APPLICATION_DATA`` (11): Wrong application data.
+    """
+
+    def __new__(
+        cls, value: int, message: str = "", is_auth: bool = False
+    ) -> AckErrorCode:
+        obj = int.__new__(cls, value)
+        obj._value_ = value
+        return obj
+
+    def __init__(self, value: int, message: str = "", is_auth: bool = False) -> None:
+        self._message = message
+        self._is_auth = is_auth
+
+    @property
+    def message(self) -> str:
+        """Human-readable error message for this ACK code."""
+        return self._message
+
+    @property
+    def is_auth(self) -> bool:
+        """Whether this error code indicates an authentication failure."""
+        return self._is_auth
+
+    INVALID_USER = (1, "Invalid user.", True)
+    TOO_MANY_SESSIONS = (3, "Too many sessions during login.", True)
+    JSON_SYNTAX_ERROR = (4, "Error occurred in JSON Syntax.")
+    NO_SESSION_COMMAND_TAG = (5, "No session layer command tag.")
+    UNRECOGNIZED_SESSION_COMMAND = (6, "Unrecognized session layer command.")
+    NO_CLIENT_ID = (7, "No client ID in request.")
+    WRONG_CLIENT_ID = (8, "Wrong client ID in request.")
+    WRONG_APPLICATION_COMMAND = (9, "Wrong application command.")
+    NO_REPLY = (10, "No reply to application command, maybe service down.")
+    WRONG_APPLICATION_DATA = (11, "Wrong application data.")
+
 
 # Known MAC address OUI prefixes for CAME Domotic devices (BPT S.p.A.)
 # These can be used for network autodiscovery of CAME ETI/Domo servers.
@@ -48,30 +88,6 @@ _DEFAULT_COMMAND_TIMEOUT: int = 30
 # Prevents re-login storms on zero/very-low values and runaway sessions on huge values.
 _KEEP_ALIVE_MIN_SEC: int = 30
 _KEEP_ALIVE_MAX_SEC: int = 3600
-
-
-def get_ack_error_message(ack_code: int) -> str:
-    """Get human-readable message for ACK error code.
-
-    Args:
-        ack_code (int): The ACK error code from the server.
-
-    Returns:
-        str: Human-readable error message.
-    """
-    return ACK_ERROR_CODES.get(ack_code, f"Unknown error code: {ack_code}")
-
-
-def is_auth_error(ack_code: int) -> bool:
-    """Check if ACK error code is authentication-related.
-
-    Args:
-        ack_code (int): The ACK error code from the server.
-
-    Returns:
-        bool: True if the error code is authentication-related.
-    """
-    return ack_code in AUTH_ERROR_CODES
 
 
 class DeviceType(IntEnum):
