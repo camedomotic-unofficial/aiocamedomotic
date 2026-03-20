@@ -33,43 +33,6 @@ Entity models
 
 .. automodule:: aiocamedomotic.models
    :members:
-   :noindex:
-
-.. automodule:: aiocamedomotic.models.base
-   :members:
-
-.. automodule:: aiocamedomotic.models.analog_in
-   :members:
-
-.. automodule:: aiocamedomotic.models.camera
-   :members:
-
-.. automodule:: aiocamedomotic.models.digital_input
-   :members:
-
-.. automodule:: aiocamedomotic.models.light
-   :members:
-
-.. automodule:: aiocamedomotic.models.map_page
-   :members:
-
-.. automodule:: aiocamedomotic.models.opening
-   :members:
-
-.. automodule:: aiocamedomotic.models.relay
-   :members:
-
-.. automodule:: aiocamedomotic.models.scenario
-   :members:
-
-.. automodule:: aiocamedomotic.models.thermo_zone
-   :members:
-
-.. automodule:: aiocamedomotic.models.timer
-   :members:
-
-.. automodule:: aiocamedomotic.models.update
-   :members:
 
 
 Constants
@@ -85,7 +48,7 @@ Utilities
 .. autofunction:: aiocamedomotic.utils.async_is_came_endpoint
 
 .. automodule:: aiocamedomotic.anonymizer
-   :members: TRAFFIC_LOGGER, anonymize_payload
+   :members: TRAFFIC_LOGGER
 
 
 Errors

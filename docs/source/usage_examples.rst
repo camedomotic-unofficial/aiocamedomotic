@@ -92,27 +92,9 @@ pass it via the ``websession`` parameter:
 
     async with await CameDomoticAPI.async_create(
         "192.168.x.x", "username", "password",
-        websession=my_existing_session,
-        close_websession_on_disposal=False,
+        websession=my_existing_session
     ) as api:
         ...
-
-.. important:: **Session ownership — read this carefully if you pass a** ``websession``.
-
-    The ``close_websession_on_disposal`` parameter controls whether the HTTP session is
-    closed when the ``CameDomoticAPI`` object is disposed (i.e. on exit from the
-    ``async with`` block).
-
-    - ``False`` **(default — use this when passing a shared session)**: the session is
-      preserved on disposal. This is almost always what you want in Home Assistant and
-      similar frameworks, where a single long-lived ``aiohttp.ClientSession`` is shared
-      across many integrations. Closing it here would silently break every other
-      component that depends on it.
-    - ``True``: the session is closed on disposal. Only use this if you explicitly
-      want this object to take ownership of the provided session.
-
-    When **no** ``websession`` is provided, this flag is irrelevant: the internally
-    created session is always closed on disposal.
 
 Handling connection errors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -225,7 +207,9 @@ Example output:
     Feature: energy
     Feature: loadsctrl
 
-You can use the features list to decide which device APIs to call:
+The ``features`` property returns plain strings (see
+:attr:`~aiocamedomotic.models.base.ServerInfo.features` for the full list of
+known values). You can use them to decide which device APIs to call:
 
 .. code-block:: python
 
@@ -281,12 +265,6 @@ Example output:
     Floor 1: First Floor
       Room 3: Bedroom
       Room 4: Bathroom
-
-.. note::
-    ``async_get_topology()`` issues all requests concurrently and produces a
-    :class:`~aiocamedomotic.models.base.PlantTopology` object with floors
-    and rooms already nested, so you don't need to cross-reference floor IDs
-    manually.
 
 Working with devices
 --------------------
@@ -358,11 +336,13 @@ Example output:
 Openings
 ^^^^^^^^
 
-Openings represent shutters, awnings, and similar motorized covers. They use
-a three-state control model: opening, closing, or stopped.
+Openings represent shutters, awnings, and similar motorized covers. They
+support opening, closing, stopping, and slat tilting (open/close) for
+covers with adjustable slats (e.g., venetian blinds).
 
 .. code-block:: python
 
+    import asyncio
     from aiocamedomotic.models import OpeningStatus
 
     openings = await api.async_get_openings()
@@ -374,8 +354,16 @@ a three-state control model: opening, closing, or stopped.
     shutter = next((o for o in openings if o.open_act_id == 10), None)
     if shutter:
         await shutter.async_set_status(OpeningStatus.OPENING)
+        await asyncio.sleep(5)
         await shutter.async_set_status(OpeningStatus.STOPPED)
+        await asyncio.sleep(5)
         await shutter.async_set_status(OpeningStatus.CLOSING)
+
+        # Tilt slats (for covers with adjustable slats)
+        await asyncio.sleep(5)
+        await shutter.async_set_status(OpeningStatus.SLAT_OPEN)
+        await asyncio.sleep(5)
+        await shutter.async_set_status(OpeningStatus.SLAT_CLOSE)
 
 Scenarios
 ^^^^^^^^^
@@ -391,7 +379,7 @@ activated (fire-and-forget); there is no bidirectional status control.
         print(f"ID: {scenario.id}, Name: {scenario.name}, Status: {scenario.scenario_status}")
 
     # Activate a scenario
-    good_morning = next((s for s in scenarios if s.name == "Good Morning"), None)
+    good_morning = next((s for s in scenarios if s.name == "Good morning"), None)
     if good_morning:
         await good_morning.async_activate()
 
@@ -438,7 +426,7 @@ Example output:
 
     # Full configuration with fan speed
     await zone.async_set_config(
-        mode=ThermoZoneMode.AUTO,
+        mode=ThermoZoneMode.MANUAL,
         set_point=21.5,
         fan_speed=ThermoZoneFanSpeed.MEDIUM,
     )
@@ -464,11 +452,12 @@ Example output:
     after changing the season.
 
 .. note::
-    Temperature values are returned as floats in degrees Celsius (the internal
-    integer-times-10 representation is converted automatically). The
-    ``fan_speed`` parameter in ``async_set_config`` is optional; when
-    provided, the ``extended_infos`` flag is set automatically. Season can
-    only be changed at the plant level via ``async_set_thermo_season()``.
+    Temperature values are returned as floats in degrees Celsius.
+
+    The ``fan_speed`` parameter in ``async_set_config`` is optional; when
+    provided, the ``extended_infos`` flag is set automatically.
+
+    Season can only be changed at the plant level via ``async_set_thermo_season()``.
 
 Analog sensors
 ^^^^^^^^^^^^^^
@@ -513,12 +502,6 @@ Example output:
     # Find a specific sensor by ID
     outdoor = next((s for s in sensors if s.act_id == 100), None)
 
-.. note::
-    Temperature sensor values are automatically scaled from the raw
-    integer-times-10 representation (e.g. ``215`` becomes ``21.5``).
-    Humidity and pressure values are returned as-is. The ``sensor_type``
-    property (an ``AnalogSensorType`` enum) determines the scaling behavior.
-
 Digital inputs (binary sensors)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -554,7 +537,7 @@ Example output:
     button = next((di for di in digital_inputs if di.act_id == 1), None)
 
     # By name
-    sensor = next((di for di in digital_inputs if di.name == "Front Door"), None)
+    sensor = next((di for di in digital_inputs if di.name == "Front door button"), None)
 
 .. note::
     Some digital inputs do not report a ``status`` until their first state
@@ -563,9 +546,8 @@ Example output:
 Analog inputs (standalone sensors)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Analog inputs are read-only standalone sensors such as hygrometers,
-thermometers, and barometers exposed via the ``analogin`` feature. They
-provide a numeric reading and a unit of measurement but cannot be
+Analog inputs are read-only standalone sensors exposed via the ``analogin`` feature.
+They provide a numeric reading and a unit of measurement and cannot be
 controlled remotely.
 
 .. note::
@@ -588,9 +570,9 @@ Example output:
 
 .. code-block:: text
 
-    ID: 89, Name: Igrometro, Value: 47.0, Unit: %
-    ID: 90, Name: Termometro esterno, Value: 21.5, Unit: C
-    ID: 91, Name: Barometro, Value: 1013.0, Unit: hPa
+    ID: 89, Name: Hygrometer, Value: 47.0, Unit: %
+    ID: 90, Name: Outdoor Thermometer, Value: 21.5, Unit: C
+    ID: 91, Name: Barometer, Value: 1013.0, Unit: hPa
 
 **Finding a specific analog input:**
 
@@ -600,18 +582,12 @@ Example output:
     thermo = next((ai for ai in analog_inputs if ai.act_id == 90), None)
 
     # By name
-    hygro = next((ai for ai in analog_inputs if ai.name == "Igrometro"), None)
-
-.. note::
-    Temperature values (``unit == "C"``) are automatically scaled from the
-    raw integer-times-10 representation (e.g. ``215`` becomes ``21.5``).
-    Humidity and pressure values are returned as-is.
+    hygro = next((ai for ai in analog_inputs if ai.name == "Hygrometer"), None)
 
 Relays
 ^^^^^^
 
-Relays are simple on/off switches that can be controlled remotely. Unlike
-lights, they have no brightness or color capabilities.
+Relays are simple on/off switches that can be controlled remotely.
 
 **Fetching and inspecting relays:**
 
@@ -647,12 +623,8 @@ Example output:
 
     if pump:
         await pump.async_set_status(RelayStatus.ON)
+        await asyncio.sleep(5)
         await pump.async_set_status(RelayStatus.OFF)
-
-.. note::
-    The relay API commands are documented in the CAME API specification but
-    have not been verified against a real server. If you encounter unexpected
-    behaviour, please report it to the library developers.
 
 Timers
 ^^^^^^
@@ -759,8 +731,15 @@ Each ``TimerTimeSlot`` exposes:
             stop = "N/A"
         print(f"  Slot {slot.index}: {start} → {stop}")
 
+Example output:
+
+.. code-block:: text
+
+      Slot 0: 10:00:00 → 18:30:00
+      Slot 2: 22:00:00 → N/A
+
 .. note::
-    On firmware version 3.0.1, the ``stop`` and ``active`` fields are not
+    The ``stop`` and ``active`` fields mayb be not
     present in the server response. The corresponding properties return
     ``None`` in that case. Your code should handle both cases.
 
@@ -946,6 +925,14 @@ processes each batch of updates as it arrives:
             # Brief pause to avoid tight looping on rapid server responses
             await asyncio.sleep(1)
 
+Example output:
+
+.. code-block:: text
+
+    [DeviceType.LIGHT] Living Room Chandelier (ID: 1)
+    [DeviceType.OPENING] Bedroom Shutter (ID: 10)
+    [DeviceType.THERMO_ZONE] Living Room (ID: 1)
+
 .. note::
     The ``asyncio.sleep(1)`` acts as a safety throttle in case the server
     returns immediately (e.g. errors or rapid update bursts). If you need to
@@ -955,8 +942,8 @@ processes each batch of updates as it arrives:
 Configuring timeouts
 ^^^^^^^^^^^^^^^^^^^^
 
-All commands use a default timeout of **30 seconds**, configurable via
-``command_timeout`` when creating the API instance:
+All API methods use a default timeout of **30 seconds**, configurable via
+the ``command_timeout`` parameter when creating the API instance:
 
 .. code-block:: python
 
@@ -965,17 +952,24 @@ All commands use a default timeout of **30 seconds**, configurable via
     ) as api:
         lights = await api.async_get_lights()  # uses 15s timeout
 
-For ``async_get_updates()``, a longer timeout is **strongly recommended**
-since the server holds the connection open until updates are available:
+``async_get_updates()`` is the only method that accepts its own ``timeout``
+parameter, allowing it to use a different timeout than the rest of the API.
+This is because ``async_get_updates()`` uses **long polling** — the server
+holds the connection open until updates are available, which can take
+much longer than a regular command round-trip. A longer timeout
+(e.g. 60--120 seconds) is **strongly recommended** to avoid premature
+disconnections:
 
 .. code-block:: python
 
+    # Instance-level timeout is 15s for regular commands,
+    # but async_get_updates uses its own 120s timeout
     updates = await api.async_get_updates(timeout=120)
 
 .. note::
-    If no ``timeout`` is passed to ``async_get_updates()``, the instance-level
-    ``command_timeout`` is used (default: 30s). For most real-time monitoring
-    use cases, a timeout of **60--120 seconds** is recommended.
+    If no ``timeout`` is passed to ``async_get_updates()``, it falls back to
+    the instance-level ``command_timeout`` (default: 30s). For most real-time
+    monitoring use cases, a timeout of **60--120 seconds** is recommended.
 
 Typed updates and filtering
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

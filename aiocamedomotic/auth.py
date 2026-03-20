@@ -53,7 +53,7 @@ try:
     _LIBRARY_VERSION = version(__package__ or "aiocamedomotic")
 except PackageNotFoundError:
     _LIBRARY_VERSION = "unknown"
-from .anonymizer import log_traffic
+from .anonymizer import _log_traffic
 from .errors import (
     CameDomoticAuthError,
     CameDomoticServerError,
@@ -516,7 +516,7 @@ class Auth:
             raise CameDomoticServerError("Error sending command") from e
         finally:
             try:
-                log_traffic(
+                _log_traffic(
                     "POST",
                     self.get_endpoint_url(),
                     request_payload,
@@ -589,7 +589,7 @@ class Auth:
             ) from e
         finally:
             try:
-                log_traffic(
+                _log_traffic(
                     "GET",
                     endpoint_url,
                     None,

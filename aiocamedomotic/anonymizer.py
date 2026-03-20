@@ -206,7 +206,7 @@ def _anonymize_dict(data: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def anonymize_payload(data: dict[str, Any]) -> dict[str, Any]:
+def _anonymize_payload(data: dict[str, Any]) -> dict[str, Any]:
     """Return a deep copy of *data* with sensitive fields anonymized.
 
     This function never modifies the original dictionary. The following
@@ -228,7 +228,7 @@ def anonymize_payload(data: dict[str, Any]) -> dict[str, Any]:
     return _anonymize_dict(copied)
 
 
-def log_traffic(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+def _log_traffic(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     method: str,
     url: str,
     request_payload: dict[str, Any] | None,
@@ -259,12 +259,12 @@ def log_traffic(  # pylint: disable=too-many-arguments,too-many-positional-argum
         lines = [header]
 
         if request_payload is not None:
-            anon_request = anonymize_payload(request_payload)
+            anon_request = _anonymize_payload(request_payload)
             lines.append(f"--> {json.dumps(anon_request, separators=(',', ':'))}")
 
         if response_payload is not None:
             if isinstance(response_payload, dict):
-                anon_response = anonymize_payload(response_payload)
+                anon_response = _anonymize_payload(response_payload)
                 lines.append(f"<-- {json.dumps(anon_response, separators=(',', ':'))}")
             else:
                 lines.append(f"<-- {response_payload!s}")

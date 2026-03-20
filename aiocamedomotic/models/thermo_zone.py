@@ -300,8 +300,7 @@ class ThermoZone(CameEntity):
         """Configure the thermoregulation zone.
 
         .. note::
-            The season cannot be changed via this method. The CAME server
-            silently ignores any season value sent in a zone config request.
+            The season cannot be changed via this method.
             Use :meth:`CameDomoticAPI.async_set_thermo_season` to change the
             season at the plant level.
 
@@ -370,7 +369,7 @@ class ThermoZone(CameEntity):
         .. warning::
             This method only has an effect when the zone is in
             ``ThermoZoneMode.MANUAL`` mode. When the zone is in any other mode
-            (e.g. ``AUTO``), the server accepts the request without error but
+            (e.g. ``AUTO``, ``JOLLY``), the server accepts the request without error but
             silently discards the new setpoint. Use
             :meth:`async_set_config` with ``mode=ThermoZoneMode.MANUAL`` to
             guarantee that the setpoint is applied.

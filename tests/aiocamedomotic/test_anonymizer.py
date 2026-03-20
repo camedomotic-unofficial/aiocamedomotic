@@ -24,12 +24,12 @@ from unittest.mock import patch
 from aiocamedomotic.anonymizer import (
     TRAFFIC_LOGGER,
     _anonymize_host,
+    _anonymize_payload,
     _anonymize_uri,
     _anonymize_url,
     _anonymize_value,
+    _log_traffic,
     _partial_redact,
-    anonymize_payload,
-    log_traffic,
 )
 
 # ---------------------------------------------------------------------------
@@ -210,7 +210,7 @@ class TestAnonymizeValue:
 
 
 # ---------------------------------------------------------------------------
-# anonymize_payload
+# _anonymize_payload
 # ---------------------------------------------------------------------------
 
 
@@ -221,7 +221,7 @@ class TestAnonymizePayload:
             "sl_login": "admin",
             "sl_pwd": "secret123",
         }
-        result = anonymize_payload(payload)
+        result = _anonymize_payload(payload)
         assert result["sl_cmd"] == "sl_registration_req"
         assert result["sl_login"] == "ad***"
         assert result["sl_pwd"] == "***"
@@ -237,7 +237,7 @@ class TestAnonymizePayload:
             "sl_cmd": "sl_data_req",
             "sl_appl_msg_type": "domo",
         }
-        result = anonymize_payload(payload)
+        result = _anonymize_payload(payload)
         assert result["sl_client_id"] == "504***"
         assert result["sl_appl_msg"]["client"] == "504***"
         assert result["sl_appl_msg"]["cmd_name"] == "light_list_req"
@@ -250,7 +250,7 @@ class TestAnonymizePayload:
             "sl_pwd": "oldpass",
             "sl_new_pwd": "newpass",
         }
-        result = anonymize_payload(payload)
+        result = _anonymize_payload(payload)
         assert result["sl_login"] == "ad***"
         assert result["sl_pwd"] == "***"
         assert result["sl_new_pwd"] == "***"
@@ -263,7 +263,7 @@ class TestAnonymizePayload:
             "swver": "1.2.3",
             "sl_data_ack_reason": 0,
         }
-        result = anonymize_payload(payload)
+        result = _anonymize_payload(payload)
         assert result["keycode"] == "0000FFFF********"
         assert result["serial"] == "001*****"
         assert result["swver"] == "1.2.3"
@@ -275,7 +275,7 @@ class TestAnonymizePayload:
             "sl_client_id": "75c6c33a",
             "sl_users_list": [{"name": "admin"}],
         }
-        result = anonymize_payload(payload)
+        result = _anonymize_payload(payload)
         assert result["sl_client_id"] == "75c***"
         assert result["sl_users_list"][0]["name"] == "ad***"
 
@@ -291,7 +291,7 @@ class TestAnonymizePayload:
                 }
             ],
         }
-        result = anonymize_payload(payload)
+        result = _anonymize_payload(payload)
         cam = result["array"][0]
         assert "***:***@" in cam["uri"]
         assert "***:***@" in cam["uri_still"]
@@ -303,13 +303,13 @@ class TestAnonymizePayload:
             "sl_pwd": "secret",
             "nested": {"sl_client_id": "abc123"},
         }
-        anonymize_payload(payload)
+        _anonymize_payload(payload)
         assert payload["sl_login"] == "admin"
         assert payload["sl_pwd"] == "secret"
         assert payload["nested"]["sl_client_id"] == "abc123"
 
     def test_empty_dict(self):
-        assert anonymize_payload({}) == {}
+        assert _anonymize_payload({}) == {}
 
     def test_nested_list_of_dicts(self):
         payload = {
@@ -318,7 +318,7 @@ class TestAnonymizePayload:
                 {"cmd_name": "light_switch_ind", "act_id": 2, "status": 0},
             ]
         }
-        result = anonymize_payload(payload)
+        result = _anonymize_payload(payload)
         assert result["result"][0]["act_id"] == 1
         assert result["result"][1]["status"] == 0
 
@@ -329,21 +329,21 @@ class TestAnonymizePayload:
             "sl_login": "newuser",
             "sl_pwd": "newpassword",
         }
-        result = anonymize_payload(payload)
+        result = _anonymize_payload(payload)
         assert result["sl_client_id"] == "abc***"
         assert result["sl_login"] == "ne***"
         assert result["sl_pwd"] == "***"
 
 
 # ---------------------------------------------------------------------------
-# log_traffic
+# _log_traffic
 # ---------------------------------------------------------------------------
 
 
 class TestLogTraffic:
     def test_post_with_request_and_response(self, caplog):
         with caplog.at_level(logging.DEBUG, logger="aiocamedomotic.traffic"):
-            log_traffic(
+            _log_traffic(
                 "POST",
                 "http://192.168.1.100/domo/",
                 {"sl_cmd": "sl_registration_req", "sl_login": "admin", "sl_pwd": "x"},
@@ -364,7 +364,7 @@ class TestLogTraffic:
 
     def test_get_with_none_payloads(self, caplog):
         with caplog.at_level(logging.DEBUG, logger="aiocamedomotic.traffic"):
-            log_traffic("GET", "http://192.168.1.100/domo/", None, None, None, 10.0)
+            _log_traffic("GET", "http://192.168.1.100/domo/", None, None, None, 10.0)
 
         assert len(caplog.records) == 1
         text = caplog.records[0].message
@@ -374,7 +374,7 @@ class TestLogTraffic:
 
     def test_elapsed_time_in_output(self, caplog):
         with caplog.at_level(logging.DEBUG, logger="aiocamedomotic.traffic"):
-            log_traffic("POST", "http://host/domo/", {}, {}, 200, 123.456)
+            _log_traffic("POST", "http://host/domo/", {}, {}, 200, 123.456)
 
         text = caplog.records[0].message
         assert "123.5ms" in text
@@ -382,12 +382,12 @@ class TestLogTraffic:
     def test_exception_in_anonymization_swallowed(self, caplog):
         with (
             patch(
-                "aiocamedomotic.anonymizer.anonymize_payload",
+                "aiocamedomotic.anonymizer._anonymize_payload",
                 side_effect=RuntimeError("boom"),
             ),
             caplog.at_level(logging.WARNING, logger="aiocamedomotic.traffic"),
         ):
-            log_traffic("POST", "http://host/", {"sl_pwd": "x"}, None, 200, 1.0)
+            _log_traffic("POST", "http://host/", {"sl_pwd": "x"}, None, 200, 1.0)
 
         assert any("Traffic logging failed" in r.message for r in caplog.records)
 
@@ -396,7 +396,7 @@ class TestLogTraffic:
 
     def test_non_dict_response(self, caplog):
         with caplog.at_level(logging.DEBUG, logger="aiocamedomotic.traffic"):
-            log_traffic("POST", "http://host/domo/", None, "plain text", 200, 5.0)
+            _log_traffic("POST", "http://host/domo/", None, "plain text", 200, 5.0)
 
         text = caplog.records[0].message
         assert "<-- plain text" in text

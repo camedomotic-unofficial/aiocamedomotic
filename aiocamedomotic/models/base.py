@@ -70,7 +70,10 @@ class User(CameEntity):
 
         Note:
             This method logs out the current user and logs in with the new user.
-            In case of failure, the previous user is restored.
+            If login with the new credentials fails, a
+            ``CameDomoticAuthError`` is raised and the previous credentials
+            are restored so the API client remains connected as the
+            original user.
         """
 
         LOGGER.debug("Attempting to switch to user '%s'", self.name)
@@ -93,11 +96,6 @@ class User(CameEntity):
 
         Sends a delete-user request to the server for the user identified by
         this object's ``name`` property.
-
-        .. warning::
-            This operation is based on reverse-engineered API documentation and
-            has not been verified against a real CAME Domotic server. Behaviour
-            may differ across firmware versions.
 
         Raises:
             ValueError: If this user is the currently authenticated user.
@@ -125,12 +123,11 @@ class User(CameEntity):
             current_password (str): The user's current password.
             new_password (str): The desired new password.
 
-        .. warning::
-            This operation is based on reverse-engineered API documentation and
-            has not been verified against a real CAME Domotic server. Behaviour
-            may differ across firmware versions.
-
         Note:
+            Changing the password does not invalidate existing active sessions
+            for that user — they remain valid until they expire. The new
+            password will be required at the next login.
+
             If the changed user is the currently authenticated user, the stored
             credentials are updated automatically in the active session — no
             additional action is required.
@@ -190,16 +187,23 @@ class ServerInfo(CameEntity):
     """Serial number of the server."""
 
     features: list[str]
-    """List of features supported by the server.
+    """List of feature strings reported by the server.
+
+    Each feature corresponds to a functional block (e.g. lights, openings).
+    Values are plain strings; compare directly against the known literals
+    listed below.
 
     Known values (as of now) are:
-        - "lights"
-        - "openings"
-        - "thermoregulation"
-        - "scenarios"
-        - "digitalin"
-        - "energy"
-        - "loadsctrl"
+        - ``"lights"`` — on/off, dimmable and RGB lights
+        - ``"openings"`` — shutters, awnings, and motorized covers
+        - ``"relays"`` — simple on/off relay switches
+        - ``"thermoregulation"`` — climate zones and analog sensors
+        - ``"scenarios"`` — pre-configured automation sequences
+        - ``"digitalin"`` — read-only binary sensors (buttons, contacts)
+        - ``"analogin"`` — read-only standalone analog sensors
+        - ``"timers"`` — time-based scheduling entities
+        - ``"energy"`` — energy meters
+        - ``"loadsctrl"`` — load control / management
     """
 
     swver: str | None = None

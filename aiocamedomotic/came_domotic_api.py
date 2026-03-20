@@ -170,11 +170,6 @@ class CameDomoticAPI:
         Returns:
             User: A ``User`` object representing the newly created user.
 
-        .. warning::
-            This operation is based on reverse-engineered API documentation and
-            has not been verified against a real CAME Domotic server. Behaviour
-            may differ across firmware versions.
-
         Raises:
             CameDomoticAuthError: If the authentication fails.
             CameDomoticServerError: If the server returns an error.
@@ -413,6 +408,10 @@ class CameDomoticAPI:
             :meth:`~aiocamedomotic.models.ThermoZone.async_set_mode` or
             :meth:`~aiocamedomotic.models.ThermoZone.async_set_config`.
 
+            If your application needs to restore zone operation after re-enabling a
+            season, you must track each zone's previous mode yourself and re-apply it
+            after changing the season.
+
         Args:
             season: The season to set. Valid values are ``WINTER``,
                 ``SUMMER``, and ``PLANT_OFF``.
@@ -536,11 +535,6 @@ class CameDomoticAPI:
         Cameras are read-only entities providing access to IP camera
         stream URIs. They do not support control commands.
 
-        .. note::
-            This method uses API commands documented in the CAME JS client
-            but not yet verified against a real server. Behaviour may differ
-            across firmware versions.
-
         Returns:
             list[Camera]: List of cameras.
 
@@ -621,11 +615,6 @@ class CameDomoticAPI:
         """Get the list of all relay devices defined on the server.
 
         Relays are simple on/off switches that can be controlled remotely.
-
-        .. note::
-            This method uses API commands documented in the CAME API
-            specification but not yet verified against a real server.
-            Behaviour may differ across firmware versions.
 
         Returns:
             list[Relay]: List of relays.

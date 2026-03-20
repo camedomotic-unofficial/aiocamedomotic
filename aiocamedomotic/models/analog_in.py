@@ -50,10 +50,6 @@ class AnalogIn(CameEntity):
         ValueError: If ``name`` or ``act_id`` keys are missing from
             the input data.
 
-    Note:
-        Temperature values (``unit == "C"``) are stored as integers multiplied
-        by 10 (e.g. 215 = 21.5 °C). The :attr:`value` property applies the
-        conversion automatically.
     """
 
     raw_data: dict[str, Any]
@@ -77,12 +73,7 @@ class AnalogIn(CameEntity):
 
     @property
     def value(self) -> float:
-        """Sensor reading in the unit reported by :attr:`unit`.
-
-        Temperature readings (``unit == "C"``) are divided by 10 to convert
-        from the API's integer encoding to degrees Celsius. All other units
-        are returned as-is.
-        """
+        """Sensor reading in the unit reported by :attr:`unit`."""
         raw = self.raw_data.get("value", 0)
         if self.unit == "C":
             return raw / 10.0
