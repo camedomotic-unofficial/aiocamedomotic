@@ -30,10 +30,10 @@ from .const import (
     _DEFAULT_COMMAND_TIMEOUT,
     _FEATURE_TO_NESTED_CMD,
     _NESTED_3LEVEL_FEATURES,
+    ServerFeature,
     _CommandName,
     _CommandNameResponse,
     _CommandType,
-    _ServerFeature,
     _TopologicScope,
 )
 from .errors import CameDomoticAuthError
@@ -169,11 +169,6 @@ class CameDomoticAPI:
 
         Returns:
             User: A ``User`` object representing the newly created user.
-
-        .. warning::
-            This operation is based on reverse-engineered API documentation and
-            has not been verified against a real CAME Domotic server. Behaviour
-            may differ across firmware versions.
 
         Raises:
             CameDomoticAuthError: If the authentication fails.
@@ -413,6 +408,10 @@ class CameDomoticAPI:
             :meth:`~aiocamedomotic.models.ThermoZone.async_set_mode` or
             :meth:`~aiocamedomotic.models.ThermoZone.async_set_config`.
 
+            If your application needs to restore zone operation after re-enabling a
+            season, you must track each zone's previous mode yourself and re-apply it
+            after changing the season.
+
         Args:
             season: The season to set. Valid values are ``WINTER``,
                 ``SUMMER``, and ``PLANT_OFF``.
@@ -536,11 +535,6 @@ class CameDomoticAPI:
         Cameras are read-only entities providing access to IP camera
         stream URIs. They do not support control commands.
 
-        .. note::
-            This method uses API commands documented in the CAME JS client
-            but not yet verified against a real server. Behaviour may differ
-            across firmware versions.
-
         Returns:
             list[Camera]: List of cameras.
 
@@ -621,11 +615,6 @@ class CameDomoticAPI:
         """Get the list of all relay devices defined on the server.
 
         Relays are simple on/off switches that can be controlled remotely.
-
-        .. note::
-            This method uses API commands documented in the CAME API
-            specification but not yet verified against a real server.
-            Behaviour may differ across firmware versions.
 
         Returns:
             list[Relay]: List of relays.
@@ -743,9 +732,9 @@ class CameDomoticAPI:
         self._merge_nested_results(nested_results, floors, rooms)
         return self._build_plant_topology(floors, rooms)
 
-    async def _build_nested_tasks(self) -> list[tuple[_ServerFeature, Any]]:
+    async def _build_nested_tasks(self) -> list[tuple[ServerFeature, Any]]:
         """Fetch server info and return (feature, coro) pairs for nested cmds."""
-        nested_tasks: list[tuple[_ServerFeature, Any]] = []
+        nested_tasks: list[tuple[ServerFeature, Any]] = []
         try:
             server_info = await self.async_get_server_info()
         except CameDomoticAuthError:
@@ -759,7 +748,7 @@ class CameDomoticAPI:
 
         for feature_str in server_info.features:
             try:
-                feature = _ServerFeature(feature_str)
+                feature = ServerFeature(feature_str)
             except ValueError:
                 continue
             if feature in _FEATURE_TO_NESTED_CMD:
@@ -797,7 +786,7 @@ class CameDomoticAPI:
 
     @staticmethod
     def _merge_nested_results(
-        nested_results: list[tuple[_ServerFeature, Any]],
+        nested_results: list[tuple[ServerFeature, Any]],
         floors: dict[int, str],
         rooms: dict[tuple[int, int], str],
     ) -> None:

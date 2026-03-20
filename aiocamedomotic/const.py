@@ -18,24 +18,64 @@ Constants for the CAME Domotic API.
 
 from __future__ import annotations
 
-from enum import Enum, IntEnum
+from enum import Enum, IntEnum, StrEnum
 
-# ACK error codes and their meanings from the CAME Domotic server
-ACK_ERROR_CODES = {
-    1: "Invalid user.",
-    3: "Too many sessions during login.",
-    4: "Error occurred in JSON Syntax.",
-    5: "No session layer command tag.",
-    6: "Unrecognized session layer command.",
-    7: "No client ID in request.",
-    8: "Wrong client ID in request.",
-    9: "Wrong application command.",
-    10: "No reply to application command, maybe service down.",
-    11: "Wrong application data.",
-}
 
-# Authentication-related error codes that should raise CameDomoticAuthError
-AUTH_ERROR_CODES = {1, 3}
+class AckErrorCode(IntEnum):
+    """ACK error codes returned by the CAME Domotic server.
+
+    Each member carries a human-readable ``message`` and an ``is_auth``
+    flag indicating whether the error is authentication-related.
+
+    Because ``AckErrorCode`` is an :class:`~enum.IntEnum`, members compare
+    equal to their integer value (e.g. ``AckErrorCode.INVALID_USER == 1``).
+
+    Values:
+
+    - ``INVALID_USER`` (1): Invalid user. **[auth]**
+    - ``TOO_MANY_SESSIONS`` (3): Too many sessions during login. **[auth]**
+    - ``JSON_SYNTAX_ERROR`` (4): Error occurred in JSON Syntax.
+    - ``NO_SESSION_COMMAND_TAG`` (5): No session layer command tag.
+    - ``UNRECOGNIZED_SESSION_COMMAND`` (6): Unrecognized session layer command.
+    - ``NO_CLIENT_ID`` (7): No client ID in request.
+    - ``WRONG_CLIENT_ID`` (8): Wrong client ID in request.
+    - ``WRONG_APPLICATION_COMMAND`` (9): Wrong application command.
+    - ``NO_REPLY`` (10): No reply to application command, maybe service down.
+    - ``WRONG_APPLICATION_DATA`` (11): Wrong application data.
+    """
+
+    def __new__(
+        cls, value: int, message: str = "", is_auth: bool = False
+    ) -> AckErrorCode:
+        obj = int.__new__(cls, value)
+        obj._value_ = value
+        return obj
+
+    def __init__(self, value: int, message: str = "", is_auth: bool = False) -> None:
+        self._message = message
+        self._is_auth = is_auth
+
+    @property
+    def message(self) -> str:
+        """Human-readable error message for this ACK code."""
+        return self._message
+
+    @property
+    def is_auth(self) -> bool:
+        """Whether this error code indicates an authentication failure."""
+        return self._is_auth
+
+    INVALID_USER = (1, "Invalid user.", True)
+    TOO_MANY_SESSIONS = (3, "Too many sessions during login.", True)
+    JSON_SYNTAX_ERROR = (4, "Error occurred in JSON Syntax.")
+    NO_SESSION_COMMAND_TAG = (5, "No session layer command tag.")
+    UNRECOGNIZED_SESSION_COMMAND = (6, "Unrecognized session layer command.")
+    NO_CLIENT_ID = (7, "No client ID in request.")
+    WRONG_CLIENT_ID = (8, "Wrong client ID in request.")
+    WRONG_APPLICATION_COMMAND = (9, "Wrong application command.")
+    NO_REPLY = (10, "No reply to application command, maybe service down.")
+    WRONG_APPLICATION_DATA = (11, "Wrong application data.")
+
 
 # Known MAC address OUI prefixes for CAME Domotic devices (BPT S.p.A.)
 # These can be used for network autodiscovery of CAME ETI/Domo servers.
@@ -48,30 +88,6 @@ _DEFAULT_COMMAND_TIMEOUT: int = 30
 # Prevents re-login storms on zero/very-low values and runaway sessions on huge values.
 _KEEP_ALIVE_MIN_SEC: int = 30
 _KEEP_ALIVE_MAX_SEC: int = 3600
-
-
-def get_ack_error_message(ack_code: int) -> str:
-    """Get human-readable message for ACK error code.
-
-    Args:
-        ack_code (int): The ACK error code from the server.
-
-    Returns:
-        str: Human-readable error message.
-    """
-    return ACK_ERROR_CODES.get(ack_code, f"Unknown error code: {ack_code}")
-
-
-def is_auth_error(ack_code: int) -> bool:
-    """Check if ACK error code is authentication-related.
-
-    Args:
-        ack_code (int): The ACK error code from the server.
-
-    Returns:
-        bool: True if the error code is authentication-related.
-    """
-    return ack_code in AUTH_ERROR_CODES
 
 
 class DeviceType(IntEnum):
@@ -206,7 +222,28 @@ class _TopologicScope(Enum):
     PLANT = "plant"
 
 
-class _ServerFeature(Enum):
+class ServerFeature(StrEnum):
+    """Server feature identifiers reported by the CAME Domotic server.
+
+    Each member corresponds to a functional block (e.g. lights, openings).
+    Because ``ServerFeature`` is a :class:`~enum.StrEnum`, each member **is**
+    its string value (e.g. ``ServerFeature.LIGHTS == "lights"`` is ``True``),
+    so members can be compared directly against the plain strings in
+    :attr:`~aiocamedomotic.models.base.ServerInfo.features`.
+
+    Values:
+        - ``LIGHTS`` ("lights") — on/off, dimmable and RGB lights
+        - ``OPENINGS`` ("openings") — shutters, awnings, and motorized covers
+        - ``RELAYS`` ("relays") — simple on/off relay switches
+        - ``THERMOREGULATION`` ("thermoregulation") — climate zones and analog sensors
+        - ``SCENARIOS`` ("scenarios") — pre-configured automation sequences
+        - ``DIGITALIN`` ("digitalin") — read-only binary sensors (buttons, contacts)
+        - ``ANALOGIN`` ("analogin") — read-only standalone analog sensors
+        - ``ENERGY`` ("energy") — energy meters
+        - ``LOADSCTRL`` ("loadsctrl") — load control / management
+        - ``TIMERS`` ("timers") — time-based scheduling entities
+    """
+
     LIGHTS = "lights"
     OPENINGS = "openings"
     RELAYS = "relays"
@@ -221,16 +258,16 @@ class _ServerFeature(Enum):
 
 # Mapping from server feature to (nested request cmd_name, expected response cmd_name).
 # Used by async_get_topology to determine which nested commands to send.
-_FEATURE_TO_NESTED_CMD: dict[_ServerFeature, tuple[str, str]] = {
-    _ServerFeature.LIGHTS: (
+_FEATURE_TO_NESTED_CMD: dict[ServerFeature, tuple[str, str]] = {
+    ServerFeature.LIGHTS: (
         _CommandName.NESTED_LIGHT_LIST.value,
         _CommandNameResponse.LIGHT_LIST.value,
     ),
-    _ServerFeature.OPENINGS: (
+    ServerFeature.OPENINGS: (
         _CommandName.NESTED_OPENINGS_LIST.value,
         _CommandNameResponse.OPENINGS_LIST.value,
     ),
-    _ServerFeature.THERMOREGULATION: (
+    ServerFeature.THERMOREGULATION: (
         _CommandName.NESTED_THERMO_LIST.value,
         _CommandNameResponse.THERMO_LIST.value,
     ),
@@ -238,8 +275,8 @@ _FEATURE_TO_NESTED_CMD: dict[_ServerFeature, tuple[str, str]] = {
 
 # Features whose nested response uses a 3-level hierarchy (Floor → Room → Device).
 # Other features (e.g. thermoregulation) use a 2-level hierarchy (Floor → Device).
-_NESTED_3LEVEL_FEATURES: frozenset[_ServerFeature] = frozenset(
-    {_ServerFeature.LIGHTS, _ServerFeature.OPENINGS}
+_NESTED_3LEVEL_FEATURES: frozenset[ServerFeature] = frozenset(
+    {ServerFeature.LIGHTS, ServerFeature.OPENINGS}
 )
 
 
@@ -331,14 +368,14 @@ _UPDATE_CMD_TO_DEVICE_TYPE: dict[str, DeviceType] = {
 }
 
 # Mapping from DeviceType to the corresponding server feature
-_DEVICE_TYPE_TO_FEATURE: dict[DeviceType, _ServerFeature] = {
-    DeviceType.LIGHT: _ServerFeature.LIGHTS,
-    DeviceType.OPENING: _ServerFeature.OPENINGS,
-    DeviceType.GENERIC_RELAY: _ServerFeature.RELAYS,
-    DeviceType.THERMOSTAT: _ServerFeature.THERMOREGULATION,
-    DeviceType.SCENARIO: _ServerFeature.SCENARIOS,
-    DeviceType.DIGITAL_INPUT: _ServerFeature.DIGITALIN,
-    DeviceType.ENERGY_SENSOR: _ServerFeature.ENERGY,
-    DeviceType.ANALOG_INPUT: _ServerFeature.ANALOGIN,
-    DeviceType.TIMER: _ServerFeature.TIMERS,
+_DEVICE_TYPE_TO_FEATURE: dict[DeviceType, ServerFeature] = {
+    DeviceType.LIGHT: ServerFeature.LIGHTS,
+    DeviceType.OPENING: ServerFeature.OPENINGS,
+    DeviceType.GENERIC_RELAY: ServerFeature.RELAYS,
+    DeviceType.THERMOSTAT: ServerFeature.THERMOREGULATION,
+    DeviceType.SCENARIO: ServerFeature.SCENARIOS,
+    DeviceType.DIGITAL_INPUT: ServerFeature.DIGITALIN,
+    DeviceType.ENERGY_SENSOR: ServerFeature.ENERGY,
+    DeviceType.ANALOG_INPUT: ServerFeature.ANALOGIN,
+    DeviceType.TIMER: ServerFeature.TIMERS,
 }

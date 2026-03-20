@@ -19,7 +19,7 @@ CAME Domotic API.
 
 from __future__ import annotations
 
-from ..const import DeviceType, UpdateIndicator  # noqa: F401
+from ..const import DeviceType, ServerFeature, UpdateIndicator  # noqa: F401
 from .analog_in import AnalogIn  # noqa: F401
 from .base import (  # noqa: F401
     CameEntity,
@@ -101,6 +101,7 @@ __all__ = [
     "Scenario",
     "ScenarioStatus",
     "ScenarioUpdate",
+    "ServerFeature",
     "ServerInfo",
     "TerminalGroup",
     "ThermoZone",

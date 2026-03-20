@@ -70,7 +70,10 @@ class User(CameEntity):
 
         Note:
             This method logs out the current user and logs in with the new user.
-            In case of failure, the previous user is restored.
+            If login with the new credentials fails, a
+            ``CameDomoticAuthError`` is raised and the previous credentials
+            are restored so the API client remains connected as the
+            original user.
         """
 
         LOGGER.debug("Attempting to switch to user '%s'", self.name)
@@ -93,11 +96,6 @@ class User(CameEntity):
 
         Sends a delete-user request to the server for the user identified by
         this object's ``name`` property.
-
-        .. warning::
-            This operation is based on reverse-engineered API documentation and
-            has not been verified against a real CAME Domotic server. Behaviour
-            may differ across firmware versions.
 
         Raises:
             ValueError: If this user is the currently authenticated user.
@@ -125,12 +123,11 @@ class User(CameEntity):
             current_password (str): The user's current password.
             new_password (str): The desired new password.
 
-        .. warning::
-            This operation is based on reverse-engineered API documentation and
-            has not been verified against a real CAME Domotic server. Behaviour
-            may differ across firmware versions.
-
         Note:
+            Changing the password does not invalidate existing active sessions
+            for that user — they remain valid until they expire. The new
+            password will be required at the next login.
+
             If the changed user is the currently authenticated user, the stored
             credentials are updated automatically in the active session — no
             additional action is required.
@@ -190,16 +187,18 @@ class ServerInfo(CameEntity):
     """Serial number of the server."""
 
     features: list[str]
-    """List of features supported by the server.
+    """List of feature strings reported by the server.
 
-    Known values (as of now) are:
-        - "lights"
-        - "openings"
-        - "thermoregulation"
-        - "scenarios"
-        - "digitalin"
-        - "energy"
-        - "loadsctrl"
+    Each feature corresponds to a functional block (e.g. lights, openings).
+    Values are plain strings whose known values are defined in
+    :class:`~aiocamedomotic.const.ServerFeature`. Because ``ServerFeature``
+    is a :class:`~enum.StrEnum`, you can compare entries against enum
+    members directly (e.g.
+    ``ServerFeature.LIGHTS in server_info.features``).
+
+    The return type is kept as ``list[str]`` so that features introduced by
+    newer firmware versions are preserved even if the library does not yet
+    define them in :class:`~aiocamedomotic.const.ServerFeature`.
     """
 
     swver: str | None = None

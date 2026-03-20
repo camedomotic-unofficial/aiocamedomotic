@@ -45,6 +45,7 @@ from .const import (
     _DEFAULT_COMMAND_TIMEOUT,
     _KEEP_ALIVE_MAX_SEC,
     _KEEP_ALIVE_MIN_SEC,
+    AckErrorCode,
     _CommandType,
 )
 
@@ -53,7 +54,7 @@ try:
     _LIBRARY_VERSION = version(__package__ or "aiocamedomotic")
 except PackageNotFoundError:
     _LIBRARY_VERSION = "unknown"
-from .anonymizer import log_traffic
+from .anonymizer import _log_traffic
 from .errors import (
     CameDomoticAuthError,
     CameDomoticServerError,
@@ -498,8 +499,10 @@ class Auth:
             raise e
         except CameDomoticServerError as e:
             # Invalidate session on session-related ACK errors
-            # (7: no client ID, 8: wrong client ID)
-            if getattr(e, "ack_code", None) in {7, 8}:
+            if getattr(e, "ack_code", None) in {
+                AckErrorCode.NO_CLIENT_ID,
+                AckErrorCode.WRONG_CLIENT_ID,
+            }:
                 LOGGER.warning(
                     "Session invalidated due to ACK error %s,"
                     " will re-login on next command",
@@ -516,7 +519,7 @@ class Auth:
             raise CameDomoticServerError("Error sending command") from e
         finally:
             try:
-                log_traffic(
+                _log_traffic(
                     "POST",
                     self.get_endpoint_url(),
                     request_payload,
@@ -589,7 +592,7 @@ class Auth:
             ) from e
         finally:
             try:
-                log_traffic(
+                _log_traffic(
                     "GET",
                     endpoint_url,
                     None,

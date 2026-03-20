@@ -28,13 +28,13 @@ Exception hierarchy and suggested Home Assistant mapping:
 
 from __future__ import annotations
 
-from .const import get_ack_error_message, is_auth_error
+from .const import AckErrorCode
 
 
 class CameDomoticError(Exception):
     """Base exception class for the CAME Domotic package."""
 
-    ack_code: int | None = None
+    ack_code: AckErrorCode | int | None = None
 
 
 class CameDomoticServerNotFoundError(CameDomoticError):
@@ -62,7 +62,10 @@ class CameDomoticServerError(CameDomoticError):
         Returns:
             str: The formatted error message.
         """
-        message = get_ack_error_message(ack_code)
+        try:
+            message = AckErrorCode(ack_code).message
+        except ValueError:
+            message = f"Unknown error code: {ack_code}"
         return f"ACK error {ack_code}: {message}"
 
     @staticmethod
@@ -77,8 +80,13 @@ class CameDomoticServerError(CameDomoticError):
         """
         message = CameDomoticServerError.format_ack_error(ack_code)
 
+        try:
+            is_auth = AckErrorCode(ack_code).is_auth
+        except ValueError:
+            is_auth = False
+
         exc: CameDomoticError
-        if is_auth_error(ack_code):
+        if is_auth:
             exc = CameDomoticAuthError(message)
         else:
             exc = CameDomoticServerError(message)

@@ -1357,15 +1357,15 @@ class TestTrafficLogging:
             patch.object(
                 auth_instance, "async_get_valid_client_id", new_callable=AsyncMock
             ) as mock_get_client_id,
-            patch("aiocamedomotic.auth.log_traffic") as mock_log_traffic,
+            patch("aiocamedomotic.auth._log_traffic") as mock__log_traffic,
         ):
             mock_post.return_value = mock_response
             mock_get_client_id.return_value = "test_client_id"
 
             await auth_instance.async_send_command({"cmd_name": "test"})
 
-            mock_log_traffic.assert_called_once()
-            call_args = mock_log_traffic.call_args
+            mock__log_traffic.assert_called_once()
+            call_args = mock__log_traffic.call_args
             assert call_args[0][0] == "POST"
             assert "domo" in call_args[0][1]
             assert isinstance(call_args[0][2], dict)  # request payload
@@ -1385,11 +1385,11 @@ class TestTrafficLogging:
                 async with await Auth.async_create(
                     session, "192.168.x.x", "username", "password"
                 ) as auth:
-                    with patch("aiocamedomotic.auth.log_traffic") as mock_log_traffic:
+                    with patch("aiocamedomotic.auth._log_traffic") as mock__log_traffic:
                         await auth.async_validate_host()
 
-                        mock_log_traffic.assert_called_once()
-                        call_args = mock_log_traffic.call_args
+                        mock__log_traffic.assert_called_once()
+                        call_args = mock__log_traffic.call_args
                         assert call_args[0][0] == "GET"
                         assert call_args[0][2] is None  # no request payload
                         assert call_args[0][3] is None  # no response payload
@@ -1408,7 +1408,7 @@ class TestTrafficLogging:
             patch.object(
                 auth_instance, "async_get_valid_client_id", new_callable=AsyncMock
             ) as mock_get_client_id,
-            patch("aiocamedomotic.auth.log_traffic") as mock_log_traffic,
+            patch("aiocamedomotic.auth._log_traffic") as mock__log_traffic,
         ):
             mock_post.return_value = mock_response
             mock_get_client_id.return_value = "test_client_id"
@@ -1416,7 +1416,7 @@ class TestTrafficLogging:
             with pytest.raises(CameDomoticAuthError):
                 await auth_instance.async_send_command({"cmd_name": "test"})
 
-            mock_log_traffic.assert_called_once()
+            mock__log_traffic.assert_called_once()
 
     @freezegun.freeze_time("2020-01-01")
     async def test_traffic_logging_failure_does_not_affect_command(self, auth_instance):
@@ -1433,13 +1433,13 @@ class TestTrafficLogging:
                 auth_instance, "async_get_valid_client_id", new_callable=AsyncMock
             ) as mock_get_client_id,
             patch(
-                "aiocamedomotic.auth.log_traffic",
+                "aiocamedomotic.auth._log_traffic",
                 side_effect=RuntimeError("logging broken"),
             ),
         ):
             mock_post.return_value = mock_response
             mock_get_client_id.return_value = "test_client_id"
 
-            # Command should succeed despite log_traffic raising
+            # Command should succeed despite _log_traffic raising
             result = await auth_instance.async_send_command({"cmd_name": "test"})
             assert result == {"sl_data_ack_reason": 0}
