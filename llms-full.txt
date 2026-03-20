@@ -255,7 +255,7 @@ from aiocamedomotic import CameDomoticAPI
 from aiocamedomotic.models import (
     AnalogSensorType, DeviceType, DigitalInputStatus, LightStatus,
     LightType, OpeningStatus, RelayStatus, ScenarioStatus,
-    ThermoZoneFanSpeed,
+    ServerFeature, ThermoZoneFanSpeed,
     ThermoZoneMode, ThermoZoneSeason, ThermoZoneStatus,
     Timer, TimerTimeSlot, TimerUpdate,
     DeviceUpdate, LightUpdate, OpeningUpdate, RelayUpdate,
@@ -310,29 +310,10 @@ pass it via the `websession` parameter:
 ```python
 async with await CameDomoticAPI.async_create(
     "192.168.x.x", "username", "password",
-    websession=my_existing_session,
-    close_websession_on_disposal=False,
+    websession=my_existing_session
 ) as api:
     ...
 ```
-
-##### IMPORTANT
-**Session ownership — read this carefully if you pass a** `websession`.
-
-The `close_websession_on_disposal` parameter controls whether the HTTP session is
-closed when the `CameDomoticAPI` object is disposed (i.e. on exit from the
-`async with` block).
-
-- `False` **(default — use this when passing a shared session)**: the session is
-  preserved on disposal. This is almost always what you want in Home Assistant and
-  similar frameworks, where a single long-lived `aiohttp.ClientSession` is shared
-  across many integrations. Closing it here would silently break every other
-  component that depends on it.
-- `True`: the session is closed on disposal. Only use this if you explicitly
-  want this object to take ownership of the provided session.
-
-When **no** `websession` is provided, this flag is irrelevant: the internally
-created session is always closed on disposal.
 
 #### Handling connection errors
 
@@ -439,32 +420,36 @@ Feature: energy
 Feature: loadsctrl
 ```
 
-You can use the features list to decide which device APIs to call:
+The `features` property returns plain strings whose known values are
+defined in [`ServerFeature`](#aiocamedomotic.models.ServerFeature). You can compare
+entries against enum members to decide which device APIs to call:
 
 ```python
-if "lights" in server_info.features:
+from aiocamedomotic.models import ServerFeature
+
+if ServerFeature.LIGHTS in server_info.features:
     lights = await api.async_get_lights()
 
-if "openings" in server_info.features:
+if ServerFeature.OPENINGS in server_info.features:
     openings = await api.async_get_openings()
 
-if "relays" in server_info.features:
+if ServerFeature.RELAYS in server_info.features:
     relays = await api.async_get_relays()
 
-if "thermoregulation" in server_info.features:
+if ServerFeature.THERMOREGULATION in server_info.features:
     zones = await api.async_get_thermo_zones()
     sensors = await api.async_get_analog_sensors()
 
-if "scenarios" in server_info.features:
+if ServerFeature.SCENARIOS in server_info.features:
     scenarios = await api.async_get_scenarios()
 
-if "digitalin" in server_info.features:
+if ServerFeature.DIGITALIN in server_info.features:
     digital_inputs = await api.async_get_digital_inputs()
 
-if "analogin" in server_info.features:
+if ServerFeature.ANALOGIN in server_info.features:
     analog_inputs = await api.async_get_analog_inputs()
 
-if "timers" in server_info.features:
+if ServerFeature.TIMERS in server_info.features:
     timers = await api.async_get_timers()
 ```
 
@@ -494,12 +479,6 @@ Floor 1: First Floor
   Room 3: Bedroom
   Room 4: Bathroom
 ```
-
-##### NOTE
-`async_get_topology()` issues all requests concurrently and produces a
-[`PlantTopology`](#aiocamedomotic.models.base.PlantTopology) object with floors
-and rooms already nested, so you don’t need to cross-reference floor IDs
-manually.
 
 ### Working with devices
 
@@ -568,10 +547,12 @@ non-RGB lights.
 
 #### Openings
 
-Openings represent shutters, awnings, and similar motorized covers. They use
-a three-state control model: opening, closing, or stopped.
+Openings represent shutters, awnings, and similar motorized covers. They
+support opening, closing, stopping, and slat tilting (open/close) for
+covers with adjustable slats (e.g., venetian blinds).
 
 ```python
+import asyncio
 from aiocamedomotic.models import OpeningStatus
 
 openings = await api.async_get_openings()
@@ -583,8 +564,16 @@ for opening in openings:
 shutter = next((o for o in openings if o.open_act_id == 10), None)
 if shutter:
     await shutter.async_set_status(OpeningStatus.OPENING)
+    await asyncio.sleep(5)
     await shutter.async_set_status(OpeningStatus.STOPPED)
+    await asyncio.sleep(5)
     await shutter.async_set_status(OpeningStatus.CLOSING)
+
+    # Tilt slats (for covers with adjustable slats)
+    await asyncio.sleep(5)
+    await shutter.async_set_status(OpeningStatus.SLAT_OPEN)
+    await asyncio.sleep(5)
+    await shutter.async_set_status(OpeningStatus.SLAT_CLOSE)
 ```
 
 #### Scenarios
@@ -599,7 +588,7 @@ for scenario in scenarios:
     print(f"ID: {scenario.id}, Name: {scenario.name}, Status: {scenario.scenario_status}")
 
 # Activate a scenario
-good_morning = next((s for s in scenarios if s.name == "Good Morning"), None)
+good_morning = next((s for s in scenarios if s.name == "Good morning"), None)
 if good_morning:
     await good_morning.async_activate()
 ```
@@ -645,7 +634,7 @@ await zone.async_set_mode(ThermoZoneMode.MANUAL)
 
 # Full configuration with fan speed
 await zone.async_set_config(
-    mode=ThermoZoneMode.AUTO,
+    mode=ThermoZoneMode.MANUAL,
     set_point=21.5,
     fan_speed=ThermoZoneFanSpeed.MEDIUM,
 )
@@ -672,11 +661,12 @@ season, you must track each zone’s previous mode yourself and re-apply it
 after changing the season.
 
 ##### NOTE
-Temperature values are returned as floats in degrees Celsius (the internal
-integer-times-10 representation is converted automatically). The
-`fan_speed` parameter in `async_set_config` is optional; when
-provided, the `extended_infos` flag is set automatically. Season can
-only be changed at the plant level via `async_set_thermo_season()`.
+Temperature values are returned as floats in degrees Celsius.
+
+The `fan_speed` parameter in `async_set_config` is optional; when
+provided, the `extended_infos` flag is set automatically.
+
+Season can only be changed at the plant level via `async_set_thermo_season()`.
 
 #### Analog sensors
 
@@ -720,12 +710,6 @@ for s in temp_sensors:
 outdoor = next((s for s in sensors if s.act_id == 100), None)
 ```
 
-##### NOTE
-Temperature sensor values are automatically scaled from the raw
-integer-times-10 representation (e.g. `215` becomes `21.5`).
-Humidity and pressure values are returned as-is. The `sensor_type`
-property (an `AnalogSensorType` enum) determines the scaling behavior.
-
 #### Digital inputs (binary sensors)
 
 Digital inputs are read-only binary sensors such as physical buttons or
@@ -759,7 +743,7 @@ ID: 1, Name: digitalin_BuTbB, Status: DigitalInputStatus.IDLE, Address: 201
 button = next((di for di in digital_inputs if di.act_id == 1), None)
 
 # By name
-sensor = next((di for di in digital_inputs if di.name == "Front Door"), None)
+sensor = next((di for di in digital_inputs if di.name == "Front door button"), None)
 ```
 
 ##### NOTE
@@ -768,18 +752,17 @@ change. In that case, `status` returns `DigitalInputStatus.UNKNOWN`.
 
 #### Analog inputs (standalone sensors)
 
-Analog inputs are read-only standalone sensors such as hygrometers,
-thermometers, and barometers exposed via the `analogin` feature. They
-provide a numeric reading and a unit of measurement but cannot be
+Analog inputs are read-only standalone sensors exposed via the `analogin` feature.
+They provide a numeric reading and a unit of measurement and cannot be
 controlled remotely.
 
 ##### NOTE
 These sensors are independent of the thermoregulation system’s
-`AnalogSensor`. The same physical sensor
+[`AnalogSensor`](#aiocamedomotic.models.AnalogSensor). The same physical sensor
 may appear in both endpoints.
 
 ```python
-if "analogin" in server_info.features:
+if ServerFeature.ANALOGIN in server_info.features:
     analog_inputs = await api.async_get_analog_inputs()
 
     for ai in analog_inputs:
@@ -792,9 +775,9 @@ if "analogin" in server_info.features:
 Example output:
 
 ```text
-ID: 89, Name: Igrometro, Value: 47.0, Unit: %
-ID: 90, Name: Termometro esterno, Value: 21.5, Unit: C
-ID: 91, Name: Barometro, Value: 1013.0, Unit: hPa
+ID: 89, Name: Hygrometer, Value: 47.0, Unit: %
+ID: 90, Name: Outdoor Thermometer, Value: 21.5, Unit: C
+ID: 91, Name: Barometer, Value: 1013.0, Unit: hPa
 ```
 
 **Finding a specific analog input:**
@@ -804,18 +787,12 @@ ID: 91, Name: Barometro, Value: 1013.0, Unit: hPa
 thermo = next((ai for ai in analog_inputs if ai.act_id == 90), None)
 
 # By name
-hygro = next((ai for ai in analog_inputs if ai.name == "Igrometro"), None)
+hygro = next((ai for ai in analog_inputs if ai.name == "Hygrometer"), None)
 ```
-
-##### NOTE
-Temperature values (`unit == "C"`) are automatically scaled from the
-raw integer-times-10 representation (e.g. `215` becomes `21.5`).
-Humidity and pressure values are returned as-is.
 
 #### Relays
 
-Relays are simple on/off switches that can be controlled remotely. Unlike
-lights, they have no brightness or color capabilities.
+Relays are simple on/off switches that can be controlled remotely.
 
 **Fetching and inspecting relays:**
 
@@ -850,13 +827,9 @@ gate = next((r for r in relays if r.name == "Gate Motor"), None)
 ```python
 if pump:
     await pump.async_set_status(RelayStatus.ON)
+    await asyncio.sleep(5)
     await pump.async_set_status(RelayStatus.OFF)
 ```
-
-##### NOTE
-The relay API commands are documented in the CAME API specification but
-have not been verified against a real server. If you encounter unexpected
-behaviour, please report it to the library developers.
 
 #### Timers
 
@@ -937,7 +910,7 @@ print(timer.is_active_on_day(1))     # False (Tuesday)
 ##### Understanding the timetable
 
 Each timer has up to **4 time slots** (indices 0–3). The `timetable`
-property returns a list of [`TimerTimeSlot`](#aiocamedomotic.models.timer.TimerTimeSlot)
+property returns a list of [`TimerTimeSlot`](#aiocamedomotic.models.TimerTimeSlot)
 objects for the slots that are currently configured. Empty slots are simply
 absent from the list.
 
@@ -960,8 +933,15 @@ for slot in timer.timetable:
     print(f"  Slot {slot.index}: {start} → {stop}")
 ```
 
+Example output:
+
+```text
+Slot 0: 10:00:00 → 18:30:00
+Slot 2: 22:00:00 → N/A
+```
+
 ##### NOTE
-On firmware version 3.0.1, the `stop` and `active` fields are not
+The `stop` and `active` fields mayb be not
 present in the server response. The corresponding properties return
 `None` in that case. Your code should handle both cases.
 
@@ -1110,7 +1090,7 @@ asyncio.run(main())
 The CAME Domotic server supports **long polling** for real-time status updates.
 When you call `async_get_updates()`, the request **blocks on the server**
 until one or more device state changes are detected, then returns an
-[`UpdateList`](#aiocamedomotic.models.update.UpdateList) containing all pending
+[`UpdateList`](#aiocamedomotic.models.UpdateList) containing all pending
 updates. This is the recommended mechanism for monitoring devices in real time
 without repeatedly fetching full device lists.
 
@@ -1140,6 +1120,14 @@ async with await CameDomoticAPI.async_create(
         await asyncio.sleep(1)
 ```
 
+Example output:
+
+```text
+[DeviceType.LIGHT] Living Room Chandelier (ID: 1)
+[DeviceType.OPENING] Bedroom Shutter (ID: 10)
+[DeviceType.THERMO_ZONE] Living Room (ID: 1)
+```
+
 ##### NOTE
 The `asyncio.sleep(1)` acts as a safety throttle in case the server
 returns immediately (e.g. errors or rapid update bursts). If you need to
@@ -1148,8 +1136,8 @@ run the polling loop alongside other logic, wrap it in
 
 #### Configuring timeouts
 
-All commands use a default timeout of **30 seconds**, configurable via
-`command_timeout` when creating the API instance:
+All API methods use a default timeout of **30 seconds**, configurable via
+the `command_timeout` parameter when creating the API instance:
 
 ```python
 async with await CameDomoticAPI.async_create(
@@ -1158,17 +1146,24 @@ async with await CameDomoticAPI.async_create(
     lights = await api.async_get_lights()  # uses 15s timeout
 ```
 
-For `async_get_updates()`, a longer timeout is **strongly recommended**
-since the server holds the connection open until updates are available:
+`async_get_updates()` is the only method that accepts its own `timeout`
+parameter, allowing it to use a different timeout than the rest of the API.
+This is because `async_get_updates()` uses **long polling** — the server
+holds the connection open until updates are available, which can take
+much longer than a regular command round-trip. A longer timeout
+(e.g. 60–120 seconds) is **strongly recommended** to avoid premature
+disconnections:
 
 ```python
+# Instance-level timeout is 15s for regular commands,
+# but async_get_updates uses its own 120s timeout
 updates = await api.async_get_updates(timeout=120)
 ```
 
 ##### NOTE
-If no `timeout` is passed to `async_get_updates()`, the instance-level
-`command_timeout` is used (default: 30s). For most real-time monitoring
-use cases, a timeout of **60–120 seconds** is recommended.
+If no `timeout` is passed to `async_get_updates()`, it falls back to
+the instance-level `command_timeout` (default: 30s). For most real-time
+monitoring use cases, a timeout of **60–120 seconds** is recommended.
 
 #### Typed updates and filtering
 
@@ -1256,7 +1251,7 @@ change was made through this library, the CAME app, or the physical panel.
 The update payload mirrors the timer list response — it includes `name`,
 `id`, `enabled`, `days`, `bars` (the number of timetable slots
 reported by the server), and the complete `timetable` array. The library parses this into a
-[`TimerUpdate`](#aiocamedomotic.models.update.TimerUpdate) object.
+[`TimerUpdate`](#aiocamedomotic.models.TimerUpdate) object.
 
 **Applying timer updates to cached objects:**
 
@@ -1428,7 +1423,7 @@ This module exposes the CAME Domotic API to the end-users.
 
 Main class, exposes all the public methods of the CAME Domotic API.
 
-##### *async* async_add_user(username: str, password: str, group: str = '\*') → [User](#aiocamedomotic.models.base.User)
+##### *async* async_add_user(username: str, password: str, group: str = '\*') → [User](#aiocamedomotic.models.User)
 
 Add a new user to the CAME Domotic server.
 
@@ -1442,13 +1437,7 @@ Add a new user to the CAME Domotic server.
 * **Returns:**
   A `User` object representing the newly created user.
 * **Return type:**
-  [User](#aiocamedomotic.models.base.User)
-
-##### WARNING
-This operation is based on reverse-engineered API documentation and
-has not been verified against a real CAME Domotic server. Behaviour
-may differ across firmware versions.
-
+  [User](#aiocamedomotic.models.User)
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
@@ -1497,7 +1486,7 @@ The session is not logged in until the first request is made.
 
 Dispose the CameDomoticAPI object.
 
-##### *async* async_get_analog_inputs() → list[[AnalogIn](#aiocamedomotic.models.analog_in.AnalogIn)]
+##### *async* async_get_analog_inputs() → list[[AnalogIn](#aiocamedomotic.models.AnalogIn)]
 
 Get the list of all standalone analog input sensors on the server.
 
@@ -1508,12 +1497,12 @@ of the thermoregulation system’s analog sensors.
 * **Returns:**
   List of analog input sensors.
 * **Return type:**
-  list[[AnalogIn](#aiocamedomotic.models.analog_in.AnalogIn)]
+  list[[AnalogIn](#aiocamedomotic.models.AnalogIn)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_get_analog_sensors() → list[[AnalogSensor](#aiocamedomotic.models.thermo_zone.AnalogSensor)]
+##### *async* async_get_analog_sensors() → list[[AnalogSensor](#aiocamedomotic.models.AnalogSensor)]
 
 Get analog sensor readings from the thermoregulation system.
 
@@ -1523,32 +1512,27 @@ readings from the thermoregulation list response.
 * **Returns:**
   List of analog sensors found in the response.
 * **Return type:**
-  list[[AnalogSensor](#aiocamedomotic.models.thermo_zone.AnalogSensor)]
+  list[[AnalogSensor](#aiocamedomotic.models.AnalogSensor)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_get_cameras() → list[[Camera](#aiocamedomotic.models.camera.Camera)]
+##### *async* async_get_cameras() → list[[Camera](#aiocamedomotic.models.Camera)]
 
 Get the list of all TVCC cameras defined on the server.
 
 Cameras are read-only entities providing access to IP camera
 stream URIs. They do not support control commands.
 
-##### NOTE
-This method uses API commands documented in the CAME JS client
-but not yet verified against a real server. Behaviour may differ
-across firmware versions.
-
 * **Returns:**
   List of cameras.
 * **Return type:**
-  list[[Camera](#aiocamedomotic.models.camera.Camera)]
+  list[[Camera](#aiocamedomotic.models.Camera)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_get_digital_inputs() → list[[DigitalInput](#aiocamedomotic.models.digital_input.DigitalInput)]
+##### *async* async_get_digital_inputs() → list[[DigitalInput](#aiocamedomotic.models.DigitalInput)]
 
 Get the list of all digital input devices defined on the server.
 
@@ -1558,36 +1542,36 @@ contact sensors). They report their state but cannot be controlled.
 * **Returns:**
   List of digital inputs.
 * **Return type:**
-  list[[DigitalInput](#aiocamedomotic.models.digital_input.DigitalInput)]
+  list[[DigitalInput](#aiocamedomotic.models.DigitalInput)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_get_floors() → list[[Floor](#aiocamedomotic.models.base.Floor)]
+##### *async* async_get_floors() → list[[Floor](#aiocamedomotic.models.Floor)]
 
 Get the list of all the floors defined on the server.
 
 * **Returns:**
   List of floors.
 * **Return type:**
-  list[[Floor](#aiocamedomotic.models.base.Floor)]
+  list[[Floor](#aiocamedomotic.models.Floor)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_get_lights() → list[[Light](#aiocamedomotic.models.light.Light)]
+##### *async* async_get_lights() → list[[Light](#aiocamedomotic.models.Light)]
 
 Get the list of all the light devices defined on the server.
 
 * **Returns:**
   List of lights.
 * **Return type:**
-  list[[Light](#aiocamedomotic.models.light.Light)]
+  list[[Light](#aiocamedomotic.models.Light)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_get_map_pages() → list[[MapPage](#aiocamedomotic.models.map_page.MapPage)]
+##### *async* async_get_map_pages() → list[[MapPage](#aiocamedomotic.models.MapPage)]
 
 Get the list of all map pages (floor plans) from the server.
 
@@ -1599,67 +1583,62 @@ read-only and cannot be modified through the API.
   List of map pages, each containing positioned
   elements. Returns an empty list if no maps are defined.
 * **Return type:**
-  list[[MapPage](#aiocamedomotic.models.map_page.MapPage)]
+  list[[MapPage](#aiocamedomotic.models.MapPage)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_get_openings() → list[[Opening](#aiocamedomotic.models.opening.Opening)]
+##### *async* async_get_openings() → list[[Opening](#aiocamedomotic.models.Opening)]
 
 Get the list of all opening devices defined on the server.
 
 * **Returns:**
   List of openings.
 * **Return type:**
-  list[[Opening](#aiocamedomotic.models.opening.Opening)]
+  list[[Opening](#aiocamedomotic.models.Opening)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_get_relays() → list[[Relay](#aiocamedomotic.models.relay.Relay)]
+##### *async* async_get_relays() → list[[Relay](#aiocamedomotic.models.Relay)]
 
 Get the list of all relay devices defined on the server.
 
 Relays are simple on/off switches that can be controlled remotely.
 
-##### NOTE
-This method uses API commands documented in the CAME API
-specification but not yet verified against a real server.
-Behaviour may differ across firmware versions.
-
 * **Returns:**
   List of relays.
 * **Return type:**
-  list[[Relay](#aiocamedomotic.models.relay.Relay)]
+  list[[Relay](#aiocamedomotic.models.Relay)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_get_rooms() → list[[Room](#aiocamedomotic.models.base.Room)]
+##### *async* async_get_rooms() → list[[Room](#aiocamedomotic.models.Room)]
 
 Get the list of all the rooms defined on the server.
 
 * **Returns:**
   List of rooms.
 * **Return type:**
-  list[[Room](#aiocamedomotic.models.base.Room)]
+  list[[Room](#aiocamedomotic.models.Room)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_get_scenarios() → list[[Scenario](#aiocamedomotic.models.scenario.Scenario)]
+##### *async* async_get_scenarios() → list[[Scenario](#aiocamedomotic.models.Scenario)]
 
 Get the list of all scenarios defined on the server.
 
 * **Returns:**
   List of scenarios.
 * **Return type:**
-  list[[Scenario](#aiocamedomotic.models.scenario.Scenario)]
+  list[[Scenario](#aiocamedomotic.models.Scenario)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_get_server_info() → [ServerInfo](#aiocamedomotic.models.base.ServerInfo)
+##### *async* async_get_server_info() → [ServerInfo](#aiocamedomotic.models.ServerInfo)
 
 Get the server information.
 
@@ -1669,12 +1648,12 @@ features supported by the CAME Domotic server.
 * **Returns:**
   Server information.
 * **Return type:**
-  [ServerInfo](#aiocamedomotic.models.base.ServerInfo)
+  [ServerInfo](#aiocamedomotic.models.ServerInfo)
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_get_terminal_groups() → list[[TerminalGroup](#aiocamedomotic.models.base.TerminalGroup)]
+##### *async* async_get_terminal_groups() → list[[TerminalGroup](#aiocamedomotic.models.TerminalGroup)]
 
 Get the list of terminal groups defined on the server.
 
@@ -1691,24 +1670,24 @@ not required.
   Available groups. Returns an empty list if
   none are defined or the server response lacks the `array` key.
 * **Return type:**
-  list[[TerminalGroup](#aiocamedomotic.models.base.TerminalGroup)]
+  list[[TerminalGroup](#aiocamedomotic.models.TerminalGroup)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_get_thermo_zones() → list[[ThermoZone](#aiocamedomotic.models.thermo_zone.ThermoZone)]
+##### *async* async_get_thermo_zones() → list[[ThermoZone](#aiocamedomotic.models.ThermoZone)]
 
 Get the list of all thermoregulation zones defined on the server.
 
 * **Returns:**
   List of thermoregulation zones.
 * **Return type:**
-  list[[ThermoZone](#aiocamedomotic.models.thermo_zone.ThermoZone)]
+  list[[ThermoZone](#aiocamedomotic.models.ThermoZone)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_get_timers() → list[[Timer](#aiocamedomotic.models.timer.Timer)]
+##### *async* async_get_timers() → list[[Timer](#aiocamedomotic.models.Timer)]
 
 Get the list of all timers defined on the server.
 
@@ -1719,12 +1698,12 @@ timetable configuration.
 * **Returns:**
   List of timers.
 * **Return type:**
-  list[[Timer](#aiocamedomotic.models.timer.Timer)]
+  list[[Timer](#aiocamedomotic.models.Timer)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_get_topology() → [PlantTopology](#aiocamedomotic.models.base.PlantTopology)
+##### *async* async_get_topology() → [PlantTopology](#aiocamedomotic.models.PlantTopology)
 
 Get the complete plant topology (floors and rooms).
 
@@ -1739,12 +1718,12 @@ Only nested commands for features supported by the server are sent.
 * **Returns:**
   The merged plant topology.
 * **Return type:**
-  [PlantTopology](#aiocamedomotic.models.base.PlantTopology)
+  [PlantTopology](#aiocamedomotic.models.PlantTopology)
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_get_updates(timeout: int | None = None) → [UpdateList](#aiocamedomotic.models.update.UpdateList)
+##### *async* async_get_updates(timeout: int | None = None) → [UpdateList](#aiocamedomotic.models.UpdateList)
 
 Get status updates from the server using long polling.
 
@@ -1761,12 +1740,12 @@ scenario activated), then returns them all at once.
 * **Returns:**
   List of status updates received from the server.
 * **Return type:**
-  [UpdateList](#aiocamedomotic.models.update.UpdateList)
+  [UpdateList](#aiocamedomotic.models.UpdateList)
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_get_users() → list[[User](#aiocamedomotic.models.base.User)]
+##### *async* async_get_users() → list[[User](#aiocamedomotic.models.User)]
 
 Get the list of users defined on the server.
 
@@ -1774,7 +1753,7 @@ Get the list of users defined on the server.
   List of users. Returns an empty list if no users are defined
   or if the server response doesn’t contain the users list.
 * **Return type:**
-  list[[User](#aiocamedomotic.models.base.User)]
+  list[[User](#aiocamedomotic.models.User)]
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
@@ -1796,7 +1775,7 @@ expired, it transparently re-authenticates first.
   * [**CameDomoticServerTimeoutError**](#aiocamedomotic.errors.CameDomoticServerTimeoutError) – If the request times out.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_set_thermo_season(season: [ThermoZoneSeason](#aiocamedomotic.models.thermo_zone.ThermoZoneSeason)) → None
+##### *async* async_set_thermo_season(season: [ThermoZoneSeason](#aiocamedomotic.models.ThermoZoneSeason)) → None
 
 Set the global thermoregulation season for all zones.
 
@@ -1809,8 +1788,12 @@ automatically switch **all** thermoregulation zones to
 `ThermoZoneMode.OFF`. Reverting the season back to `WINTER`
 or `SUMMER` does **not** restore the previous zone modes —
 each zone stays `OFF` until its mode is changed explicitly via
-`async_set_mode()` or
-`async_set_config()`.
+[`async_set_mode()`](#aiocamedomotic.models.ThermoZone.async_set_mode) or
+[`async_set_config()`](#aiocamedomotic.models.ThermoZone.async_set_config).
+
+If your application needs to restore zone operation after re-enabling a
+season, you must track each zone’s previous mode yourself and re-apply it
+after changing the season.
 
 * **Parameters:**
   **season** – The season to set. Valid values are `WINTER`,
@@ -1838,11 +1821,6 @@ barometer) exposed via the `analogin` feature.
   **ValueError** – If `name` or `act_id` keys are missing from
       the input data.
 
-##### NOTE
-Temperature values (`unit == "C"`) are stored as integers multiplied
-by 10 (e.g. 215 = 21.5 °C). The `value` property applies the
-conversion automatically.
-
 ##### *property* act_id *: int*
 
 Unique actuator/sensor identifier.
@@ -1857,11 +1835,7 @@ Unit of measurement (e.g. `'C'`, `'%'`, `'hPa'`).
 
 ##### *property* value *: float*
 
-Sensor reading in the unit reported by `unit`.
-
-Temperature readings (`unit == "C"`) are divided by 10 to convert
-from the API’s integer encoding to degrees Celsius. All other units
-are returned as-is.
+Sensor reading in the unit reported by [`unit`](#aiocamedomotic.models.AnalogIn.unit).
 
 #### *class* aiocamedomotic.models.AnalogInUpdate(raw_data: dict[str, Any])
 
@@ -1880,7 +1854,7 @@ Unit of measurement.
 
 Sensor reading, with temperature scaling applied for unit `'C'`.
 
-#### *class* aiocamedomotic.models.AnalogSensor(raw_data: dict[str, Any], sensor_type: [AnalogSensorType](#aiocamedomotic.models.thermo_zone.AnalogSensorType) = AnalogSensorType.UNKNOWN)
+#### *class* aiocamedomotic.models.AnalogSensor(raw_data: dict[str, Any], sensor_type: [AnalogSensorType](#aiocamedomotic.models.AnalogSensorType) = AnalogSensorType.UNKNOWN)
 
 Analog sensor from the CAME Domotic thermoregulation system.
 
@@ -1909,7 +1883,7 @@ ID of the analog sensor.
 
 Name of the analog sensor.
 
-##### sensor_type *: [AnalogSensorType](#aiocamedomotic.models.thermo_zone.AnalogSensorType)* *= 'unknown'*
+##### sensor_type *: [AnalogSensorType](#aiocamedomotic.models.AnalogSensorType)* *= 'unknown'*
 
 The type of sensor (temperature, humidity, or pressure).
 
@@ -1967,7 +1941,7 @@ Unlike other device models which use `act_id`, cameras use a plain
 Whether this camera uses a Flash (SWF) stream.
 
 Flash streams are obsolete — consumers should fall back to
-`uri_still` for cameras where this is `True`.
+[`uri_still`](#aiocamedomotic.models.Camera.uri_still) for cameras where this is `True`.
 
 Derived from: `stream_type == "swf"` (same check as JS client,
 line 5493).
@@ -2091,7 +2065,7 @@ Address of the digital input.
 
 Name of the digital input.
 
-##### *property* status *: [DigitalInputStatus](#aiocamedomotic.models.digital_input.DigitalInputStatus)*
+##### *property* status *: [DigitalInputStatus](#aiocamedomotic.models.DigitalInputStatus)*
 
 ACTIVE (0) or IDLE (1).
 
@@ -2105,7 +2079,7 @@ report a status until their first state change).
 * **Type:**
   Status of the digital input
 
-##### *property* type *: [DigitalInputType](#aiocamedomotic.models.digital_input.DigitalInputType)*
+##### *property* type *: [DigitalInputType](#aiocamedomotic.models.DigitalInputType)*
 
 Type of the digital input.
 
@@ -2181,12 +2155,12 @@ Light entity in the CameDomotic API.
 
 ID of the light.
 
-##### *async* async_set_status(status: [LightStatus](#aiocamedomotic.models.light.LightStatus), brightness: int | None = None, rgb: list[int] | None = None) → None
+##### *async* async_set_status(status: [LightStatus](#aiocamedomotic.models.LightStatus), brightness: int | None = None, rgb: list[int] | None = None) → None
 
 Control the light.
 
 * **Parameters:**
-  * **status** ([*LightStatus*](#aiocamedomotic.models.light.LightStatus)) – Status of the light.
+  * **status** ([*LightStatus*](#aiocamedomotic.models.LightStatus)) – Status of the light.
   * **brightness** (*Optional* *[**int* *]*) – Brightness percentage of the light (range
     0-100). If the brightness is not provided, it will stay unchanged.
     This argument is ignored for STEP_STEP lights.
@@ -2219,11 +2193,11 @@ Returns None for non-RGB lights.
 
 Room index of the light.
 
-##### *property* status *: [LightStatus](#aiocamedomotic.models.light.LightStatus)*
+##### *property* status *: [LightStatus](#aiocamedomotic.models.LightStatus)*
 
 Status of the light. Allowed values are OFF (0), ON (1) and AUTO (4).
 
-##### *property* type *: [LightType](#aiocamedomotic.models.light.LightType)*
+##### *property* type *: [LightType](#aiocamedomotic.models.LightType)*
 
 Light type. Allowed values are “STEP_STEP” (normal lights),
 “DIMMER” (dimmable lights), and “RGB” (color lights).
@@ -2262,7 +2236,7 @@ Light actuator ID.
 
 Floor index.
 
-##### *property* light_type *: [LightType](#aiocamedomotic.models.light.LightType)*
+##### *property* light_type *: [LightType](#aiocamedomotic.models.LightType)*
 
 Light type (STEP_STEP, DIMMER, RGB).
 
@@ -2278,7 +2252,7 @@ RGB color values `[R, G, B]` (0-255 each), or `None`.
 
 Room index.
 
-##### *property* status *: [LightStatus](#aiocamedomotic.models.light.LightStatus)*
+##### *property* status *: [LightStatus](#aiocamedomotic.models.LightStatus)*
 
 Light status (OFF, ON, AUTO).
 
@@ -2345,12 +2319,12 @@ Opening entity in the CameDomotic API.
   **ValueError** – If name or open_act_id keys are missing from the input data
       or the auth argument is not an instance of the expected Auth class.
 
-##### *async* async_set_status(status: [OpeningStatus](#aiocamedomotic.models.opening.OpeningStatus)) → None
+##### *async* async_set_status(status: [OpeningStatus](#aiocamedomotic.models.OpeningStatus)) → None
 
 Control the opening (open, close, stop, slat open, slat close).
 
 * **Parameters:**
-  **status** ([*OpeningStatus*](#aiocamedomotic.models.opening.OpeningStatus)) – Status to set for the opening.
+  **status** ([*OpeningStatus*](#aiocamedomotic.models.OpeningStatus)) – Status to set for the opening.
 * **Raises:**
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
@@ -2379,7 +2353,7 @@ List of configured partial opening positions, if any.
 
 Room index where the opening is located.
 
-##### *property* status *: [OpeningStatus](#aiocamedomotic.models.opening.OpeningStatus)*
+##### *property* status *: [OpeningStatus](#aiocamedomotic.models.OpeningStatus)*
 
 STOPPED (0), OPENING (1),
 CLOSING (2), SLAT_OPEN (3) and SLAT_CLOSE (4).
@@ -2387,7 +2361,7 @@ CLOSING (2), SLAT_OPEN (3) and SLAT_CLOSE (4).
 * **Type:**
   Current status of the opening. Allowed values
 
-##### *property* type *: [OpeningType](#aiocamedomotic.models.opening.OpeningType)*
+##### *property* type *: [OpeningType](#aiocamedomotic.models.OpeningType)*
 
 Opening type.
 
@@ -2437,11 +2411,11 @@ Actuator ID for the opening action.
 
 Room index.
 
-##### *property* status *: [OpeningStatus](#aiocamedomotic.models.opening.OpeningStatus)*
+##### *property* status *: [OpeningStatus](#aiocamedomotic.models.OpeningStatus)*
 
 Opening status (STOPPED, OPENING, CLOSING, etc.).
 
-#### *class* aiocamedomotic.models.PlantTopology(floors: list[[TopologyFloor](#aiocamedomotic.models.base.TopologyFloor)])
+#### *class* aiocamedomotic.models.PlantTopology(floors: list[[TopologyFloor](#aiocamedomotic.models.TopologyFloor)])
 
 Complete plant topology (floors and rooms).
 
@@ -2450,7 +2424,7 @@ Built by merging data from the standard `floor_list_req` /
 (`nested_light_list_req`, `nested_openings_list_req`,
 `nested_thermo_list_req`).
 
-##### floors *: list[[TopologyFloor](#aiocamedomotic.models.base.TopologyFloor)]*
+##### floors *: list[[TopologyFloor](#aiocamedomotic.models.TopologyFloor)]*
 
 All floors in the plant, each containing its rooms.
 
@@ -2482,12 +2456,12 @@ control relay state.
 
 ID of the relay.
 
-##### *async* async_set_status(status: [RelayStatus](#aiocamedomotic.models.relay.RelayStatus)) → None
+##### *async* async_set_status(status: [RelayStatus](#aiocamedomotic.models.RelayStatus)) → None
 
 Control the relay.
 
 * **Parameters:**
-  **status** ([*RelayStatus*](#aiocamedomotic.models.relay.RelayStatus)) – Desired relay status (ON or OFF).
+  **status** ([*RelayStatus*](#aiocamedomotic.models.RelayStatus)) – Desired relay status (ON or OFF).
 * **Raises:**
   * **ValueError** – If `status` is `RelayStatus.UNKNOWN`.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
@@ -2505,7 +2479,7 @@ Name of the relay.
 
 Room index of the relay.
 
-##### *property* status *: [RelayStatus](#aiocamedomotic.models.relay.RelayStatus)*
+##### *property* status *: [RelayStatus](#aiocamedomotic.models.RelayStatus)*
 
 Status of the relay. Allowed values are OFF (0) and ON (1).
 
@@ -2536,7 +2510,7 @@ Floor index.
 
 Room index.
 
-##### *property* status *: [RelayStatus](#aiocamedomotic.models.relay.RelayStatus)*
+##### *property* status *: [RelayStatus](#aiocamedomotic.models.RelayStatus)*
 
 Relay status (OFF, ON).
 
@@ -2592,7 +2566,7 @@ ID of the scenario.
 
 Name of the scenario.
 
-##### *property* scenario_status *: [ScenarioStatus](#aiocamedomotic.models.scenario.ScenarioStatus)*
+##### *property* scenario_status *: [ScenarioStatus](#aiocamedomotic.models.ScenarioStatus)*
 
 OFF (0), TRIGGERED (1), or ACTIVE (2).
 
@@ -2629,9 +2603,31 @@ For scenarios the primary ID is `id`.
 
 Scenario ID.
 
-##### *property* scenario_status *: [ScenarioStatus](#aiocamedomotic.models.scenario.ScenarioStatus)*
+##### *property* scenario_status *: [ScenarioStatus](#aiocamedomotic.models.ScenarioStatus)*
 
 Scenario status (OFF, TRIGGERED, ACTIVE).
+
+#### *class* aiocamedomotic.models.ServerFeature(\*values)
+
+Server feature identifiers reported by the CAME Domotic server.
+
+Each member corresponds to a functional block (e.g. lights, openings).
+Because `ServerFeature` is a `StrEnum`, each member **is**
+its string value (e.g. `ServerFeature.LIGHTS == "lights"` is `True`),
+so members can be compared directly against the plain strings in
+`features`.
+
+Values:
+: - `LIGHTS` (“lights”) — on/off, dimmable and RGB lights
+  - `OPENINGS` (“openings”) — shutters, awnings, and motorized covers
+  - `RELAYS` (“relays”) — simple on/off relay switches
+  - `THERMOREGULATION` (“thermoregulation”) — climate zones and analog sensors
+  - `SCENARIOS` (“scenarios”) — pre-configured automation sequences
+  - `DIGITALIN` (“digitalin”) — read-only binary sensors (buttons, contacts)
+  - `ANALOGIN` (“analogin”) — read-only standalone analog sensors
+  - `ENERGY` (“energy”) — energy meters
+  - `LOADSCTRL` (“loadsctrl”) — load control / management
+  - `TIMERS` (“timers”) — time-based scheduling entities
 
 #### *class* aiocamedomotic.models.ServerInfo(keycode: str, serial: str, features: list[str], swver: str | None = None, type: str | None = None, board: str | None = None)
 
@@ -2643,16 +2639,18 @@ Board type of the server.
 
 ##### features *: list[str]*
 
-List of features supported by the server.
+List of feature strings reported by the server.
 
-Known values (as of now) are:
-: - “lights”
-  - “openings”
-  - “thermoregulation”
-  - “scenarios”
-  - “digitalin”
-  - “energy”
-  - “loadsctrl”
+Each feature corresponds to a functional block (e.g. lights, openings).
+Values are plain strings whose known values are defined in
+[`ServerFeature`](#aiocamedomotic.models.ServerFeature). Because `ServerFeature`
+is a `StrEnum`, you can compare entries against enum
+members directly (e.g.
+`ServerFeature.LIGHTS in server_info.features`).
+
+The return type is kept as `list[str]` so that features introduced by
+newer firmware versions are preserved even if the library does not yet
+define them in [`ServerFeature`](#aiocamedomotic.models.ServerFeature).
 
 ##### keycode *: str*
 
@@ -2712,13 +2710,12 @@ ID of the thermoregulation zone.
 
 Antifreeze temperature in degrees Celsius, or None if not set.
 
-##### *async* async_set_config(mode: [ThermoZoneMode](#aiocamedomotic.models.thermo_zone.ThermoZoneMode), set_point: float, \*, fan_speed: [ThermoZoneFanSpeed](#aiocamedomotic.models.thermo_zone.ThermoZoneFanSpeed) | None = None) → None
+##### *async* async_set_config(mode: [ThermoZoneMode](#aiocamedomotic.models.ThermoZoneMode), set_point: float, \*, fan_speed: [ThermoZoneFanSpeed](#aiocamedomotic.models.ThermoZoneFanSpeed) | None = None) → None
 
 Configure the thermoregulation zone.
 
 ##### NOTE
-The season cannot be changed via this method. The CAME server
-silently ignores any season value sent in a zone config request.
+The season cannot be changed via this method.
 Use `CameDomoticAPI.async_set_thermo_season()` to change the
 season at the plant level.
 
@@ -2731,7 +2728,7 @@ season at the plant level.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_set_fan_speed(fan_speed: [ThermoZoneFanSpeed](#aiocamedomotic.models.thermo_zone.ThermoZoneFanSpeed)) → None
+##### *async* async_set_fan_speed(fan_speed: [ThermoZoneFanSpeed](#aiocamedomotic.models.ThermoZoneFanSpeed)) → None
 
 Set the fan speed, keeping the current mode and temperature.
 
@@ -2741,7 +2738,7 @@ Set the fan speed, keeping the current mode and temperature.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_set_mode(mode: [ThermoZoneMode](#aiocamedomotic.models.thermo_zone.ThermoZoneMode)) → None
+##### *async* async_set_mode(mode: [ThermoZoneMode](#aiocamedomotic.models.ThermoZoneMode)) → None
 
 Set the operating mode, keeping the current target temperature.
 
@@ -2758,9 +2755,9 @@ Set the target temperature, keeping the current operating mode.
 ##### WARNING
 This method only has an effect when the zone is in
 `ThermoZoneMode.MANUAL` mode. When the zone is in any other mode
-(e.g. `AUTO`), the server accepts the request without error but
+(e.g. `AUTO`, `JOLLY`), the server accepts the request without error but
 silently discards the new setpoint. Use
-`async_set_config()` with `mode=ThermoZoneMode.MANUAL` to
+[`async_set_config()`](#aiocamedomotic.models.ThermoZone.async_set_config) with `mode=ThermoZoneMode.MANUAL` to
 guarantee that the setpoint is applied.
 
 * **Parameters:**
@@ -2777,7 +2774,7 @@ Whether the dehumidifier is enabled for this zone.
 
 Dehumidifier humidity setpoint in percent, or None if not set.
 
-##### *property* fan_speed *: [ThermoZoneFanSpeed](#aiocamedomotic.models.thermo_zone.ThermoZoneFanSpeed)*
+##### *property* fan_speed *: [ThermoZoneFanSpeed](#aiocamedomotic.models.ThermoZoneFanSpeed)*
 
 Fan speed setting for the thermoregulation zone.
 
@@ -2791,7 +2788,7 @@ Floor index of the thermoregulation zone.
 
 Whether this is an actual zone (leaf node) in the hierarchy.
 
-##### *property* mode *: [ThermoZoneMode](#aiocamedomotic.models.thermo_zone.ThermoZoneMode)*
+##### *property* mode *: [ThermoZoneMode](#aiocamedomotic.models.ThermoZoneMode)*
 
 Operating mode of the thermoregulation zone.
 
@@ -2805,7 +2802,7 @@ Name of the thermoregulation zone.
 
 Room index of the thermoregulation zone.
 
-##### *property* season *: [ThermoZoneSeason](#aiocamedomotic.models.thermo_zone.ThermoZoneSeason)*
+##### *property* season *: [ThermoZoneSeason](#aiocamedomotic.models.ThermoZoneSeason)*
 
 Season setting for the thermoregulation zone.
 
@@ -2815,7 +2812,7 @@ Returns `ThermoZoneSeason.UNKNOWN` for unrecognized season values.
 
 Target temperature in degrees Celsius.
 
-##### *property* status *: [ThermoZoneStatus](#aiocamedomotic.models.thermo_zone.ThermoZoneStatus)*
+##### *property* status *: [ThermoZoneStatus](#aiocamedomotic.models.ThermoZoneStatus)*
 
 Status of the thermoregulation zone (OFF or ON).
 
@@ -2893,7 +2890,7 @@ Whether the dehumidifier is enabled.
 
 Dehumidifier humidity setpoint in percent, or None if not present.
 
-##### *property* fan_speed *: [ThermoZoneFanSpeed](#aiocamedomotic.models.thermo_zone.ThermoZoneFanSpeed)*
+##### *property* fan_speed *: [ThermoZoneFanSpeed](#aiocamedomotic.models.ThermoZoneFanSpeed)*
 
 Fan speed setting (OFF, SLOW, MEDIUM, FAST, AUTO).
 
@@ -2901,7 +2898,7 @@ Fan speed setting (OFF, SLOW, MEDIUM, FAST, AUTO).
 
 Floor index.
 
-##### *property* mode *: [ThermoZoneMode](#aiocamedomotic.models.thermo_zone.ThermoZoneMode)*
+##### *property* mode *: [ThermoZoneMode](#aiocamedomotic.models.ThermoZoneMode)*
 
 Operating mode (OFF, MANUAL, AUTO, JOLLY).
 
@@ -2909,7 +2906,7 @@ Operating mode (OFF, MANUAL, AUTO, JOLLY).
 
 Room index.
 
-##### *property* season *: [ThermoZoneSeason](#aiocamedomotic.models.thermo_zone.ThermoZoneSeason)*
+##### *property* season *: [ThermoZoneSeason](#aiocamedomotic.models.ThermoZoneSeason)*
 
 Season setting (PLANT_OFF, WINTER, SUMMER).
 
@@ -2918,7 +2915,7 @@ Season setting (PLANT_OFF, WINTER, SUMMER).
 Target temperature in degrees Celsius (converted from
 `set_point`).
 
-##### *property* status *: [ThermoZoneStatus](#aiocamedomotic.models.thermo_zone.ThermoZoneStatus)*
+##### *property* status *: [ThermoZoneStatus](#aiocamedomotic.models.ThermoZoneStatus)*
 
 Zone status (OFF, ON).
 
@@ -3044,7 +3041,7 @@ Check whether the timer is active on a specific day.
 
 Display name of the timer.
 
-##### *property* timetable *: list[[TimerTimeSlot](#aiocamedomotic.models.timer.TimerTimeSlot)]*
+##### *property* timetable *: list[[TimerTimeSlot](#aiocamedomotic.models.TimerTimeSlot)]*
 
 Scheduled time slots.
 
@@ -3123,7 +3120,7 @@ Timer ID.
 
 Raw timetable entries from the update.
 
-#### *class* aiocamedomotic.models.TopologyFloor(id: int, name: str, rooms: list[[TopologyRoom](#aiocamedomotic.models.base.TopologyRoom)])
+#### *class* aiocamedomotic.models.TopologyFloor(id: int, name: str, rooms: list[[TopologyRoom](#aiocamedomotic.models.TopologyRoom)])
 
 A floor in the plant topology.
 
@@ -3137,7 +3134,7 @@ Numeric identifier of the floor (`floor_ind`).
 
 Human-readable name of the floor.
 
-##### rooms *: list[[TopologyRoom](#aiocamedomotic.models.base.TopologyRoom)]*
+##### rooms *: list[[TopologyRoom](#aiocamedomotic.models.TopologyRoom)]*
 
 Rooms belonging to this floor.
 
@@ -3145,7 +3142,7 @@ Rooms belonging to this floor.
 
 A room in the plant topology.
 
-Lightweight representation used by `PlantTopology` to describe the
+Lightweight representation used by [`PlantTopology`](#aiocamedomotic.models.PlantTopology) to describe the
 building structure independently of any specific device type.
 
 ##### id *: int*
@@ -3207,7 +3204,7 @@ Return raw update dicts filtered to the given device type.
   A list of raw update dicts whose `cmd_name` maps to
   *device_type*.
 
-##### get_typed_by_device_type(device_type: [DeviceType](#aiocamedomotic.const.DeviceType)) → list[[DeviceUpdate](#aiocamedomotic.models.update.DeviceUpdate)]
+##### get_typed_by_device_type(device_type: [DeviceType](#aiocamedomotic.const.DeviceType)) → list[[DeviceUpdate](#aiocamedomotic.models.DeviceUpdate)]
 
 Parse and filter updates by device type.
 
@@ -3215,15 +3212,15 @@ Parse and filter updates by device type.
   **device_type** – The [`DeviceType`](#aiocamedomotic.const.DeviceType) to
   filter by.
 * **Returns:**
-  Typed `DeviceUpdate` instances whose
-  `device_type` matches *device_type*.
+  Typed [`DeviceUpdate`](#aiocamedomotic.models.DeviceUpdate) instances whose
+  [`device_type`](#aiocamedomotic.models.DeviceUpdate.device_type) matches *device_type*.
 
-##### get_typed_updates() → list[[DeviceUpdate](#aiocamedomotic.models.update.DeviceUpdate)]
+##### get_typed_updates() → list[[DeviceUpdate](#aiocamedomotic.models.DeviceUpdate)]
 
-Parse all updates into typed `DeviceUpdate` objects.
+Parse all updates into typed [`DeviceUpdate`](#aiocamedomotic.models.DeviceUpdate) objects.
 
 * **Returns:**
-  A list of `DeviceUpdate` subclass instances, one per raw
+  A list of [`DeviceUpdate`](#aiocamedomotic.models.DeviceUpdate) subclass instances, one per raw
   update dict.
 
 ##### *property* has_plant_update *: bool*
@@ -3249,12 +3246,11 @@ Change the password of this user on the CAME Domotic server.
   * **current_password** (*str*) – The user’s current password.
   * **new_password** (*str*) – The desired new password.
 
-##### WARNING
-This operation is based on reverse-engineered API documentation and
-has not been verified against a real CAME Domotic server. Behaviour
-may differ across firmware versions.
-
 ##### NOTE
+Changing the password does not invalidate existing active sessions
+for that user — they remain valid until they expire. The new
+password will be required at the next login.
+
 If the changed user is the currently authenticated user, the stored
 credentials are updated automatically in the active session — no
 additional action is required.
@@ -3272,11 +3268,6 @@ Delete this user from the CAME Domotic server.
 Sends a delete-user request to the server for the user identified by
 this object’s `name` property.
 
-##### WARNING
-This operation is based on reverse-engineered API documentation and
-has not been verified against a real CAME Domotic server. Behaviour
-may differ across firmware versions.
-
 * **Raises:**
   * **ValueError** – If this user is the currently authenticated user.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
@@ -3293,7 +3284,10 @@ Set the user as the current user in the CAME Domotic API session.
 
 ##### NOTE
 This method logs out the current user and logs in with the new user.
-In case of failure, the previous user is restored.
+If login with the new credentials fails, a
+`CameDomoticAuthError` is raised and the previous credentials
+are restored so the API client remains connected as the
+original user.
 
 ##### *property* name *: str*
 
@@ -3310,1572 +3304,53 @@ Return the device type for a status update dict, or None if unknown.
   The corresponding [`DeviceType`](#aiocamedomotic.const.DeviceType), or
   `None` if the `cmd_name` is not recognized.
 
-#### aiocamedomotic.models.parse_update(raw: dict[str, Any]) → [DeviceUpdate](#aiocamedomotic.models.update.DeviceUpdate)
+#### aiocamedomotic.models.parse_update(raw: dict[str, Any]) → [DeviceUpdate](#aiocamedomotic.models.DeviceUpdate)
 
 Parse a raw update dict into the appropriate typed
-`DeviceUpdate` subclass.
+[`DeviceUpdate`](#aiocamedomotic.models.DeviceUpdate) subclass.
 
 * **Parameters:**
   **raw** – A single update dict from the `status_update_resp` result
   array.
 * **Returns:**
-  A typed `DeviceUpdate` subclass instance. If the `cmd_name`
-  is not recognized, a generic `DeviceUpdate` is returned so
-  that the consumer can still access `raw_data`.
-
-Base classes for the CAME Domotic API entity model system.
-
-This module defines the foundational base classes used across the CAME Domotic
-API implementation, including the core CameEntity class and derived entity types
-such as User and ServerInfo that are common across the API functionality.
-
-#### *class* aiocamedomotic.models.base.CameEntity
-
-Base class for all the CAME entities.
-
-#### *class* aiocamedomotic.models.base.Floor(raw_data: dict[str, Any])
-
-Floor entity in the CAME Domotic API.
-
-Represents a floor in the building structure with its identifier and name.
-
-##### *property* id *: int*
-
-ID of the floor.
-
-##### *property* name *: str*
-
-Name of the floor.
-
-#### *class* aiocamedomotic.models.base.PlantTopology(floors: list[[TopologyFloor](#aiocamedomotic.models.base.TopologyFloor)])
-
-Complete plant topology (floors and rooms).
-
-Built by merging data from the standard `floor_list_req` /
-`room_list_req` endpoints and the nested device list commands
-(`nested_light_list_req`, `nested_openings_list_req`,
-`nested_thermo_list_req`).
-
-##### floors *: list[[TopologyFloor](#aiocamedomotic.models.base.TopologyFloor)]*
-
-All floors in the plant, each containing its rooms.
-
-#### *class* aiocamedomotic.models.base.Room(raw_data: dict[str, Any])
-
-Room entity in the CAME Domotic API.
-
-Represents a room in the building structure with its identifier, name,
-and the floor it belongs to.
-
-##### *property* floor_id *: int*
-
-ID of the floor this room belongs to.
-
-##### *property* id *: int*
-
-ID of the room.
-
-##### *property* name *: str*
-
-Name of the room.
-
-#### *class* aiocamedomotic.models.base.ServerInfo(keycode: str, serial: str, features: list[str], swver: str | None = None, type: str | None = None, board: str | None = None)
-
-Server information of a CAME Domotic server.
-
-##### board *: str | None* *= None*
-
-Board type of the server.
-
-##### features *: list[str]*
-
-List of features supported by the server.
-
-Known values (as of now) are:
-: - “lights”
-  - “openings”
-  - “thermoregulation”
-  - “scenarios”
-  - “digitalin”
-  - “energy”
-  - “loadsctrl”
-
-##### keycode *: str*
-
-Keycode of the server (CAME proprietary unique identifier).
-
-##### serial *: str*
-
-Serial number of the server.
-
-##### swver *: str | None* *= None*
-
-Software version of the server.
-
-##### type *: str | None* *= None*
-
-Type of the server.
-
-#### *class* aiocamedomotic.models.base.TerminalGroup(raw_data: dict[str, Any])
-
-Terminal group in the CAME Domotic API.
-
-Represents a user permission group (e.g. `"ETI/Domo"`). Groups are
-assigned to users at creation time via
-`CameDomoticAPI.async_add_user()`. Use
-`CameDomoticAPI.async_get_terminal_groups()` to retrieve the
-available group names before creating a user.
-
-##### *property* id *: int*
-
-Numeric ID of the group.
-
-##### *property* name *: str*
-
-Name of the group (e.g. `"ETI/Domo"`).
-
-#### *class* aiocamedomotic.models.base.TopologyFloor(id: int, name: str, rooms: list[[TopologyRoom](#aiocamedomotic.models.base.TopologyRoom)])
-
-A floor in the plant topology.
-
-Contains the list of rooms discovered on this floor.
-
-##### id *: int*
-
-Numeric identifier of the floor (`floor_ind`).
-
-##### name *: str*
-
-Human-readable name of the floor.
-
-##### rooms *: list[[TopologyRoom](#aiocamedomotic.models.base.TopologyRoom)]*
-
-Rooms belonging to this floor.
-
-#### *class* aiocamedomotic.models.base.TopologyRoom(id: int, name: str)
-
-A room in the plant topology.
-
-Lightweight representation used by [`PlantTopology`](#aiocamedomotic.models.base.PlantTopology) to describe the
-building structure independently of any specific device type.
-
-##### id *: int*
-
-Numeric identifier of the room (`room_ind`).
-
-##### name *: str*
-
-Human-readable name of the room.
-
-#### *class* aiocamedomotic.models.base.User(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
-
-User in the CAME Domotic API.
-
-* **Raises:**
-  **ValueError** – If name key is missing from the input data the auth argument is
-      not an instance of the expected Auth class.
-
-##### *async* async_change_password(current_password: str, new_password: str) → None
-
-Change the password of this user on the CAME Domotic server.
-
-* **Parameters:**
-  * **current_password** (*str*) – The user’s current password.
-  * **new_password** (*str*) – The desired new password.
-
-##### WARNING
-This operation is based on reverse-engineered API documentation and
-has not been verified against a real CAME Domotic server. Behaviour
-may differ across firmware versions.
-
-##### NOTE
-If the changed user is the currently authenticated user, the stored
-credentials are updated automatically in the active session — no
-additional action is required.
-
-* **Raises:**
-  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
-  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error or the
-        password change is rejected (`sl_user_pwd_change_ack_reason`
-        is non-zero).
-
-##### *async* async_delete() → None
-
-Delete this user from the CAME Domotic server.
-
-Sends a delete-user request to the server for the user identified by
-this object’s `name` property.
-
-##### WARNING
-This operation is based on reverse-engineered API documentation and
-has not been verified against a real CAME Domotic server. Behaviour
-may differ across firmware versions.
-
-* **Raises:**
-  * **ValueError** – If this user is the currently authenticated user.
-  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
-  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
-
-##### *async* async_set_as_current_user(password: str) → None
-
-Set the user as the current user in the CAME Domotic API session.
-
-* **Parameters:**
-  **password** (*str*) – Password of the user.
-* **Raises:**
-  [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
-
-##### NOTE
-This method logs out the current user and logs in with the new user.
-In case of failure, the previous user is restored.
-
-##### *property* name *: str*
-
-Name of the user.
-
-CAME Domotic analog input entity models.
-
-This module implements the class for working with standalone analog input
-sensors in a CAME Domotic system. Analog inputs represent read-only analog
-sensors such as hygrometers, thermometers, and barometers exposed via the
-`analogin` feature. They provide sensor readings but do not support
-control commands.
-
-These sensors are independent of the thermoregulation system’s
-[`AnalogSensor`](#aiocamedomotic.models.thermo_zone.AnalogSensor), which is retrieved
-from the `thermo_list_resp` endpoint. The same physical sensor may appear
-in both endpoints.
-
-#### *class* aiocamedomotic.models.analog_in.AnalogIn(raw_data: dict[str, Any])
-
-Standalone analog input sensor from the `analogin_list_resp` endpoint.
-
-Represents a read-only analog sensor (e.g. hygrometer, thermometer,
-barometer) exposed via the `analogin` feature.
-
-* **Parameters:**
-  **raw_data** – Dictionary containing the sensor data from the API.
-* **Raises:**
-  **ValueError** – If `name` or `act_id` keys are missing from
-      the input data.
-
-##### NOTE
-Temperature values (`unit == "C"`) are stored as integers multiplied
-by 10 (e.g. 215 = 21.5 °C). The [`value`](#aiocamedomotic.models.analog_in.AnalogIn.value) property applies the
-conversion automatically.
-
-##### *property* act_id *: int*
-
-Unique actuator/sensor identifier.
-
-##### *property* name *: str*
-
-Display name of the sensor.
-
-##### *property* unit *: str*
-
-Unit of measurement (e.g. `'C'`, `'%'`, `'hPa'`).
-
-##### *property* value *: float*
-
-Sensor reading in the unit reported by [`unit`](#aiocamedomotic.models.analog_in.AnalogIn.unit).
-
-Temperature readings (`unit == "C"`) are divided by 10 to convert
-from the API’s integer encoding to degrees Celsius. All other units
-are returned as-is.
-
-CAME Domotic TVCC camera entity models.
-
-This module implements the classes for working with TVCC (closed-circuit
-television) cameras in a CAME Domotic system. Cameras are read-only entities
-that provide access to IP camera stream URIs but do not support control
-commands.
-
-##### NOTE
-This module is based on reverse-engineered API documentation from the
-CAME JS client and has not been verified against a real CAME Domotic
-server. Behaviour may differ across firmware versions.
-
-#### *class* aiocamedomotic.models.camera.Camera(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
-
-TVCC camera entity in the CameDomotic API.
-
-Cameras are read-only devices that provide streaming video and still-image
-URIs for IP cameras connected to the CAME Domotic system. They cannot be
-controlled remotely — this is purely a viewing/monitoring feature.
-
-##### WARNING
-The `uri` and `uri_still` fields point directly to camera HTTP
-endpoints on the local network. These URIs may contain embedded
-authentication credentials (e.g. `http://user:pass@camera/stream`).
-Avoid logging or displaying these values without sanitisation.
-
-* **Raises:**
-  **ValueError** – If `name` or `id` keys are missing from the input
-      data or the auth argument is not an instance of the expected
-      `Auth` class.
-
-##### *property* id *: int*
-
-Unique camera identifier.
-
-Unlike other device models which use `act_id`, cameras use a plain
-`id` field as their primary key (JS field: `id`, `idProperty`).
-
-##### *property* is_flash *: bool*
-
-Whether this camera uses a Flash (SWF) stream.
-
-Flash streams are obsolete — consumers should fall back to
-[`uri_still`](#aiocamedomotic.models.camera.Camera.uri_still) for cameras where this is `True`.
-
-Derived from: `stream_type == "swf"` (same check as JS client,
-line 5493).
-
-##### *property* name *: str*
-
-`name`).
-
-* **Type:**
-  Camera display name (JS field
-
-##### *property* stream_type *: str*
-
-Raw stream format string as returned by the server.
-
-The only known value with special semantics is `"swf"` (Flash).
-All other values are treated identically by the JS client
-(JS field: `stream_type`).
-
-##### *property* uri *: str*
-
-Primary streaming video URI.
-
-Points directly to the camera’s stream endpoint on the LAN.
-The actual protocol/format is opaque — the JS client loads it
-in an iframe (JS field: `uri`).
-
-##### *property* uri_still *: str*
-
-Snapshot/still-image URI.
-
-Returns a single JPEG frame from the camera. Useful for thumbnails
-or as a fallback when the primary stream format is not supported.
-Append `?t=<timestamp>` for cache busting on repeated fetches
-(JS field: `uri_still`).
-
-CAME Domotic digital input (binary sensor) entity models.
-
-This module implements the classes for working with digital inputs in a CAME
-Domotic system. Digital inputs represent read-only binary sensors such as
-physical buttons, contact sensors, and similar devices. They provide properties
-to access device attributes but do not support control commands.
-
-#### *class* aiocamedomotic.models.digital_input.DigitalInput(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
-
-Digital input (binary sensor) entity in the CameDomotic API.
-
-Digital inputs are read-only devices that report their binary state
-(ACTIVE/IDLE). They cannot be controlled remotely.
-
-* **Raises:**
-  **ValueError** – If `name` or `act_id` keys are missing from the
-      input data or the auth argument is not an instance of the
-      expected `Auth` class.
-
-##### *property* act_id *: int*
-
-ID of the digital input.
-
-##### *property* addr *: int*
-
-Address of the digital input.
-
-##### *property* name *: str*
-
-Name of the digital input.
-
-##### *property* status *: [DigitalInputStatus](#aiocamedomotic.models.digital_input.DigitalInputStatus)*
-
-ACTIVE (0) or IDLE (1).
-
-`ACTIVE` means the input is triggered (e.g. a button is being
-pressed). `IDLE` means the input is in its normal resting state.
-
-Returns `DigitalInputStatus.UNKNOWN` when the status field is
-absent from the server response (some digital inputs do not
-report a status until their first state change).
-
-* **Type:**
-  Status of the digital input
-
-##### *property* type *: [DigitalInputType](#aiocamedomotic.models.digital_input.DigitalInputType)*
-
-Type of the digital input.
-
-Returns `DigitalInputType.UNKNOWN` when the type value is not
-recognized.
-
-##### *property* utc_time *: int*
-
-UTC timestamp of the last event (Unix epoch seconds).
-
-Returns `0` if the digital input has never been triggered.
-
-#### *class* aiocamedomotic.models.digital_input.DigitalInputStatus(\*values)
-
-Status of a digital input.
-
-Allowed values are:
-: - ACTIVE (0): the input is active (e.g. a button is pressed)
-  - IDLE (1): the input is idle (e.g. a button is not pressed)
-
-#### *class* aiocamedomotic.models.digital_input.DigitalInputType(\*values)
-
-Type of a digital input.
-
-Allowed values are:
-: - STATUS (1): standard status input
-
-CAME Domotic light entity models and control functionality.
-
-This module implements the classes for working with lights in a CAME Domotic
-system, supporting standard on/off lights (STEP_STEP type), dimmable lights
-(DIMMER type), and RGB color lights (RGB type). It provides properties to
-access light attributes and methods to control light state, including on/off
-functionality, brightness control, and RGB color control.
-
-#### *class* aiocamedomotic.models.light.Light(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
-
-Light entity in the CameDomotic API.
-
-* **Raises:**
-  **ValueError** – If name or act_id keys are missing from the
-      input data or the auth argument is not an instance of the
-      expected Auth class.
-
-##### *property* act_id *: int*
-
-ID of the light.
-
-##### *async* async_set_status(status: [LightStatus](#aiocamedomotic.models.light.LightStatus), brightness: int | None = None, rgb: list[int] | None = None) → None
-
-Control the light.
-
-* **Parameters:**
-  * **status** ([*LightStatus*](#aiocamedomotic.models.light.LightStatus)) – Status of the light.
-  * **brightness** (*Optional* *[**int* *]*) – Brightness percentage of the light (range
-    0-100). If the brightness is not provided, it will stay unchanged.
-    This argument is ignored for STEP_STEP lights.
-  * **rgb** (*Optional* *[**List* *[**int* *]* *]*) – RGB color values as [R, G, B], each in
-    range 0-255. If not provided, the color stays unchanged.
-    This argument is ignored for non-RGB lights.
-* **Raises:**
-  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
-  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
-
-##### *property* floor_ind *: int*
-
-Floor index of the light.
-
-##### *property* name *: str*
-
-Name of the light.
-
-##### *property* perc *: int*
-
-Brightness percentage of the light (range 0-100).
-Non dimmable lights will always return 100.
-
-##### *property* rgb *: list[int] | None*
-
-RGB color values of the light as [R, G, B], each in range 0-255.
-Returns None for non-RGB lights.
-
-##### *property* room_ind *: int*
-
-Room index of the light.
-
-##### *property* status *: [LightStatus](#aiocamedomotic.models.light.LightStatus)*
-
-Status of the light. Allowed values are OFF (0), ON (1) and AUTO (4).
-
-##### *property* type *: [LightType](#aiocamedomotic.models.light.LightType)*
-
-Light type. Allowed values are “STEP_STEP” (normal lights),
-“DIMMER” (dimmable lights), and “RGB” (color lights).
-
-* **Raises:**
-  **ValueError** – If the light type is not recognized.
-
-#### *class* aiocamedomotic.models.light.LightStatus(\*values)
-
-Status of a light.
-
-Allowed values are:
-: - OFF (0)
-  - ON (1)
-  - AUTO (4)
-
-#### *class* aiocamedomotic.models.light.LightType(\*values)
-
-Type of a light.
-
-Allowed values are:
-: - STEP_STEP (normal lights)
-  - DIMMER (dimmable lights)
-  - RGB (color lights with brightness via HSV V channel)
-
-CAME Domotic map page entity model.
-
-This module implements the class representing a page (floor plan) in the
-CAME Domotic map system. Maps are read-only — they provide positional
-information about devices overlaid on background images but do not support
-control commands. Device control is performed through the standard device
-command APIs (`light_switch_req`, `opening_move_req`, etc.).
-
-##### NOTE
-This module is based on reverse-engineered API documentation from the
-CAME JS client and has not been verified against a real CAME Domotic
-server. Behaviour may differ across firmware versions.
-
-#### *class* aiocamedomotic.models.map_page.MapPage(raw_data: dict[str, Any])
-
-A page (floor plan) in the CAME Domotic map system.
-
-Each page represents a spatial view containing positioned elements
-(lights, openings, thermostats, page links, scenarios, cameras)
-overlaid on a background image. Elements are returned as raw
-dictionaries preserving the server response structure.
-
-The `elements` list contains dictionaries with at least the following
-common keys: `x`, `y`, `width`, `height`, `type`, `label`,
-`aspect`, `icon_id`, `permission`, `read_only`, `address`.
-Additional keys depend on the element type (e.g. `act_id` for devices,
-`page` for page links, `scenario_id` for scenarios).
-
-* **Raises:**
-  **ValueError** – If `page_id` or `page_label` keys are missing from
-      the input data, or if `page_id` is not an integer.
-
-##### *property* background *: str*
-
-Relative URL path to the background image on the CAME server.
-
-The URL may contain spaces (e.g. `"maps/maps_pianta piano terra.png"`).
-Consumers must percent-encode the path when making HTTP requests.
-The full URL is constructed as `http://<server_host>/<background>`.
-
-##### *property* elements *: list[dict[str, Any]]*
-
-Interactive elements placed on this map page.
-
-Each element is a raw dictionary from the server response. Common
-keys include `x`, `y`, `width`, `height`, `type`,
-`label`, `aspect`, `icon_id`, `permission`, `read_only`,
-and `address`. Type-specific keys (`act_id`, `page`,
-`scenario_id`, `status`) are present only for applicable
-element types.
-
-##### *property* page_id *: int*
-
-Unique page identifier.
-
-`0` is the root/home page.
-
-##### *property* page_label *: str*
-
-Human-readable page title.
-
-##### *property* page_scale *: int*
-
-Coordinate space size for element positioning.
-
-Element `x`/`y` values range from `0` to `page_scale`.
-Typically `1024`.
-
-CAME Domotic opening entity models and control functionality.
-
-This module implements the classes for working with openings in a CAME Domotic
-system, supporting various types of openings like shutters, awnings, and gates.
-It provides properties to access opening attributes and methods to control
-opening state, including open, close, and stop functionality.
-
-#### *class* aiocamedomotic.models.opening.Opening(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
-
-Opening entity in the CameDomotic API.
-
-* **Raises:**
-  **ValueError** – If name or open_act_id keys are missing from the input data
-      or the auth argument is not an instance of the expected Auth class.
-
-##### *async* async_set_status(status: [OpeningStatus](#aiocamedomotic.models.opening.OpeningStatus)) → None
-
-Control the opening (open, close, stop, slat open, slat close).
-
-* **Parameters:**
-  **status** ([*OpeningStatus*](#aiocamedomotic.models.opening.OpeningStatus)) – Status to set for the opening.
-* **Raises:**
-  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
-  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
-
-##### *property* close_act_id *: int*
-
-Actuator ID for closing action.
-
-##### *property* floor_ind *: int | None*
-
-Floor index where the opening is located.
-
-##### *property* name *: str*
-
-Name of the opening.
-
-##### *property* open_act_id *: int*
-
-Actuator ID for opening action.
-
-##### *property* partial_positions *: list[str]*
-
-List of configured partial opening positions, if any.
-
-##### *property* room_ind *: int | None*
-
-Room index where the opening is located.
-
-##### *property* status *: [OpeningStatus](#aiocamedomotic.models.opening.OpeningStatus)*
-
-STOPPED (0), OPENING (1),
-CLOSING (2), SLAT_OPEN (3) and SLAT_CLOSE (4).
-
-* **Type:**
-  Current status of the opening. Allowed values
-
-##### *property* type *: [OpeningType](#aiocamedomotic.models.opening.OpeningType)*
-
-Opening type.
-
-* **Raises:**
-  **ValueError** – If the opening type is not recognized.
-
-#### *class* aiocamedomotic.models.opening.OpeningStatus(\*values)
-
-Status of an opening.
-
-Allowed values are:
-: - STOPPED (0)
-  - OPENING (1)
-  - CLOSING (2)
-  - SLAT_OPEN (3)
-  - SLAT_CLOSE (4)
-
-#### *class* aiocamedomotic.models.opening.OpeningType(\*values)
-
-Type of an opening.
-
-Allowed values are:
-: - SHUTTER (0)
-
-CAME Domotic relay entity models and control functionality.
-
-This module implements the classes for working with generic relays in a CAME
-Domotic system. Generic relays are simple on/off switches that can be
-controlled remotely. They provide binary state control without brightness,
-color, or position capabilities.
-
-##### NOTE
-The relay API commands (`relays_list_req`, `relay_activation_req`)
-are documented in the CAME API specification but have not been verified
-against a real server. Behaviour may differ across firmware versions.
-
-#### *class* aiocamedomotic.models.relay.Relay(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
-
-Relay entity in the CameDomotic API.
-
-Represents a generic relay (simple on/off switch) in the CAME Domotic
-system. Provides properties to read relay attributes and a method to
-control relay state.
-
-* **Raises:**
-  **ValueError** – If `name` or `act_id` keys are missing from the
-      input data or the auth argument is not an instance of the
-      expected `Auth` class.
-
-##### *property* act_id *: int*
-
-ID of the relay.
-
-##### *async* async_set_status(status: [RelayStatus](#aiocamedomotic.models.relay.RelayStatus)) → None
-
-Control the relay.
-
-* **Parameters:**
-  **status** ([*RelayStatus*](#aiocamedomotic.models.relay.RelayStatus)) – Desired relay status (ON or OFF).
-* **Raises:**
-  * **ValueError** – If `status` is `RelayStatus.UNKNOWN`.
-  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
-  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
-
-##### *property* floor_ind *: int*
-
-Floor index of the relay.
-
-##### *property* name *: str*
-
-Name of the relay.
-
-##### *property* room_ind *: int*
-
-Room index of the relay.
-
-##### *property* status *: [RelayStatus](#aiocamedomotic.models.relay.RelayStatus)*
-
-Status of the relay. Allowed values are OFF (0) and ON (1).
-
-#### *class* aiocamedomotic.models.relay.RelayStatus(\*values)
-
-Status of a relay.
-
-Allowed values are:
-: - OFF (0)
-  - ON (1)
-  - UNKNOWN (-1): Returned when the server reports an unrecognised
-    status value. Not a valid target for `async_set_status`.
-
-CAME Domotic scenario entity models and control functionality.
-
-This module implements the classes for working with scenarios in a CAME Domotic
-system. Scenarios represent pre-configured automation sequences that can be
-activated to control multiple devices at once. It provides properties to access
-scenario attributes and a method to activate a scenario.
-
-#### *class* aiocamedomotic.models.scenario.Scenario(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
-
-Scenario entity in the CameDomotic API.
-
-Represents a pre-configured automation scenario that can be activated
-to control multiple devices at once.
-
-* **Raises:**
-  **ValueError** – If name or id keys are missing from the input data or the auth
-      argument is not an instance of the expected Auth class.
-
-##### *async* async_activate() → None
-
-Activate the scenario.
-
-Sends the scenario activation command to the CAME Domotic server.
-
-* **Raises:**
-  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
-  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
-
-##### *property* icon_id *: int*
-
-Icon ID associated with the scenario.
-
-##### *property* id *: int*
-
-ID of the scenario.
-
-##### *property* name *: str*
-
-Name of the scenario.
-
-##### *property* scenario_status *: [ScenarioStatus](#aiocamedomotic.models.scenario.ScenarioStatus)*
-
-OFF (0), TRIGGERED (1), or ACTIVE (2).
-
-* **Type:**
-  Scenario-specific status
-
-##### *property* status *: int*
-
-General status of the scenario.
-
-##### *property* user_defined *: int*
-
-Whether the scenario is user-defined (1) or system-defined (0).
-
-#### *class* aiocamedomotic.models.scenario.ScenarioStatus(\*values)
-
-Status of a scenario.
-
-Allowed values are:
-: - OFF (0): scenario is not active
-  - TRIGGERED (1): scenario has just been activated and is executing
-  - ACTIVE (2): scenario is currently in effect
-
-CAME Domotic thermoregulation entity models.
-
-This module implements the classes for working with thermoregulation zones
-and analog sensors in a CAME Domotic system. It provides access to zone
-state (temperature, setpoint, mode, season, fan speed, dehumidifier) and
-analog sensor readings (temperature, humidity, pressure), as well as
-control methods to configure zone settings such as target temperature,
-operating mode, and fan speed.
-
-#### *class* aiocamedomotic.models.thermo_zone.AnalogSensor(raw_data: dict[str, Any], sensor_type: [AnalogSensorType](#aiocamedomotic.models.thermo_zone.AnalogSensorType) = AnalogSensorType.UNKNOWN)
-
-Analog sensor from the CAME Domotic thermoregulation system.
-
-Represents a top-level temperature, humidity, or pressure sensor
-reading from the thermoregulation list response. These sensors are
-separate from the thermoregulation zones.
-
-* **Parameters:**
-  * **raw_data** – Dictionary containing the sensor data from the API.
-  * **sensor_type** – The type of sensor (temperature, humidity, or pressure).
-    Defaults to `AnalogSensorType.UNKNOWN` if not specified.
-
-##### NOTE
-The `value` property returns the real sensor reading in the
-unit reported by `unit` (e.g., degrees C, %, hPa).
-
-* **Raises:**
-  **ValueError** – If `name` or `act_id` keys are missing from
-      the input data.
-
-##### *property* act_id *: int*
-
-ID of the analog sensor.
-
-##### *property* name *: str*
-
-Name of the analog sensor.
-
-##### sensor_type *: [AnalogSensorType](#aiocamedomotic.models.thermo_zone.AnalogSensorType)* *= 'unknown'*
-
-The type of sensor (temperature, humidity, or pressure).
-
-##### *property* unit *: str*
-
-Unit of measurement (e.g., ‘C’, ‘%’, ‘hPa’).
-
-##### *property* value *: float*
-
-Sensor reading in the unit reported by `unit`.
-
-#### *class* aiocamedomotic.models.thermo_zone.AnalogSensorType(\*values)
-
-Type of an analog sensor.
-
-Allowed values are:
-
-- TEMPERATURE (“temperature”)
-- HUMIDITY (“humidity”)
-- PRESSURE (“pressure”)
-- UNKNOWN (“unknown”)
-
-#### *class* aiocamedomotic.models.thermo_zone.ThermoZone(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
-
-Thermoregulation zone entity in the CameDomotic API.
-
-Represents a single thermoregulation zone with its current state,
-including temperature readings, setpoint, operating mode, and season.
-
-Temperature values from the API are integers multiplied by 10
-(e.g., 215 = 21.5 degrees C). Properties in this class return
-converted float values in degrees.
-
-* **Raises:**
-  **ValueError** – If `name` or `act_id` keys are missing from the
-      input data, or the auth argument is not an instance of the
-      expected `Auth` class.
-
-##### *property* act_id *: int*
-
-ID of the thermoregulation zone.
-
-##### *property* antifreeze *: float | None*
-
-Antifreeze temperature in degrees Celsius, or None if not set.
-
-##### *async* async_set_config(mode: [ThermoZoneMode](#aiocamedomotic.models.thermo_zone.ThermoZoneMode), set_point: float, \*, fan_speed: [ThermoZoneFanSpeed](#aiocamedomotic.models.thermo_zone.ThermoZoneFanSpeed) | None = None) → None
-
-Configure the thermoregulation zone.
-
-##### NOTE
-The season cannot be changed via this method. The CAME server
-silently ignores any season value sent in a zone config request.
-Use `CameDomoticAPI.async_set_thermo_season()` to change the
-season at the plant level.
-
-* **Parameters:**
-  * **mode** – Operating mode to set.
-  * **set_point** – Target temperature in degrees Celsius.
-  * **fan_speed** – Fan speed setting (optional, requires extended info).
-* **Raises:**
-  * **ValueError** – If `mode` or `fan_speed` is `UNKNOWN`.
-  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
-  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
-
-##### *async* async_set_fan_speed(fan_speed: [ThermoZoneFanSpeed](#aiocamedomotic.models.thermo_zone.ThermoZoneFanSpeed)) → None
-
-Set the fan speed, keeping the current mode and temperature.
-
-* **Parameters:**
-  **fan_speed** – Fan speed to set.
-* **Raises:**
-  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
-  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
-
-##### *async* async_set_mode(mode: [ThermoZoneMode](#aiocamedomotic.models.thermo_zone.ThermoZoneMode)) → None
-
-Set the operating mode, keeping the current target temperature.
-
-* **Parameters:**
-  **mode** – Operating mode to set.
-* **Raises:**
-  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
-  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
-
-##### *async* async_set_temperature(temperature: float) → None
-
-Set the target temperature, keeping the current operating mode.
-
-##### WARNING
-This method only has an effect when the zone is in
-`ThermoZoneMode.MANUAL` mode. When the zone is in any other mode
-(e.g. `AUTO`), the server accepts the request without error but
-silently discards the new setpoint. Use
-[`async_set_config()`](#aiocamedomotic.models.thermo_zone.ThermoZone.async_set_config) with `mode=ThermoZoneMode.MANUAL` to
-guarantee that the setpoint is applied.
-
-* **Parameters:**
-  **temperature** – Target temperature in degrees Celsius.
-* **Raises:**
-  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
-  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
-
-##### *property* dehumidifier_enabled *: bool*
-
-Whether the dehumidifier is enabled for this zone.
-
-##### *property* dehumidifier_setpoint *: float | None*
-
-Dehumidifier humidity setpoint in percent, or None if not set.
-
-##### *property* fan_speed *: [ThermoZoneFanSpeed](#aiocamedomotic.models.thermo_zone.ThermoZoneFanSpeed)*
-
-Fan speed setting for the thermoregulation zone.
-
-Returns `ThermoZoneFanSpeed.UNKNOWN` for unrecognized values.
-
-##### *property* floor_ind *: int*
-
-Floor index of the thermoregulation zone.
-
-##### *property* leaf *: bool*
-
-Whether this is an actual zone (leaf node) in the hierarchy.
-
-##### *property* mode *: [ThermoZoneMode](#aiocamedomotic.models.thermo_zone.ThermoZoneMode)*
-
-Operating mode of the thermoregulation zone.
-
-Returns `ThermoZoneMode.UNKNOWN` for unrecognized mode values.
-
-##### *property* name *: str*
-
-Name of the thermoregulation zone.
-
-##### *property* room_ind *: int*
-
-Room index of the thermoregulation zone.
-
-##### *property* season *: [ThermoZoneSeason](#aiocamedomotic.models.thermo_zone.ThermoZoneSeason)*
-
-Season setting for the thermoregulation zone.
-
-Returns `ThermoZoneSeason.UNKNOWN` for unrecognized season values.
-
-##### *property* set_point *: float*
-
-Target temperature in degrees Celsius.
-
-##### *property* status *: [ThermoZoneStatus](#aiocamedomotic.models.thermo_zone.ThermoZoneStatus)*
-
-Status of the thermoregulation zone (OFF or ON).
-
-##### *property* t1 *: float | None*
-
-Temperature sensor 1 reading in degrees Celsius, or None.
-
-##### *property* t2 *: float | None*
-
-Temperature sensor 2 reading in degrees Celsius, or None.
-
-##### *property* t3 *: float | None*
-
-Temperature sensor 3 reading in degrees Celsius, or None.
-
-##### *property* temperature *: float*
-
-Current temperature in degrees Celsius.
-
-Handles both `temp` (from list responses) and `temp_dec`
-(from status indications) field names.
-
-#### *class* aiocamedomotic.models.thermo_zone.ThermoZoneFanSpeed(\*values)
-
-Fan speed setting for a thermoregulation zone.
-
-Allowed values are:
-: - OFF (0)
-  - SLOW (1)
-  - MEDIUM (2)
-  - FAST (3)
-  - AUTO (4)
-
-#### *class* aiocamedomotic.models.thermo_zone.ThermoZoneMode(\*values)
-
-Operating mode of a thermoregulation zone.
-
-Allowed values are:
-: - OFF (0)
-  - MANUAL (1)
-  - AUTO (2)
-  - JOLLY (3)
-
-#### *class* aiocamedomotic.models.thermo_zone.ThermoZoneSeason(\*values)
-
-Season setting for a thermoregulation zone.
-
-Allowed values are:
-: - PLANT_OFF (“plant_off”)
-  - WINTER (“winter”)
-  - SUMMER (“summer”)
-
-#### *class* aiocamedomotic.models.thermo_zone.ThermoZoneStatus(\*values)
-
-Status of a thermoregulation zone.
-
-Allowed values are:
-: - OFF (0)
-  - ON (1)
-
-CAME Domotic timer entity models and control functionality.
-
-This module implements the classes for working with timers in a CAME Domotic
-system. Timers are scheduling entities that define time-based activation
-windows for associated devices. They support enabling/disabling, day-of-week
-toggling, and timetable configuration.
-
-The `days` field is a 7-bit bitmask encoding active days of the week
-(bit 0 = Monday, bit 6 = Sunday).
-
-#### *class* aiocamedomotic.models.timer.Timer(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
-
-Timer entity in the CameDomotic API.
-
-Represents a scheduling timer with time-based activation windows.
-Supports enabling/disabling, day-of-week toggling, and timetable
-configuration via the CAME API.
-
-The `days` field is a 7-bit bitmask (bit 0 = Monday, …,
-bit 6 = Sunday). For example, `days=85` (binary `1010101`)
-means Monday, Wednesday, Friday, and Sunday.
-
-* **Raises:**
-  **ValueError** – If `name` or `id` keys are missing from the input
-      data or the auth argument is not an instance of `Auth`.
-
-##### *property* active_days *: list[str]*
-
-Human-readable names of the days the timer is active on.
-
-##### *async* async_disable() → None
-
-Disable the timer.
-
-* **Raises:**
-  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
-  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
-
-##### *async* async_disable_day(day: int) → None
-
-Disable the timer for a specific day of the week.
-
-* **Parameters:**
-  **day** – Day index (0=Monday, 1=Tuesday, …, 6=Sunday).
-* **Raises:**
-  * **ValueError** – If *day* is not in range 0-6.
-  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
-  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
-
-##### *async* async_enable() → None
-
-Enable the timer.
-
-* **Raises:**
-  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
-  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
-
-##### *async* async_enable_day(day: int) → None
-
-Enable the timer for a specific day of the week.
-
-* **Parameters:**
-  **day** – Day index (0=Monday, 1=Tuesday, …, 6=Sunday).
-* **Raises:**
-  * **ValueError** – If *day* is not in range 0-6.
-  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
-  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
-
-##### *async* async_set_timetable(slots: list[tuple[int, int, int] | None]) → None
-
-Set the timer’s timetable.
-
-Sends the complete timetable to the server. The list must contain
-exactly 4 entries — one per available slot. Use `None` for empty
-slots.
-
-* **Parameters:**
-  **slots** – List of 4 entries. Each entry is either a
-  `(hour, min, sec)` tuple for an active slot, or `None`
-  for an empty slot.
-* **Raises:**
-  * **ValueError** – If *slots* does not contain exactly 4 entries.
-  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
-  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
-
-##### *property* bars *: int*
-
-Number of timetable bars reported by the server.
-
-##### *property* days *: int*
-
-Bitmask of active days (bit 0 = Monday, …, bit 6 = Sunday).
-
-##### *property* enabled *: bool*
-
-Whether the timer is globally enabled.
-
-##### *property* id *: int*
-
-Unique timer identifier.
-
-##### is_active_on_day(day_index: int) → bool
-
-Check whether the timer is active on a specific day.
-
-* **Parameters:**
-  **day_index** – Day index (0=Monday, 1=Tuesday, …, 6=Sunday).
-* **Returns:**
-  `True` if the timer is scheduled for this day, `False`
-  otherwise (including when *day_index* is out of range).
-
-##### *property* name *: str*
-
-Display name of the timer.
-
-##### *property* timetable *: list[[TimerTimeSlot](#aiocamedomotic.models.timer.TimerTimeSlot)]*
-
-Scheduled time slots.
-
-Malformed entries are skipped with a warning.
-
-#### *class* aiocamedomotic.models.timer.TimerTimeSlot(raw_data: dict[str, Any])
-
-A single time window within a timer’s timetable.
-
-On some firmware versions, the `stop` and `active` fields may be
-absent. Properties return `None` for missing optional fields.
-
-* **Parameters:**
-  **raw_data** – Dictionary from a single timetable array entry.
-* **Raises:**
-  **ValueError** – If `index` or `start` keys are missing.
-
-##### *property* active *: bool | None*
-
-Whether this time window is active, or `None` if absent.
-
-##### *property* index *: int*
-
-Zero-based slot position in the timetable (0-3).
-
-##### *property* start_hour *: int*
-
-Start time hour (0-23). Defaults to 0 if missing.
-
-##### *property* start_min *: int*
-
-Start time minute (0-59). Defaults to 0 if missing.
-
-##### *property* start_sec *: int*
-
-Start time second (0-59). Defaults to 0 if missing.
-
-##### *property* stop_hour *: int | None*
-
-Stop time hour, or `None` if the `stop` field is absent.
-
-##### *property* stop_min *: int | None*
-
-Stop time minute, or `None` if the `stop` field is absent.
-
-##### *property* stop_sec *: int | None*
-
-Stop time second, or `None` if the `stop` field is absent.
-
-CAME Domotic status update handling.
-
-This module provides classes for processing and representing status updates
-from the CAME Domotic system. It implements typed dataclass wrappers for each
-update indication type, a factory function to parse raw update dicts, and a
-specialized list-based data structure to track chronological updates received
-from the CAME Domotic API.
-
-#### *class* aiocamedomotic.models.update.AnalogInUpdate(raw_data: dict[str, Any])
-
-Typed update for an analog input sensor (`analogin_status_ind` /
-`analogin_update_ind`).
-
-##### *property* act_id *: int*
-
-Analog input actuator ID.
-
-##### *property* unit *: str*
-
-Unit of measurement.
-
-##### *property* value *: float*
-
-Sensor reading, with temperature scaling applied for unit `'C'`.
-
-#### *class* aiocamedomotic.models.update.DeviceUpdate(raw_data: dict[str, Any])
-
-Base class for a typed status update from the CAME API.
-
-Wraps the raw update dict and exposes common properties. Subclasses add
-device-specific accessors.
-
-* **Parameters:**
-  **raw_data** – The original dict from the `status_update_resp` result
-  array.
-
-##### *property* cmd_name *: str*
-
-The indication `cmd_name` string from the raw update.
-
-##### *property* device_id *: int | None*
-
-Primary device identifier (`act_id`, `open_act_id`, or `id`).
-
-Returns the first available identifier, or `None` if none is present.
-
-##### *property* device_type *: [DeviceType](#aiocamedomotic.const.DeviceType) | None*
-
-The [`DeviceType`](#aiocamedomotic.const.DeviceType) for this update,
-or `None` if the `cmd_name` is not recognized.
-
-##### *property* name *: str*
-
-Device name from the update.
-
-##### *property* update_indicator *: [UpdateIndicator](#aiocamedomotic.const.UpdateIndicator) | None*
-
-The [`UpdateIndicator`](#aiocamedomotic.const.UpdateIndicator) for this update,
-or `None` if the `cmd_name` is not recognized.
-
-#### *class* aiocamedomotic.models.update.DigitalInputUpdate(raw_data: dict[str, Any])
-
-Typed update for a digital input (`digitalin_status_ind` /
-`digitalin_update_ind`).
-
-##### *property* act_id *: int*
-
-Digital input actuator ID.
-
-##### *property* addr *: int*
-
-Digital input address.
-
-##### *property* status *: int*
-
-Digital input status value.
-
-##### *property* utc_time *: int*
-
-UTC timestamp of the digital input event.
-
-#### *class* aiocamedomotic.models.update.LightUpdate(raw_data: dict[str, Any])
-
-Typed update for a light device (`light_switch_ind` /
-`light_update_ind`).
-
-##### *property* act_id *: int*
-
-Light actuator ID.
-
-##### *property* floor_ind *: int*
-
-Floor index.
-
-##### *property* light_type *: [LightType](#aiocamedomotic.models.light.LightType)*
-
-Light type (STEP_STEP, DIMMER, RGB).
-
-##### *property* perc *: int*
-
-Brightness percentage (0-100). Defaults to 100 for non-dimmable.
-
-##### *property* rgb *: list[int] | None*
-
-RGB color values `[R, G, B]` (0-255 each), or `None`.
-
-##### *property* room_ind *: int*
-
-Room index.
-
-##### *property* status *: [LightStatus](#aiocamedomotic.models.light.LightStatus)*
-
-Light status (OFF, ON, AUTO).
-
-#### *class* aiocamedomotic.models.update.OpeningUpdate(raw_data: dict[str, Any])
-
-Typed update for an opening device (`opening_move_ind` /
-`opening_update_ind`).
-
-##### *property* close_act_id *: int*
-
-Actuator ID for the closing action.
-
-##### *property* device_id *: int | None*
-
-For openings the primary ID is `open_act_id`.
-
-##### *property* floor_ind *: int*
-
-Floor index.
-
-##### *property* open_act_id *: int*
-
-Actuator ID for the opening action.
-
-##### *property* room_ind *: int*
-
-Room index.
-
-##### *property* status *: [OpeningStatus](#aiocamedomotic.models.opening.OpeningStatus)*
-
-Opening status (STOPPED, OPENING, CLOSING, etc.).
-
-#### *class* aiocamedomotic.models.update.PlantUpdate(raw_data: dict[str, Any])
-
-Marker update for `plant_update_ind`.
-
-When this indication is received, all cached devices must be discarded and
-re-fetched from the server.
-
-##### *property* is_plant_update *: bool*
-
-Always returns `True`.
-
-#### *class* aiocamedomotic.models.update.RelayUpdate(raw_data: dict[str, Any])
-
-Typed update for a relay device (`relay_status_ind` /
-`relay_update_ind`).
-
-##### *property* act_id *: int*
-
-Relay actuator ID.
-
-##### *property* floor_ind *: int*
-
-Floor index.
-
-##### *property* room_ind *: int*
-
-Room index.
-
-##### *property* status *: [RelayStatus](#aiocamedomotic.models.relay.RelayStatus)*
-
-Relay status (OFF, ON).
-
-#### *class* aiocamedomotic.models.update.ScenarioUpdate(raw_data: dict[str, Any])
-
-Typed update for a scenario (`scenario_status_ind` /
-`scenario_activation_ind` / `scenario_user_ind`).
-
-##### *property* device_id *: int | None*
-
-For scenarios the primary ID is `id`.
-
-##### *property* id *: int*
-
-Scenario ID.
-
-##### *property* scenario_status *: [ScenarioStatus](#aiocamedomotic.models.scenario.ScenarioStatus)*
-
-Scenario status (OFF, TRIGGERED, ACTIVE).
-
-#### *class* aiocamedomotic.models.update.ThermoZoneUpdate(raw_data: dict[str, Any])
-
-Typed update for a thermostat zone (`thermo_zone_info_ind` /
-`thermo_update_ind`).
-
-##### *property* act_id *: int*
-
-Zone actuator ID.
-
-##### *property* dehumidifier_enabled *: bool*
-
-Whether the dehumidifier is enabled.
-
-##### *property* dehumidifier_setpoint *: float | None*
-
-Dehumidifier humidity setpoint in percent, or None if not present.
-
-##### *property* fan_speed *: [ThermoZoneFanSpeed](#aiocamedomotic.models.thermo_zone.ThermoZoneFanSpeed)*
-
-Fan speed setting (OFF, SLOW, MEDIUM, FAST, AUTO).
-
-##### *property* floor_ind *: int*
-
-Floor index.
-
-##### *property* mode *: [ThermoZoneMode](#aiocamedomotic.models.thermo_zone.ThermoZoneMode)*
-
-Operating mode (OFF, MANUAL, AUTO, JOLLY).
-
-##### *property* room_ind *: int*
-
-Room index.
-
-##### *property* season *: [ThermoZoneSeason](#aiocamedomotic.models.thermo_zone.ThermoZoneSeason)*
-
-Season setting (PLANT_OFF, WINTER, SUMMER).
-
-##### *property* set_point *: float*
-
-Target temperature in degrees Celsius (converted from
-`set_point`).
-
-##### *property* status *: [ThermoZoneStatus](#aiocamedomotic.models.thermo_zone.ThermoZoneStatus)*
-
-Zone status (OFF, ON).
-
-##### *property* t1 *: float | None*
-
-Temperature sensor 1 reading in degrees Celsius.
-
-##### *property* t2 *: float | None*
-
-Temperature sensor 2 reading in degrees Celsius.
-
-##### *property* t3 *: float | None*
-
-Temperature sensor 3 reading in degrees Celsius.
-
-##### *property* temperature *: float*
-
-Current temperature in degrees Celsius (converted from
-`temp_dec`).
-
-#### *class* aiocamedomotic.models.update.TimerUpdate(raw_data: dict[str, Any])
-
-Typed update for a timer (`timer_info_ind` /
-`timer_update_ind`).
-
-##### *property* bars *: int*
-
-Number of timetable bars reported by the server.
-
-##### *property* days *: int*
-
-Days bitmask (bit 0 = Monday, …, bit 6 = Sunday).
-
-##### *property* device_id *: int | None*
-
-For timers the primary ID is `id`.
-
-##### *property* enabled *: bool*
-
-Whether the timer is enabled.
-
-##### *property* id *: int*
-
-Timer ID.
-
-##### *property* timetable *: list[dict[str, Any]]*
-
-Raw timetable entries from the update.
-
-#### *class* aiocamedomotic.models.update.UpdateList(updates: UserList[dict[str, Any]] | None = None)
-
-Chronological list of status updates from the CameDomotic API.
-
-Extends `UserList` to maintain backward compatibility:
-iterating yields raw `dict` objects. Additional methods provide typed
-access and filtering.
-
-##### get_by_device_type(device_type: [DeviceType](#aiocamedomotic.const.DeviceType)) → list[dict[str, Any]]
-
-Return raw update dicts filtered to the given device type.
-
-* **Parameters:**
-  **device_type** – The [`DeviceType`](#aiocamedomotic.const.DeviceType) to
-  filter by.
-* **Returns:**
-  A list of raw update dicts whose `cmd_name` maps to
-  *device_type*.
-
-##### get_typed_by_device_type(device_type: [DeviceType](#aiocamedomotic.const.DeviceType)) → list[[DeviceUpdate](#aiocamedomotic.models.update.DeviceUpdate)]
-
-Parse and filter updates by device type.
-
-* **Parameters:**
-  **device_type** – The [`DeviceType`](#aiocamedomotic.const.DeviceType) to
-  filter by.
-* **Returns:**
-  Typed [`DeviceUpdate`](#aiocamedomotic.models.update.DeviceUpdate) instances whose
-  [`device_type`](#aiocamedomotic.models.update.DeviceUpdate.device_type) matches *device_type*.
-
-##### get_typed_updates() → list[[DeviceUpdate](#aiocamedomotic.models.update.DeviceUpdate)]
-
-Parse all updates into typed [`DeviceUpdate`](#aiocamedomotic.models.update.DeviceUpdate) objects.
-
-* **Returns:**
-  A list of [`DeviceUpdate`](#aiocamedomotic.models.update.DeviceUpdate) subclass instances, one per raw
-  update dict.
-
-##### *property* has_plant_update *: bool*
-
-Whether any update in this list is a `plant_update_ind`.
-
-When `True`, the consumer should discard all cached devices and
-re-fetch them from the server.
-
-#### aiocamedomotic.models.update.get_update_device_type(update: dict[str, Any]) → [DeviceType](#aiocamedomotic.const.DeviceType) | None
-
-Return the device type for a status update dict, or None if unknown.
-
-* **Parameters:**
-  **update** – A single update dict from the `status_update_resp` result
-  array. Must contain a `cmd_name` key.
-* **Returns:**
-  The corresponding [`DeviceType`](#aiocamedomotic.const.DeviceType), or
-  `None` if the `cmd_name` is not recognized.
-
-#### aiocamedomotic.models.update.parse_update(raw: dict[str, Any]) → [DeviceUpdate](#aiocamedomotic.models.update.DeviceUpdate)
-
-Parse a raw update dict into the appropriate typed
-[`DeviceUpdate`](#aiocamedomotic.models.update.DeviceUpdate) subclass.
-
-* **Parameters:**
-  **raw** – A single update dict from the `status_update_resp` result
-  array.
-* **Returns:**
-  A typed [`DeviceUpdate`](#aiocamedomotic.models.update.DeviceUpdate) subclass instance. If the `cmd_name`
-  is not recognized, a generic [`DeviceUpdate`](#aiocamedomotic.models.update.DeviceUpdate) is returned so
+  A typed [`DeviceUpdate`](#aiocamedomotic.models.DeviceUpdate) subclass instance. If the `cmd_name`
+  is not recognized, a generic [`DeviceUpdate`](#aiocamedomotic.models.DeviceUpdate) is returned so
   that the consumer can still access `raw_data`.
 
 ### Constants
 
 Constants for the CAME Domotic API.
+
+#### *class* aiocamedomotic.const.AckErrorCode(\*values)
+
+ACK error codes returned by the CAME Domotic server.
+
+Each member carries a human-readable `message` and an `is_auth`
+flag indicating whether the error is authentication-related.
+
+Because `AckErrorCode` is an `IntEnum`, members compare
+equal to their integer value (e.g. `AckErrorCode.INVALID_USER == 1`).
+
+Values:
+
+- `INVALID_USER` (1): Invalid user. **[auth]**
+- `TOO_MANY_SESSIONS` (3): Too many sessions during login. **[auth]**
+- `JSON_SYNTAX_ERROR` (4): Error occurred in JSON Syntax.
+- `NO_SESSION_COMMAND_TAG` (5): No session layer command tag.
+- `UNRECOGNIZED_SESSION_COMMAND` (6): Unrecognized session layer command.
+- `NO_CLIENT_ID` (7): No client ID in request.
+- `WRONG_CLIENT_ID` (8): Wrong client ID in request.
+- `WRONG_APPLICATION_COMMAND` (9): Wrong application command.
+- `NO_REPLY` (10): No reply to application command, maybe service down.
+- `WRONG_APPLICATION_DATA` (11): Wrong application data.
+
+##### *property* is_auth *: bool*
+
+Whether this error code indicates an authentication failure.
+
+##### *property* message *: str*
+
+Human-readable error message for this ACK code.
 
 #### *class* aiocamedomotic.const.DeviceType(\*values)
 
@@ -4977,24 +3452,6 @@ logging.getLogger("aiocamedomotic.traffic").setLevel(logging.DEBUG)
 
 Dedicated logger for HTTP traffic. Enable at DEBUG level to see
 anonymized request/response payloads with elapsed times.
-
-#### aiocamedomotic.anonymizer.anonymize_payload(data: dict[str, Any]) → dict[str, Any]
-
-Return a deep copy of *data* with sensitive fields anonymized.
-
-This function never modifies the original dictionary. The following
-fields are redacted:
-
-- `sl_pwd`, `sl_new_pwd`: fully replaced with `"***"`
-- `sl_login`, `sl_client_id`, `client`, `keycode`, `serial`:
-  partially masked (first N characters preserved)
-- `uri`, `uri_still`: embedded credentials redacted
-- `sl_users_list` items: `name` / `sl_login` partially masked
-
-* **Parameters:**
-  **data** – The request or response payload dictionary.
-* **Returns:**
-  A new dictionary with sensitive values redacted.
 
 ### Errors
 
