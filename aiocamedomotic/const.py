@@ -18,7 +18,7 @@ Constants for the CAME Domotic API.
 
 from __future__ import annotations
 
-from enum import Enum, IntEnum
+from enum import Enum, IntEnum, StrEnum
 
 
 class AckErrorCode(IntEnum):
@@ -222,7 +222,28 @@ class _TopologicScope(Enum):
     PLANT = "plant"
 
 
-class _ServerFeature(Enum):
+class ServerFeature(StrEnum):
+    """Server feature identifiers reported by the CAME Domotic server.
+
+    Each member corresponds to a functional block (e.g. lights, openings).
+    Because ``ServerFeature`` is a :class:`~enum.StrEnum`, each member **is**
+    its string value (e.g. ``ServerFeature.LIGHTS == "lights"`` is ``True``),
+    so members can be compared directly against the plain strings in
+    :attr:`~aiocamedomotic.models.base.ServerInfo.features`.
+
+    Values:
+        - ``LIGHTS`` ("lights") — on/off, dimmable and RGB lights
+        - ``OPENINGS`` ("openings") — shutters, awnings, and motorized covers
+        - ``RELAYS`` ("relays") — simple on/off relay switches
+        - ``THERMOREGULATION`` ("thermoregulation") — climate zones and analog sensors
+        - ``SCENARIOS`` ("scenarios") — pre-configured automation sequences
+        - ``DIGITALIN`` ("digitalin") — read-only binary sensors (buttons, contacts)
+        - ``ANALOGIN`` ("analogin") — read-only standalone analog sensors
+        - ``ENERGY`` ("energy") — energy meters
+        - ``LOADSCTRL`` ("loadsctrl") — load control / management
+        - ``TIMERS`` ("timers") — time-based scheduling entities
+    """
+
     LIGHTS = "lights"
     OPENINGS = "openings"
     RELAYS = "relays"
@@ -237,16 +258,16 @@ class _ServerFeature(Enum):
 
 # Mapping from server feature to (nested request cmd_name, expected response cmd_name).
 # Used by async_get_topology to determine which nested commands to send.
-_FEATURE_TO_NESTED_CMD: dict[_ServerFeature, tuple[str, str]] = {
-    _ServerFeature.LIGHTS: (
+_FEATURE_TO_NESTED_CMD: dict[ServerFeature, tuple[str, str]] = {
+    ServerFeature.LIGHTS: (
         _CommandName.NESTED_LIGHT_LIST.value,
         _CommandNameResponse.LIGHT_LIST.value,
     ),
-    _ServerFeature.OPENINGS: (
+    ServerFeature.OPENINGS: (
         _CommandName.NESTED_OPENINGS_LIST.value,
         _CommandNameResponse.OPENINGS_LIST.value,
     ),
-    _ServerFeature.THERMOREGULATION: (
+    ServerFeature.THERMOREGULATION: (
         _CommandName.NESTED_THERMO_LIST.value,
         _CommandNameResponse.THERMO_LIST.value,
     ),
@@ -254,8 +275,8 @@ _FEATURE_TO_NESTED_CMD: dict[_ServerFeature, tuple[str, str]] = {
 
 # Features whose nested response uses a 3-level hierarchy (Floor → Room → Device).
 # Other features (e.g. thermoregulation) use a 2-level hierarchy (Floor → Device).
-_NESTED_3LEVEL_FEATURES: frozenset[_ServerFeature] = frozenset(
-    {_ServerFeature.LIGHTS, _ServerFeature.OPENINGS}
+_NESTED_3LEVEL_FEATURES: frozenset[ServerFeature] = frozenset(
+    {ServerFeature.LIGHTS, ServerFeature.OPENINGS}
 )
 
 
@@ -347,14 +368,14 @@ _UPDATE_CMD_TO_DEVICE_TYPE: dict[str, DeviceType] = {
 }
 
 # Mapping from DeviceType to the corresponding server feature
-_DEVICE_TYPE_TO_FEATURE: dict[DeviceType, _ServerFeature] = {
-    DeviceType.LIGHT: _ServerFeature.LIGHTS,
-    DeviceType.OPENING: _ServerFeature.OPENINGS,
-    DeviceType.GENERIC_RELAY: _ServerFeature.RELAYS,
-    DeviceType.THERMOSTAT: _ServerFeature.THERMOREGULATION,
-    DeviceType.SCENARIO: _ServerFeature.SCENARIOS,
-    DeviceType.DIGITAL_INPUT: _ServerFeature.DIGITALIN,
-    DeviceType.ENERGY_SENSOR: _ServerFeature.ENERGY,
-    DeviceType.ANALOG_INPUT: _ServerFeature.ANALOGIN,
-    DeviceType.TIMER: _ServerFeature.TIMERS,
+_DEVICE_TYPE_TO_FEATURE: dict[DeviceType, ServerFeature] = {
+    DeviceType.LIGHT: ServerFeature.LIGHTS,
+    DeviceType.OPENING: ServerFeature.OPENINGS,
+    DeviceType.GENERIC_RELAY: ServerFeature.RELAYS,
+    DeviceType.THERMOSTAT: ServerFeature.THERMOREGULATION,
+    DeviceType.SCENARIO: ServerFeature.SCENARIOS,
+    DeviceType.DIGITAL_INPUT: ServerFeature.DIGITALIN,
+    DeviceType.ENERGY_SENSOR: ServerFeature.ENERGY,
+    DeviceType.ANALOG_INPUT: ServerFeature.ANALOGIN,
+    DeviceType.TIMER: ServerFeature.TIMERS,
 }

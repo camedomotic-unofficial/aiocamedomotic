@@ -30,10 +30,10 @@ from .const import (
     _DEFAULT_COMMAND_TIMEOUT,
     _FEATURE_TO_NESTED_CMD,
     _NESTED_3LEVEL_FEATURES,
+    ServerFeature,
     _CommandName,
     _CommandNameResponse,
     _CommandType,
-    _ServerFeature,
     _TopologicScope,
 )
 from .errors import CameDomoticAuthError
@@ -732,9 +732,9 @@ class CameDomoticAPI:
         self._merge_nested_results(nested_results, floors, rooms)
         return self._build_plant_topology(floors, rooms)
 
-    async def _build_nested_tasks(self) -> list[tuple[_ServerFeature, Any]]:
+    async def _build_nested_tasks(self) -> list[tuple[ServerFeature, Any]]:
         """Fetch server info and return (feature, coro) pairs for nested cmds."""
-        nested_tasks: list[tuple[_ServerFeature, Any]] = []
+        nested_tasks: list[tuple[ServerFeature, Any]] = []
         try:
             server_info = await self.async_get_server_info()
         except CameDomoticAuthError:
@@ -748,7 +748,7 @@ class CameDomoticAPI:
 
         for feature_str in server_info.features:
             try:
-                feature = _ServerFeature(feature_str)
+                feature = ServerFeature(feature_str)
             except ValueError:
                 continue
             if feature in _FEATURE_TO_NESTED_CMD:
@@ -786,7 +786,7 @@ class CameDomoticAPI:
 
     @staticmethod
     def _merge_nested_results(
-        nested_results: list[tuple[_ServerFeature, Any]],
+        nested_results: list[tuple[ServerFeature, Any]],
         floors: dict[int, str],
         rooms: dict[tuple[int, int], str],
     ) -> None:

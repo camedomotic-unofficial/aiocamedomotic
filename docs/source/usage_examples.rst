@@ -33,7 +33,7 @@ and controlling devices, and monitoring real-time changes. For a minimal
         from aiocamedomotic.models import (
             AnalogSensorType, DeviceType, DigitalInputStatus, LightStatus,
             LightType, OpeningStatus, RelayStatus, ScenarioStatus,
-            ThermoZoneFanSpeed,
+            ServerFeature, ThermoZoneFanSpeed,
             ThermoZoneMode, ThermoZoneSeason, ThermoZoneStatus,
             Timer, TimerTimeSlot, TimerUpdate,
             DeviceUpdate, LightUpdate, OpeningUpdate, RelayUpdate,
@@ -207,35 +207,37 @@ Example output:
     Feature: energy
     Feature: loadsctrl
 
-The ``features`` property returns plain strings (see
-:attr:`~aiocamedomotic.models.base.ServerInfo.features` for the full list of
-known values). You can use them to decide which device APIs to call:
+The ``features`` property returns plain strings whose known values are
+defined in :class:`~aiocamedomotic.models.ServerFeature`. You can compare
+entries against enum members to decide which device APIs to call:
 
 .. code-block:: python
 
-    if "lights" in server_info.features:
+    from aiocamedomotic.models import ServerFeature
+
+    if ServerFeature.LIGHTS in server_info.features:
         lights = await api.async_get_lights()
 
-    if "openings" in server_info.features:
+    if ServerFeature.OPENINGS in server_info.features:
         openings = await api.async_get_openings()
 
-    if "relays" in server_info.features:
+    if ServerFeature.RELAYS in server_info.features:
         relays = await api.async_get_relays()
 
-    if "thermoregulation" in server_info.features:
+    if ServerFeature.THERMOREGULATION in server_info.features:
         zones = await api.async_get_thermo_zones()
         sensors = await api.async_get_analog_sensors()
 
-    if "scenarios" in server_info.features:
+    if ServerFeature.SCENARIOS in server_info.features:
         scenarios = await api.async_get_scenarios()
 
-    if "digitalin" in server_info.features:
+    if ServerFeature.DIGITALIN in server_info.features:
         digital_inputs = await api.async_get_digital_inputs()
 
-    if "analogin" in server_info.features:
+    if ServerFeature.ANALOGIN in server_info.features:
         analog_inputs = await api.async_get_analog_inputs()
 
-    if "timers" in server_info.features:
+    if ServerFeature.TIMERS in server_info.features:
         timers = await api.async_get_timers()
 
 Floors and rooms
@@ -557,7 +559,7 @@ controlled remotely.
 
 .. code-block:: python
 
-    if "analogin" in server_info.features:
+    if ServerFeature.ANALOGIN in server_info.features:
         analog_inputs = await api.async_get_analog_inputs()
 
         for ai in analog_inputs:

@@ -34,7 +34,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 from .auth import Auth  # noqa: F401
 from .came_domotic_api import CameDomoticAPI  # noqa: F401
-from .const import CAME_MAC_PREFIXES  # noqa: F401
+from .const import CAME_MAC_PREFIXES, ServerFeature  # noqa: F401
 from .errors import CameDomoticServerTimeoutError  # noqa: F401
 from .utils import LOGGER, async_is_came_endpoint  # noqa: F401
 

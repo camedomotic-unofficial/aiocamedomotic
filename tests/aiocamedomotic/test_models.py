@@ -27,8 +27,8 @@ from aiocamedomotic.const import (
     _DEVICE_TYPE_TO_FEATURE,
     _UPDATE_CMD_TO_DEVICE_TYPE,
     DeviceType,
+    ServerFeature,
     UpdateIndicator,
-    _ServerFeature,
 )
 from aiocamedomotic.errors import CameDomoticAuthError, CameDomoticServerError
 from aiocamedomotic.models import (
@@ -142,23 +142,18 @@ class TestDeviceType:
         assert _UPDATE_CMD_TO_DEVICE_TYPE["scenario_user_ind"] == DeviceType.SCENARIO
 
     def test_device_type_to_feature_mapping(self):
-        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.LIGHT] == _ServerFeature.LIGHTS
-        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.OPENING] == _ServerFeature.OPENINGS
-        assert (
-            _DEVICE_TYPE_TO_FEATURE[DeviceType.GENERIC_RELAY] == _ServerFeature.RELAYS
-        )
+        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.LIGHT] == ServerFeature.LIGHTS
+        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.OPENING] == ServerFeature.OPENINGS
+        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.GENERIC_RELAY] == ServerFeature.RELAYS
         assert (
             _DEVICE_TYPE_TO_FEATURE[DeviceType.THERMOSTAT]
-            == _ServerFeature.THERMOREGULATION
+            == ServerFeature.THERMOREGULATION
         )
-        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.SCENARIO] == _ServerFeature.SCENARIOS
+        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.SCENARIO] == ServerFeature.SCENARIOS
         assert (
-            _DEVICE_TYPE_TO_FEATURE[DeviceType.DIGITAL_INPUT]
-            == _ServerFeature.DIGITALIN
+            _DEVICE_TYPE_TO_FEATURE[DeviceType.DIGITAL_INPUT] == ServerFeature.DIGITALIN
         )
-        assert (
-            _DEVICE_TYPE_TO_FEATURE[DeviceType.ENERGY_SENSOR] == _ServerFeature.ENERGY
-        )
+        assert _DEVICE_TYPE_TO_FEATURE[DeviceType.ENERGY_SENSOR] == ServerFeature.ENERGY
 
 
 class TestServerInfo:

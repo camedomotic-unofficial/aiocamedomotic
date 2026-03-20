@@ -190,20 +190,15 @@ class ServerInfo(CameEntity):
     """List of feature strings reported by the server.
 
     Each feature corresponds to a functional block (e.g. lights, openings).
-    Values are plain strings; compare directly against the known literals
-    listed below.
+    Values are plain strings whose known values are defined in
+    :class:`~aiocamedomotic.const.ServerFeature`. Because ``ServerFeature``
+    is a :class:`~enum.StrEnum`, you can compare entries against enum
+    members directly (e.g.
+    ``ServerFeature.LIGHTS in server_info.features``).
 
-    Known values (as of now) are:
-        - ``"lights"`` — on/off, dimmable and RGB lights
-        - ``"openings"`` — shutters, awnings, and motorized covers
-        - ``"relays"`` — simple on/off relay switches
-        - ``"thermoregulation"`` — climate zones and analog sensors
-        - ``"scenarios"`` — pre-configured automation sequences
-        - ``"digitalin"`` — read-only binary sensors (buttons, contacts)
-        - ``"analogin"`` — read-only standalone analog sensors
-        - ``"timers"`` — time-based scheduling entities
-        - ``"energy"`` — energy meters
-        - ``"loadsctrl"`` — load control / management
+    The return type is kept as ``list[str]`` so that features introduced by
+    newer firmware versions are preserved even if the library does not yet
+    define them in :class:`~aiocamedomotic.const.ServerFeature`.
     """
 
     swver: str | None = None
