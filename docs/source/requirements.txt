@@ -30,21 +30,21 @@ packaging==24.2
 pygments==2.19.1
     # via sphinx
 readthedocs-sphinx-search==0.3.2
-    # via -r docs/source/requirements.in
-requests==2.32.4
+    # via -r requirements.in
+requests==2.33.0
     # via sphinx
 snowballstemmer==2.2.0
     # via sphinx
 sphinx==7.3.7
     # via
-    #   -r docs/source/requirements.in
+    #   -r requirements.in
     #   sphinx-markdown-builder
     #   sphinx-rtd-theme
     #   sphinxcontrib-jquery
 sphinx-markdown-builder==0.6.9
-    # via -r docs/source/requirements.in
+    # via -r requirements.in
 sphinx-rtd-theme==2.0.0
-    # via -r docs/source/requirements.in
+    # via -r requirements.in
 sphinxcontrib-applehelp==2.0.0
     # via sphinx
 sphinxcontrib-devhelp==2.0.0
