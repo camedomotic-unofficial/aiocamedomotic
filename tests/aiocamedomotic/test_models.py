@@ -2678,6 +2678,28 @@ class TestAnalogIn:
         assert sensor.value == 47.0
 
 
+class TestThermoZoneUpdate:
+    def test_unknown_status(self):
+        raw = {"cmd_name": "thermo_zone_info_ind", "act_id": 1, "status": 99}
+        update = parse_update(raw)
+        assert update.status == ThermoZoneStatus.OFF
+
+    def test_unknown_mode(self):
+        raw = {"cmd_name": "thermo_zone_info_ind", "act_id": 1, "mode": 99}
+        update = parse_update(raw)
+        assert update.mode == ThermoZoneMode.UNKNOWN
+
+    def test_unknown_season(self):
+        raw = {"cmd_name": "thermo_zone_info_ind", "act_id": 1, "season": "foo"}
+        update = parse_update(raw)
+        assert update.season == ThermoZoneSeason.UNKNOWN
+
+    def test_unknown_fan_speed(self):
+        raw = {"cmd_name": "thermo_zone_info_ind", "act_id": 1, "fan_speed": 99}
+        update = parse_update(raw)
+        assert update.fan_speed == ThermoZoneFanSpeed.UNKNOWN
+
+
 class TestAnalogInUpdate:
     def test_parse_analogin_status_ind(self):
         raw = {

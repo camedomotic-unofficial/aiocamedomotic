@@ -52,7 +52,11 @@ from .const import (
 # Get package version to avoid circular imports
 try:
     _LIBRARY_VERSION = version(__package__ or "aiocamedomotic")
-except PackageNotFoundError:
+except PackageNotFoundError:  # pragma: no cover
+    # Only reachable if the package metadata is missing at import time (e.g. run
+    # from source without installation). Not exercised by tests: forcing it would
+    # require importlib.reload(), which would create a second Auth class object
+    # and break isinstance/patch.object identity for every other test module.
     _LIBRARY_VERSION = "unknown"
 from .anonymizer import _log_traffic
 from .errors import (

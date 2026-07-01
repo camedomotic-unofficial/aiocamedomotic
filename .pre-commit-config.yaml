@@ -48,7 +48,7 @@ repos:
     hooks:
       - id: pytest
         name: pytest
-        entry: pytest --timeout=9 -p no:sugar --cov=aiocamedomotic --cov-fail-under=90 tests
+        entry: pytest --timeout=9 -p no:sugar --cov=aiocamedomotic --cov-fail-under=100 tests
         language: system
         types: [python]
         pass_filenames: false
