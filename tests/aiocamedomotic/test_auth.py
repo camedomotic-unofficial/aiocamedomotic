@@ -33,6 +33,7 @@ from aiocamedomotic.const import (
     _DEFAULT_COMMAND_TIMEOUT,
     _KEEP_ALIVE_MAX_SEC,
     _KEEP_ALIVE_MIN_SEC,
+    _CommandType,
 )
 from aiocamedomotic.errors import (
     CameDomoticAuthError,
@@ -624,6 +625,98 @@ class TestAuthSendCommand:
 
         with pytest.raises(CameDomoticServerError):
             await Auth.async_raise_for_status_and_ack(mock_response)
+
+    @freezegun.freeze_time("2020-01-01")
+    async def test_caller_holds_lock_uses_existing_client_id(self, auth_instance):
+        """When _caller_holds_lock=True, the current client_id is used directly
+        instead of calling async_get_valid_client_id (which would deadlock if the
+        caller already holds self._lock)."""
+        auth_instance.client_id = "already_held_client_id"
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {"sl_data_ack_reason": 0}
+
+        payload = {"command": "test_command"}
+
+        with (
+            patch.object(
+                auth_instance.websession, "post", new_callable=AsyncMock
+            ) as mock_post,
+            patch.object(
+                auth_instance, "async_get_valid_client_id", new_callable=AsyncMock
+            ) as mock_get_client_id,
+        ):
+            mock_post.return_value = mock_response
+
+            await auth_instance.async_send_command(payload, _caller_holds_lock=True)
+
+            mock_get_client_id.assert_not_called()
+
+            expected_appl_msg = {
+                **payload,
+                "cseq": 1,
+                "client": "already_held_client_id",
+            }
+            expected_request_payload = {
+                "sl_appl_msg": expected_appl_msg,
+                "sl_client_id": "already_held_client_id",
+                "sl_cmd": "sl_data_req",
+                "sl_appl_msg_type": "domo",
+            }
+            mock_post.assert_called_once_with(
+                "http://192.168.x.x/domo/",
+                data={"command": json.dumps(expected_request_payload)},
+                headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
+                timeout=aiohttp.ClientTimeout(total=_DEFAULT_COMMAND_TIMEOUT),
+            )
+
+    async def test_change_password_payload_omits_client_id(self, auth_instance):
+        """The change-password protocol payload must not include sl_client_id
+        or sl_appl_msg, matching the real CAME protocol (which authenticates
+        via the credentials passed as additional_payload, not a session
+        token)."""
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {"sl_data_ack_reason": 0}
+
+        additional_payload = {
+            "sl_login": "user",
+            "sl_pwd": "old_pwd",
+            "sl_new_pwd": "new_pwd",
+        }
+
+        with (
+            patch.object(
+                auth_instance.websession, "post", new_callable=AsyncMock
+            ) as mock_post,
+            patch.object(
+                auth_instance, "async_get_valid_client_id", new_callable=AsyncMock
+            ) as mock_get_client_id,
+        ):
+            mock_post.return_value = mock_response
+
+            await auth_instance.async_send_command(
+                {"cmd_name": "test"},
+                command_type=_CommandType.CHANGE_USER_PASSWORD_REQUEST.value,
+                additional_payload=additional_payload,
+                skip_ack_check=True,
+            )
+
+            mock_get_client_id.assert_not_called()
+
+            expected_request_payload = {
+                "sl_cmd": _CommandType.CHANGE_USER_PASSWORD_REQUEST.value,
+                **additional_payload,
+            }
+            mock_post.assert_called_once_with(
+                "http://192.168.x.x/domo/",
+                data={"command": json.dumps(expected_request_payload)},
+                headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
+                timeout=aiohttp.ClientTimeout(total=_DEFAULT_COMMAND_TIMEOUT),
+            )
 
 
 class TestAuthValidateHost:
@@ -1393,6 +1486,25 @@ class TestTrafficLogging:
                         assert call_args[0][0] == "GET"
                         assert call_args[0][2] is None  # no request payload
                         assert call_args[0][3] is None  # no response payload
+
+    async def test_validate_host_traffic_logging_failure_does_not_affect_result(self):
+        mock_response = Mock()
+        mock_response.status = 200
+        mock_response.raise_for_status = Mock()
+
+        async with aiohttp.ClientSession() as session:
+            with patch("aiohttp.ClientSession.get") as mock_get:
+                mock_get.return_value.__aenter__.return_value = mock_response
+
+                async with await Auth.async_create(
+                    session, "192.168.x.x", "username", "password"
+                ) as auth:
+                    with patch(
+                        "aiocamedomotic.auth._log_traffic",
+                        side_effect=RuntimeError("logging broken"),
+                    ):
+                        # Host validation should succeed despite _log_traffic raising
+                        await auth.async_validate_host()
 
     @freezegun.freeze_time("2020-01-01")
     async def test_send_command_logs_on_error(self, auth_instance):

@@ -100,6 +100,12 @@ class TestAnonymizeUrl:
     def test_empty_url(self):
         assert _anonymize_url("") == ""
 
+    def test_urlsplit_raises_returns_redacted_placeholder(self):
+        with patch(
+            "aiocamedomotic.anonymizer.urlsplit", side_effect=AttributeError("boom")
+        ):
+            assert _anonymize_url("http://host:8080/path") == "<url-redacted>"
+
 
 # ---------------------------------------------------------------------------
 # _anonymize_uri
@@ -127,6 +133,12 @@ class TestAnonymizeUri:
         assert "***:***@host" in result
         assert "?t=123" in result
         assert "#frag" in result
+
+    def test_urlsplit_raises_returns_redacted_placeholder(self):
+        with patch(
+            "aiocamedomotic.anonymizer.urlsplit", side_effect=AttributeError("boom")
+        ):
+            assert _anonymize_uri("http://user:pass@host/path") == "<uri-redacted>"
 
 
 # ---------------------------------------------------------------------------

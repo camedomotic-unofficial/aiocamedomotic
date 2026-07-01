@@ -381,7 +381,11 @@ class CameDomoticAPI:
             if sensor_data and isinstance(sensor_data, dict):
                 try:
                     sensor_type = AnalogSensorType(key)
-                except ValueError:
+                except ValueError:  # pragma: no cover
+                    # Unreachable: the loop above only ever passes "temperature",
+                    # "humidity" or "pressure", which are all valid
+                    # AnalogSensorType members. Kept as a defensive guard in case
+                    # either the loop or the enum changes independently.
                     LOGGER.warning(
                         "Unknown analog sensor type '%s'. "
                         "Returning AnalogSensorType.UNKNOWN. "
