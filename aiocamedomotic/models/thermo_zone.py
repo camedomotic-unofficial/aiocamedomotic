@@ -144,14 +144,14 @@ class ThermoZone(CameEntity):
         return self.raw_data["name"]
 
     @property
-    def floor_ind(self) -> int:
+    def floor_ind(self) -> int | None:
         """Floor index of the thermoregulation zone."""
-        return self.raw_data["floor_ind"]
+        return self.raw_data.get("floor_ind")
 
     @property
-    def room_ind(self) -> int:
+    def room_ind(self) -> int | None:
         """Room index of the thermoregulation zone."""
-        return self.raw_data["room_ind"]
+        return self.raw_data.get("room_ind")
 
     @property
     def status(self) -> ThermoZoneStatus:

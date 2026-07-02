@@ -14,6 +14,31 @@ limitations under the License.  -->
 
 # Security policy
 
+## Network security model
+
+CAME ETI/Domo servers expose their API over **plain HTTP only**. All traffic exchanged
+by this library with the server — including the username and password sent at login —
+travels **unencrypted** on the local network. This is a limitation of the CAME hardware
+and its proprietary protocol, **not of this library**: the official CAME clients
+communicate the same way, and the server offers no TLS/HTTPS endpoint.
+
+The resulting threat model is: anyone able to observe traffic on the network segment
+where the CAME server lives can capture the credentials and control the plant. We
+therefore recommend to:
+
+- Keep the CAME server on a **trusted local network** (ideally a dedicated VLAN or an
+  isolated IoT network segment).
+- **Never expose** the CAME server's HTTP port directly to the internet (no port
+  forwarding). For remote access, use a **VPN** into the home network.
+- Use a **dedicated CAME user** with a password not reused for any other service.
+
+What the library does on its side:
+
+- Credentials are **never persisted to disk** and are kept **encrypted in memory**
+  (runtime-generated key), cleared on disposal.
+- Passwords, client IDs, and other sensitive values are **automatically redacted**
+  from debug and traffic logs, so logs can be shared safely for troubleshooting.
+
 ## Supported versions
 
 This section to tell users about which versions of this project are currently being
