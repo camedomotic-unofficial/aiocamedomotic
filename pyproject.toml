@@ -53,13 +53,13 @@ packages = [{ include = "aiocamedomotic" }]
 [tool.poetry.dependencies]
 python = '^3.12'
 aiohttp = '^3.13.3'
-cryptography = '>=44.0.2,<49.0.0'
+cryptography = '>=44.0.2,<50.0.0'
 
 [tool.poetry.group.tests]
 optional = true
 
 [tool.poetry.group.tests.dependencies]
-cryptography = '>=44.0.2,<49.0.0'
+cryptography = '>=44.0.2,<50.0.0'
 freezegun = '^1.5.5'
 hypothesis = '^6.151.5'
 pytest = '>=8.3.4,<10.0.0'
