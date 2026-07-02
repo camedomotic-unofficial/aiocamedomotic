@@ -1357,6 +1357,17 @@ class TestLight:
         assert light.type == LightType(light_data_dimmable["type"])
         assert light.perc == light_data_dimmable["perc"]
 
+    def test_missing_floor_and_room_ind(self, auth_instance):
+        light_data = {
+            "act_id": 1,
+            "name": "Orphan Light",
+            "status": 0,
+            "type": "STEP_STEP",
+        }
+        light = Light(light_data, auth_instance)
+        assert light.floor_ind is None
+        assert light.room_ind is None
+
     def test_unknown_type(self, auth_instance):
         unknown_light_data = {
             "act_id": 1,
@@ -2275,6 +2286,15 @@ class TestThermoZone:
         assert zone.set_point == 25.0
         assert zone.season == ThermoZoneSeason.SUMMER
         assert zone.antifreeze == 6.0
+
+    def test_missing_floor_and_room_ind(self, auth_instance):
+        zone_data = {
+            "act_id": 1,
+            "name": "Test Zone",
+        }
+        zone = ThermoZone(zone_data, auth_instance)
+        assert zone.floor_ind is None
+        assert zone.room_ind is None
 
     def test_temperature_from_temp_dec(self, auth_instance):
         zone_data = {

@@ -99,9 +99,9 @@ class Light(CameEntity):
         return self.raw_data["act_id"]
 
     @property
-    def floor_ind(self) -> int:
+    def floor_ind(self) -> int | None:
         """Floor index of the light."""
-        return self.raw_data["floor_ind"]
+        return self.raw_data.get("floor_ind")
 
     @property
     def name(self) -> str:
@@ -109,9 +109,9 @@ class Light(CameEntity):
         return self.raw_data["name"]
 
     @property
-    def room_ind(self) -> int:
+    def room_ind(self) -> int | None:
         """Room index of the light."""
-        return self.raw_data["room_ind"]
+        return self.raw_data.get("room_ind")
 
     @property
     def status(self) -> LightStatus:
