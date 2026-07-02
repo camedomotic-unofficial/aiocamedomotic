@@ -24,6 +24,27 @@ or supported by [CAME](https://www.came.com/). It may not be compatible with all
 CAME Domotic systems. While this library is stable and publicly released, it comes
 with no guarantees. Use at your own risk.
 
+### Security considerations
+
+CAME ETI/Domo servers expose their API over **plain HTTP only**: all traffic between
+this library and the server, including the username and password sent at login, travels
+**unencrypted** on your local network. This is a limitation of the CAME hardware and
+its proprietary protocol, **not of this library** — the official CAME clients
+communicate the same way, and the server offers no TLS/HTTPS endpoint.
+
+In practice this means that anyone able to sniff traffic on your LAN could capture your
+CAME credentials and control your plant. To keep your installation safe:
+
+- Keep the CAME server on a **trusted local network** (ideally a dedicated VLAN or an
+  isolated IoT network segment).
+- **Never expose** the CAME server’s HTTP port directly to the internet (no port
+  forwarding). For remote access, use a **VPN** into your home network.
+- Use a **dedicated CAME user** with a password not reused for any other service.
+
+On its side, the library never persists your credentials to disk, keeps them encrypted
+in memory, and automatically redacts passwords and other sensitive values from its
+debug and traffic logs.
+
 ### Key Features
 
 - **Simplicity**: Easy interaction with domotic entities.
@@ -73,6 +94,13 @@ library in your projects. Before you begin, ensure you have:
 
 - Python 3.12, 3.13 or 3.14 installed on your system.
 - Access to a CAME Domotic server.
+
+##### WARNING
+CAME ETI/Domo servers expose their API over plain HTTP only, so all traffic —
+including your credentials at login — travels unencrypted on the local network.
+This is a limitation of the CAME hardware, not of this library. Keep the server
+on a trusted network, never expose its HTTP port to the internet, and prefer a
+VPN for remote access.
 
 ### Installation
 
@@ -2171,7 +2199,7 @@ Control the light.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *property* floor_ind *: int*
+##### *property* floor_ind *: int | None*
 
 Floor index of the light.
 
@@ -2189,7 +2217,7 @@ Non dimmable lights will always return 100.
 RGB color values of the light as [R, G, B], each in range 0-255.
 Returns None for non-RGB lights.
 
-##### *property* room_ind *: int*
+##### *property* room_ind *: int | None*
 
 Room index of the light.
 
@@ -2780,7 +2808,7 @@ Fan speed setting for the thermoregulation zone.
 
 Returns `ThermoZoneFanSpeed.UNKNOWN` for unrecognized values.
 
-##### *property* floor_ind *: int*
+##### *property* floor_ind *: int | None*
 
 Floor index of the thermoregulation zone.
 
@@ -2798,7 +2826,7 @@ Returns `ThermoZoneMode.UNKNOWN` for unrecognized mode values.
 
 Name of the thermoregulation zone.
 
-##### *property* room_ind *: int*
+##### *property* room_ind *: int | None*
 
 Room index of the thermoregulation zone.
 
