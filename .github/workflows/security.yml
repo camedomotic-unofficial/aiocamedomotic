@@ -36,6 +36,11 @@ permissions:
   contents: read
   security-events: write # For reporting security issues
 
+# Cancel superseded runs on the same PR; never cancel runs on main or schedule
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   bandit:
     runs-on: ubuntu-latest

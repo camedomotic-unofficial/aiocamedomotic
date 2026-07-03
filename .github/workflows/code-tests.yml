@@ -31,6 +31,11 @@ on:
 permissions:
   contents: read
 
+# Cancel superseded runs on the same PR; never cancel runs on main
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     runs-on: ubuntu-latest

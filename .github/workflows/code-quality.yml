@@ -34,11 +34,19 @@ on:
 permissions:
   contents: read
 
+# Cancel superseded runs on the same PR; never cancel runs on main or schedule
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   PYTHON_VERSION: "3.14"
 
 jobs:
-  setup:
+  # Single job: the linters run in seconds on this codebase, so parallel jobs
+  # would only multiply the checkout/install overhead. Job name must stay
+  # "code-quality" (required status check for branch protection).
+  code-quality:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -53,7 +61,6 @@ jobs:
         run: pipx install poetry
 
       - name: Cache Poetry virtualenv
-        id: cache-venv
         uses: actions/cache@v4
         with:
           path: |
@@ -62,69 +69,6 @@ jobs:
           key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('pyproject.toml', 'poetry.lock') }}
 
       - name: Install dependencies
-        if: steps.cache-venv.outputs.cache-hit != 'true'
-        run: |
-          poetry config virtualenvs.in-project true
-          poetry install --with code-quality
-
-  ruff:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install Poetry
-        run: pipx install poetry
-
-      - name: Restore cached virtualenv
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.cache/pypoetry
-            .venv
-          key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('pyproject.toml', 'poetry.lock') }}
-
-      - name: Install dependencies (cache miss fallback)
-        run: |
-          poetry config virtualenvs.in-project true
-          poetry install --with code-quality
-
-      - name: Check formatting with ruff
-        run: poetry run ruff format aiocamedomotic --check
-
-      - name: Check linting with ruff
-        run: poetry run ruff check aiocamedomotic
-
-  mypy:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install Poetry
-        run: pipx install poetry
-
-      - name: Restore cached virtualenv
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.cache/pypoetry
-            .venv
-          key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('pyproject.toml', 'poetry.lock') }}
-
-      - name: Install dependencies (cache miss fallback)
         run: |
           poetry config virtualenvs.in-project true
           poetry install --with code-quality
@@ -137,51 +81,17 @@ jobs:
           restore-keys: |
             mypy-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
 
+      - name: Check formatting with ruff
+        run: poetry run ruff format aiocamedomotic --check
+
+      - name: Check linting with ruff
+        run: poetry run ruff check aiocamedomotic
+
       - name: Run mypy
         run: poetry run mypy aiocamedomotic
-
-  pylint:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install Poetry
-        run: pipx install poetry
-
-      - name: Restore cached virtualenv
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.cache/pypoetry
-            .venv
-          key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('pyproject.toml', 'poetry.lock') }}
-
-      - name: Install dependencies (cache miss fallback)
-        run: |
-          poetry config virtualenvs.in-project true
-          poetry install --with code-quality
 
       - name: Run pylint
         run: poetry run pylint --disable=W,R,C aiocamedomotic
 
-  # Gate job: single required status check for branch protection
-  code-quality:
-    if: always()
-    needs: [ruff, mypy, pylint]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check results
-        run: |
-          if [[ "${{ needs.ruff.result }}" != "success" || \
-                "${{ needs.mypy.result }}" != "success" || \
-                "${{ needs.pylint.result }}" != "success" ]]; then
-            echo "One or more checks failed"
-            exit 1
-          fi
+      - name: Check spelling with codespell
+        run: pipx run codespell
