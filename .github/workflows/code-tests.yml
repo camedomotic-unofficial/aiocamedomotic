@@ -22,6 +22,7 @@ on:
       - "tests/**/*.py"
       - "pyproject.toml"
       - ".github/workflows/code-tests.yml"
+      - ".github/actions/setup-poetry/action.yml"
   pull_request:
     # Always run for PRs to satisfy required status checks
     branches: [main, update-version]
@@ -30,6 +31,11 @@ on:
 # Define minimal required permissions at workflow level
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Cancel superseded runs on PRs only; keep the full history on main.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
@@ -40,36 +46,20 @@ jobs:
         python-version: ["3.12", "3.13", "3.14"]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+      - name: Set up Python ${{ matrix.python-version }} and Poetry
+        uses: ./.github/actions/setup-poetry
         with:
           python-version: ${{ matrix.python-version }}
-          allow-prereleases: true
-
-      - name: Install Poetry
-        run: pipx install poetry
-
-      - name: Cache Poetry virtualenv
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/pypoetry
-            .venv
-          key: venv-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('pyproject.toml', 'poetry.lock') }}
-
-      - name: Install package and its dependencies
-        run: |
-          poetry config virtualenvs.in-project true
-          poetry install --with tests
+          group: tests
 
       - name: Run pytest with coverage
         run: poetry run pytest --timeout 10 --cov=aiocamedomotic --cov-report xml --cov-report term-missing
 
       - name: Upload coverage reports to Codecov
         if: matrix.python-version == '3.14'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           name: "pytest-${{ matrix.python-version }}"

@@ -11,3 +11,12 @@ updates:
       interval: "monthly"
     labels:
       - "chore"
+
+  # Keep the GitHub Actions (pinned to commit SHA) up to date. Dependabot
+  # updates the SHA while preserving the trailing version comment.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "chore"

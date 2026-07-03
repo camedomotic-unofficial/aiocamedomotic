@@ -21,7 +21,7 @@ on:
       - "aiocamedomotic/**/*.py"
       - "pyproject.toml"
       - ".github/workflows/code-quality.yml"
-      # - 'mypy.ini'
+      - ".github/actions/setup-poetry/action.yml"
   pull_request:
     # Always run for PRs to satisfy required status checks
     branches: [main, update-version]
@@ -34,66 +34,30 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Cancel superseded runs on PRs only; keep the full history on main.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   PYTHON_VERSION: "3.14"
 
 jobs:
-  setup:
+  # Single required status check for branch protection.
+  # ruff, mypy and pylint all run in one job: on a small library they finish in
+  # seconds, so a single runner is faster end-to-end than a fan-out that pays
+  # checkout + Python + Poetry setup several times over.
+  code-quality:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Set up Python and Poetry
+        uses: ./.github/actions/setup-poetry
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install Poetry
-        run: pipx install poetry
-
-      - name: Cache Poetry virtualenv
-        id: cache-venv
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/pypoetry
-            .venv
-          key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('pyproject.toml', 'poetry.lock') }}
-
-      - name: Install dependencies
-        if: steps.cache-venv.outputs.cache-hit != 'true'
-        run: |
-          poetry config virtualenvs.in-project true
-          poetry install --with code-quality
-
-  ruff:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install Poetry
-        run: pipx install poetry
-
-      - name: Restore cached virtualenv
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.cache/pypoetry
-            .venv
-          key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('pyproject.toml', 'poetry.lock') }}
-
-      - name: Install dependencies (cache miss fallback)
-        run: |
-          poetry config virtualenvs.in-project true
-          poetry install --with code-quality
+          group: code-quality
 
       - name: Check formatting with ruff
         run: poetry run ruff format aiocamedomotic --check
@@ -101,36 +65,8 @@ jobs:
       - name: Check linting with ruff
         run: poetry run ruff check aiocamedomotic
 
-  mypy:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install Poetry
-        run: pipx install poetry
-
-      - name: Restore cached virtualenv
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.cache/pypoetry
-            .venv
-          key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('pyproject.toml', 'poetry.lock') }}
-
-      - name: Install dependencies (cache miss fallback)
-        run: |
-          poetry config virtualenvs.in-project true
-          poetry install --with code-quality
-
       - name: Cache mypy results
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: .mypy_cache
           key: mypy-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('aiocamedomotic/**/*.py') }}
@@ -140,48 +76,7 @@ jobs:
       - name: Run mypy
         run: poetry run mypy aiocamedomotic
 
-  pylint:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install Poetry
-        run: pipx install poetry
-
-      - name: Restore cached virtualenv
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.cache/pypoetry
-            .venv
-          key: venv-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('pyproject.toml', 'poetry.lock') }}
-
-      - name: Install dependencies (cache miss fallback)
-        run: |
-          poetry config virtualenvs.in-project true
-          poetry install --with code-quality
-
+      # pylint is kept for its error-only checks (W/R/C disabled); it partially
+      # overlaps with ruff + mypy strict but still catches a few extra cases.
       - name: Run pylint
         run: poetry run pylint --disable=W,R,C aiocamedomotic
-
-  # Gate job: single required status check for branch protection
-  code-quality:
-    if: always()
-    needs: [ruff, mypy, pylint]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check results
-        run: |
-          if [[ "${{ needs.ruff.result }}" != "success" || \
-                "${{ needs.mypy.result }}" != "success" || \
-                "${{ needs.pylint.result }}" != "success" ]]; then
-            echo "One or more checks failed"
-            exit 1
-          fi

@@ -1,0 +1,58 @@
+# Copyright 2024 - GitHub user: fredericks1982
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: "Set up Python and Poetry"
+description: >
+  Install Poetry, set up Python with the built-in Poetry dependency cache, and
+  install the project dependencies (optionally a specific Poetry group).
+
+inputs:
+  python-version:
+    description: "Python version to set up"
+    required: true
+  group:
+    description: "Optional Poetry dependency group to install (e.g. 'tests')"
+    required: false
+    default: ""
+  allow-prereleases:
+    description: "Allow setup-python to install pre-release Python versions"
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    # Poetry must be installed before setup-python so that its built-in
+    # `cache: poetry` support can locate it and hash poetry.lock.
+    - name: Install Poetry
+      shell: bash
+      run: pipx install poetry
+
+    - name: Set up Python
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      with:
+        python-version: ${{ inputs.python-version }}
+        allow-prereleases: ${{ inputs.allow-prereleases }}
+        cache: "poetry"
+        cache-dependency-path: poetry.lock
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        poetry config virtualenvs.in-project true
+        if [ -n "${{ inputs.group }}" ]; then
+          poetry install --with "${{ inputs.group }}"
+        else
+          poetry install
+        fi
