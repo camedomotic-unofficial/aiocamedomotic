@@ -50,10 +50,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -61,7 +61,7 @@ jobs:
         run: pipx install poetry
 
       - name: Cache Poetry virtualenv
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             ~/.cache/pypoetry
@@ -74,7 +74,7 @@ jobs:
           poetry install --with code-quality
 
       - name: Cache mypy results
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .mypy_cache
           key: mypy-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('aiocamedomotic/**/*.py') }}
