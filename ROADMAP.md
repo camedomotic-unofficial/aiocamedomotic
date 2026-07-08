@@ -96,6 +96,13 @@ under [Future considerations](#future-considerations).
   active threshold as a fraction of `max_power`) through a validated, immutable
   profile API, once the exact level-to-threshold mapping is confirmed on a real plant.
 
+### Version 1.15 — Thermostat hourly profiles
+
+- **Weekly schedules**: Parse and edit the thermostat zones' hourly schedule profiles
+  via `thermo_zone_config_req` (`profile_id` / `profile_data` fields), enabling
+  AUTO-mode weekly programming from the library, once the profile wire format is
+  verified against a real plant.
+
 ## Future considerations
 
 The following features are known from reverse-engineered sources (API_reference.md,
