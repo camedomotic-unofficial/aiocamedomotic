@@ -525,6 +525,43 @@ def energy_meter_data():
 
 
 @pytest.fixture
+def loadsctrl_meter_data():
+    """Mock data for a loads controller (real traffic, swver 3.0.1)."""
+    return {
+        "name": "Consumed Energy",
+        "id": 196612,
+        "hysteresis": 400,
+        "max_power": 5000,
+        "profile_data": [
+            "444444444444444444444444",
+            "444444444444444444444444",
+            "444444444444444444444444",
+            "444444444444444444444444",
+            "444444444444444444444444",
+            "444444444444444444444444",
+            "444444444444444444444444",
+        ],
+        "meter_id": 4,
+        "power": 595,
+    }
+
+
+@pytest.fixture
+def loadsctrl_relay_data():
+    """Mock data for a load managed by the loads controller."""
+    return {
+        "name": "Washing machine",
+        "id": 65600,
+        "priority": 129,
+        "enabled": 0,
+        "act_id": 129,
+        "detached": 0,
+        "status": 1,
+        "loadtype": 1,
+    }
+
+
+@pytest.fixture
 def timer_data_minimal():
     """Mock data for a timer without stop/active fields (v3.0.1 format)."""
     return {

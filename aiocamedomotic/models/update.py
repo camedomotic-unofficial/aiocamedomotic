@@ -33,6 +33,7 @@ from ..utils import LOGGER
 from .base import CameEntity
 from .energy_meter import EnergyMeterType
 from .light import LightStatus, LightType
+from .loads_ctrl import LoadsCtrlRelayStatus
 from .opening import OpeningStatus
 from .relay import RelayStatus
 from .scenario import ScenarioStatus
@@ -516,6 +517,111 @@ class EnergyMeterUpdate(DeviceUpdate):
 
 
 @dataclass
+class LoadsCtrlRelayUpdate(DeviceUpdate):
+    """Typed update for a load-control relay (``loadsctrl_relay_ind``).
+
+    Pushed by the server after every accepted ``loadsctrl_relay_set_req``,
+    to **all** clients — including the one that issued the set. The payload
+    is a complete snapshot of the relay state (same shape as a
+    ``loadsctrl_relay_list_resp`` item) and should be treated as the
+    authoritative confirmation of the change.
+    """
+
+    @property
+    def id(self) -> int:
+        """Load identifier (the key used by all loadsctrl commands)."""
+        return self.raw_data["id"]
+
+    @property
+    def act_id(self) -> int:
+        """Underlying actuator ID (not used by loadsctrl commands)."""
+        return self.raw_data.get("act_id", 0)
+
+    @property
+    def priority(self) -> int:
+        """Detach-order priority (lower value = detached first)."""
+        return self.raw_data.get("priority", 0)
+
+    @property
+    def enabled(self) -> bool:
+        """Whether the load participates in load shedding."""
+        return bool(self.raw_data.get("enabled", 0))
+
+    @property
+    def detached(self) -> bool:
+        """Whether the controller has currently shed this load."""
+        return bool(self.raw_data.get("detached", 0))
+
+    @property
+    def status(self) -> LoadsCtrlRelayStatus:
+        """Current relay output state (OFF, ON)."""
+        try:
+            return LoadsCtrlRelayStatus(self.raw_data["status"])
+        except (ValueError, KeyError):
+            return LoadsCtrlRelayStatus.UNKNOWN
+
+    @property
+    def loadtype(self) -> int:
+        """Raw ``loadtype`` field (opaque; ``1`` observed)."""
+        return self.raw_data.get("loadtype", 0)
+
+    @property
+    def device_id(self) -> int | None:
+        """For loadsctrl relays the primary ID is ``id``.
+
+        Both ``act_id`` and ``id`` are present in the payload and differ:
+        ``id`` is the key every loadsctrl command uses.
+        """
+        return self.raw_data.get("id")
+
+
+@dataclass
+class LoadsCtrlMeterUpdate(DeviceUpdate):
+    """Typed update for a loads controller (``loadsctrl_meter_ind``).
+
+    Pushed by the server after an accepted ``loadsctrl_meter_set_req``,
+    to **all** clients — including the one that issued the set. The payload
+    is a complete snapshot of the controller state (same shape as a
+    ``loadsctrl_meter_list_resp`` item).
+    """
+
+    @property
+    def id(self) -> int:
+        """Loads-controller identifier (opaque server value)."""
+        return self.raw_data["id"]
+
+    @property
+    def meter_id(self) -> int:
+        """The ``id`` of the associated energy meter."""
+        return self.raw_data.get("meter_id", 0)
+
+    @property
+    def power(self) -> float:
+        """Current power reading in Watts (no unit conversion applied)."""
+        return self.raw_data.get("power", 0)
+
+    @property
+    def max_power(self) -> int:
+        """Overload threshold in Watts."""
+        return self.raw_data.get("max_power", 0)
+
+    @property
+    def hysteresis(self) -> int:
+        """Hysteresis around the overload threshold, in Watts."""
+        return self.raw_data.get("hysteresis", 0)
+
+    @property
+    def profile_data(self) -> list[str]:
+        """Weekly hourly threshold profile (raw wire format, copied)."""
+        return list(self.raw_data.get("profile_data", []))
+
+    @property
+    def device_id(self) -> int | None:
+        """For loads controllers the primary ID is ``id``."""
+        return self.raw_data.get("id")
+
+
+@dataclass
 class PlantUpdate(DeviceUpdate):
     """Marker update for ``plant_update_ind``.
 
@@ -550,6 +656,8 @@ _INDICATOR_TO_UPDATE_CLASS: dict[str, type[DeviceUpdate]] = {
     "analogin_status_ind": AnalogInUpdate,
     "analogin_update_ind": AnalogInUpdate,
     "meter_instant_power_ind": EnergyMeterUpdate,
+    "loadsctrl_relay_ind": LoadsCtrlRelayUpdate,
+    "loadsctrl_meter_ind": LoadsCtrlMeterUpdate,
     "timer_info_ind": TimerUpdate,
     "timer_update_ind": TimerUpdate,
     "plant_update_ind": PlantUpdate,

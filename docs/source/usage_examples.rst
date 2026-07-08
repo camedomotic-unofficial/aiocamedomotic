@@ -38,7 +38,8 @@ and controlling devices, and monitoring real-time changes. For a minimal
             Timer, TimerTimeSlot, TimerUpdate,
             DeviceUpdate, LightUpdate, OpeningUpdate, RelayUpdate,
             ThermoZoneUpdate, ScenarioUpdate, DigitalInputUpdate,
-            EnergyMeterUpdate, PlantUpdate,
+            EnergyMeterUpdate, LoadsCtrlMeterUpdate, LoadsCtrlRelayUpdate,
+            PlantUpdate,
         )
         from aiocamedomotic.errors import (
             CameDomoticError,
@@ -243,6 +244,9 @@ entries against enum members to decide which device APIs to call:
 
     if ServerFeature.ENERGY in server_info.features:
         meters = await api.async_get_energy_meters()
+
+    if ServerFeature.LOADSCTRL in server_info.features:
+        controllers = await api.async_get_loadsctrl_meters()
 
 Floors and rooms
 ^^^^^^^^^^^^^^^^
@@ -944,6 +948,172 @@ fields, expressed in ``energy_unit`` (typically ``Wh``):
 Real-time power readings are delivered as push updates — see
 :ref:`energy-meter-updates` in the monitoring section below.
 
+Loads control
+^^^^^^^^^^^^^
+
+The ``loadsctrl`` feature implements **load shedding**: a loads
+**controller** (:class:`~aiocamedomotic.models.LoadsCtrlMeter`) watches an
+energy meter and, when consumption exceeds its ``max_power`` threshold
+(with a ``hysteresis`` band around it to avoid flapping), it *detaches*
+its **managed loads** (:class:`~aiocamedomotic.models.LoadsCtrlRelay`) —
+typically high-consumption appliances — one at a time until consumption
+drops below the threshold again.
+
+The order in which loads are shed is defined by each load's ``priority``
+value: **the lower the priority value, the earlier the load is detached**.
+Keep this direction in mind throughout this section — your most expendable
+appliance should have the *lowest* priority value.
+
+.. note::
+    The number and names of controllers and loads are **entirely
+    plant-specific**: another plant may have any number of loads (including
+    zero) with arbitrary user-defined names. Never hard-code load names or
+    counts — always discover them via the API, as shown below.
+
+**Fetching the loads controllers:**
+
+.. code-block:: python
+
+    controllers = await api.async_get_loadsctrl_meters()
+
+    for ctrl in controllers:
+        print(
+            f"ID: {ctrl.id}, Name: {ctrl.name}, "
+            f"Max power: {ctrl.max_power} W, "
+            f"Hysteresis: {ctrl.hysteresis} W, "
+            f"Current power: {ctrl.power} W, "
+            f"Energy meter ID: {ctrl.meter_id}"
+        )
+
+Example output:
+
+.. code-block:: text
+
+    ID: 196612, Name: Consumed Energy, Max power: 5000 W, Hysteresis: 400 W, Current power: 595 W, Energy meter ID: 4
+
+The controller's ``meter_id`` is the ``id`` of the energy meter it watches
+(see the `Energy meters`_ section above); the controller's own ``id`` is a
+separate, opaque value.
+
+**Fetching the managed loads:**
+
+The examples below reuse the ``controllers`` list fetched above. Get the
+loads managed by a controller with ``async_get_relays()``, and sort them by
+``priority`` to display the detach order (first row = first load shed):
+
+.. code-block:: python
+
+    if not controllers:
+        print("No loads controller on this plant")
+    else:
+        ctrl = controllers[0]
+        relays = sorted(await ctrl.async_get_relays(), key=lambda r: r.priority)
+
+        for relay in relays:
+            print(
+                f"Priority: {relay.priority}, Name: {relay.name}, "
+                f"Enabled: {relay.enabled}, Detached: {relay.detached}, "
+                f"Status: {relay.status}"
+            )
+
+Example output:
+
+.. code-block:: text
+
+    Priority: 129, Name: Washing machine, Enabled: False, Detached: False, Status: LoadsCtrlRelayStatus.ON
+    Priority: 130, Name: Dishwasher, Enabled: True, Detached: False, Status: LoadsCtrlRelayStatus.ON
+    Priority: 131, Name: Air conditioner, Enabled: False, Detached: False, Status: LoadsCtrlRelayStatus.ON
+    Priority: 132, Name: Tumble dryer, Enabled: False, Detached: False, Status: LoadsCtrlRelayStatus.OFF
+
+``detached`` tells you whether the controller has currently shed the load,
+and ``status`` is the read-only relay output state (there is no loadsctrl
+command to switch the relay itself).
+
+**Finding a specific load:**
+
+.. code-block:: python
+
+    # By ID
+    washer = next((r for r in relays if r.id == 65600), None)
+
+    # By name
+    dryer = next((r for r in relays if r.name == "Tumble dryer"), None)
+
+**Enabling or disabling a load:**
+
+A load participates in load shedding only while it is *enabled* — this is
+the per-appliance toggle you see in the official CAME app. Disabling a load
+means the controller will never detach it, regardless of priority:
+
+.. code-block:: python
+
+    if washer:
+        await washer.async_set_enabled(True)   # controller may shed it
+        await washer.async_set_enabled(False)  # controller leaves it alone
+
+**Changing a single load's priority:**
+
+Use ``async_set_priority()`` to move one load within the detach order.
+Remember the direction: a *lower* value means the load is shed *earlier*.
+The wire command always carries both fields, so the current ``enabled``
+flag is re-sent automatically alongside the new priority:
+
+.. code-block:: python
+
+    if washer:
+        await washer.async_set_priority(130)
+
+**Reordering the whole detach order:**
+
+To rewrite the full shedding sequence in one call, build the desired order
+(first element = first load shed) and pass it to
+``async_set_detach_order()``. The method reuses the priority values already
+present on the plant, reassigning them in ascending order to your sequence:
+
+.. code-block:: python
+
+    # Current order: washer, dishwasher, air conditioner, dryer.
+    # Make the dishwasher the first load to shed, then the washer:
+    by_name = {r.name: r for r in relays}
+    await ctrl.async_set_detach_order([
+        by_name["Dishwasher"],
+        by_name["Washing machine"],
+        by_name["Air conditioner"],
+        by_name["Tumble dryer"],
+    ])
+
+.. note::
+    ``async_set_detach_order()`` writes **only the relays whose priority
+    actually changes** (the official app does the same), so a no-op reorder
+    sends no set commands. It raises ``ValueError`` if the sequence is not
+    a permutation of the controller's relays (same IDs, no duplicates), or
+    on plants where relays share **duplicate priority values** — there a
+    full detach order cannot be expressed by reassigning the existing
+    values, and you must fall back to explicit ``async_set_priority()``
+    calls.
+
+**Updating the controller configuration:**
+
+``async_set_config()`` changes the overload threshold (``max_power``)
+and/or the ``hysteresis``. Unspecified values are re-sent unchanged, since
+the wire command requires the full configuration on every write:
+
+.. code-block:: python
+
+    await ctrl.async_set_config(max_power=4500)
+    await ctrl.async_set_config(max_power=5000, hysteresis=300)
+
+.. note::
+    ``async_set_config()`` is **experimental**: the command was observed in
+    an earlier real-traffic capture but has not been re-verified against a
+    live server by this library. The ``profile_data`` parameter (the weekly
+    hourly threshold profile) is accepted only for the mandatory raw
+    round-trip and is strictly validated (7 strings of 24 digits in
+    ``1``-``5``); profile *editing* is not yet a library feature.
+
+Configuration writes and load changes are echoed back as push updates —
+see :ref:`loadsctrl-updates` in the monitoring section below.
+
 
 Monitoring real-time updates
 ----------------------------
@@ -1080,6 +1250,18 @@ compatibility. For **typed** update objects with convenient properties, use
         elif isinstance(update, EnergyMeterUpdate):
             print(f"Meter '{update.name}': {update.instant_power} {update.unit}")
 
+        elif isinstance(update, LoadsCtrlRelayUpdate):
+            print(
+                f"Load '{update.name}': enabled={update.enabled}, "
+                f"priority={update.priority}, detached={update.detached}"
+            )
+
+        elif isinstance(update, LoadsCtrlMeterUpdate):
+            print(
+                f"Loads controller '{update.name}': "
+                f"max_power={update.max_power} W, hysteresis={update.hysteresis} W"
+            )
+
         elif isinstance(update, PlantUpdate):
             print("Plant configuration changed, re-fetching devices...")
 
@@ -1215,6 +1397,59 @@ Example output:
 
     Meter 'Line 1 + Line 2' (ID: 3): 636 W, last_24h_avg=7788947 Wh
     Meter 'Consumed Energy' (ID: 4): 636 W, last_24h_avg=5813290 Wh
+
+.. _loadsctrl-updates:
+
+Loads control updates
+^^^^^^^^^^^^^^^^^^^^^
+
+The server pushes a ``loadsctrl_relay_ind`` after **every accepted**
+``loadsctrl_relay_set_req`` (enable/disable or priority change), and a
+``loadsctrl_meter_ind`` after a controller configuration write. Both carry
+a **complete snapshot** of the affected entity, parsed into
+:class:`~aiocamedomotic.models.update.LoadsCtrlRelayUpdate` /
+:class:`~aiocamedomotic.models.update.LoadsCtrlMeterUpdate`; for both,
+``device_id`` is the loadsctrl ``id`` (not the relay's ``act_id``).
+
+.. note::
+    **Your own writes are echoed back to you.** These pushes are sent to
+    *all* clients — including the one that issued the set command. A
+    consumer polling ``async_get_updates()`` must therefore expect to
+    receive updates for changes it made itself, and treat the pushed
+    snapshot as the authoritative state (which makes it safe to simply
+    overwrite any cached data).
+
+.. code-block:: python
+
+    while True:
+        try:
+            updates = await api.async_get_updates(timeout=120)
+        except CameDomoticServerTimeoutError:
+            continue
+
+        for update in updates.get_typed_updates():
+            if isinstance(update, LoadsCtrlRelayUpdate):
+                print(
+                    f"Load '{update.name}' (ID: {update.device_id}): "
+                    f"enabled={update.enabled}, priority={update.priority}, "
+                    f"detached={update.detached}"
+                )
+            elif isinstance(update, LoadsCtrlMeterUpdate):
+                print(
+                    f"Controller '{update.name}' (ID: {update.device_id}): "
+                    f"max_power={update.max_power} W, "
+                    f"hysteresis={update.hysteresis} W, power={update.power} W"
+                )
+
+        await asyncio.sleep(1)
+
+Example output (after enabling a load and swapping two priorities):
+
+.. code-block:: text
+
+    Load 'Washing machine' (ID: 65600): enabled=True, priority=129, detached=False
+    Load 'Dishwasher' (ID: 65601): enabled=True, priority=129, detached=False
+    Load 'Washing machine' (ID: 65600): enabled=True, priority=130, detached=False
 
 
 Advanced topics

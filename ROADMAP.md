@@ -22,12 +22,13 @@ reflects our commitment to making home automation more accessible and manageable
 This roadmap is subject to change based on community feedback and ongoing development
 insights. We look forward to growing this library together with our users and contributors.
 
-## Current Features (Version 1.6)
+## Current Features (Version 1.12)
 
 - **Session management**: Automated handling of login, logout, and keep-alive processes
   for the API, with automatic session recovery.
 - **Lights management**: List and control lights (on/off, dimmer brightness, RGB color).
-- **Openings management**: List and control shutters/blinds (open, close, stop).
+- **Openings management**: List and control shutters/blinds (open, close, stop, slat
+  tilting).
 - **Scenarios management**: List available scenarios and trigger their activation.
 - **Thermoregulation (full control)**: List thermoregulation zones with their current
   state; set target temperature, operating mode (OFF, MANUAL, AUTO, JOLLY), and fan speed
@@ -36,21 +37,44 @@ insights. We look forward to growing this library together with our users and co
   Expose fan speed, dehumidifier state (enabled/setpoint), and auxiliary temperature
   sensors (t1, t2, t3) on `ThermoZone` and `ThermoZoneUpdate`. Top-level analog sensor
   readings (temperature, humidity, pressure) are also exposed.
+- **Timers management**: List timers with their timetables via `timers_list_req`;
+  enable/disable timers, toggle individual days, and set timetables via
+  `timers_enable_req`, `timers_enable_day_req`, and `timers_set_req`.
+- **Energy meters (read-only)**: List energy meters with their instant power readings
+  and cumulative energy counters via `meters_list_req`; real-time readings via
+  `meter_instant_power_ind`.
+- **Load control (full)**: List load control meters and their managed loads
+  (`loadsctrl_meter_list_req`, `loadsctrl_relay_list_req`); enable/disable individual
+  loads, change their detach priorities (including bulk reordering), and configure the
+  controller's power threshold and hysteresis (`loadsctrl_relay_set_req`,
+  `loadsctrl_meter_set_req`); real-time state via `loadsctrl_meter_ind` and
+  `loadsctrl_relay_ind`.
+- **Generic relays**: List and control simple on/off relay actuators via
+  `relays_list_req` and `relay_activation_req` (documented API, not yet verified against
+  a real server).
 - **Digital inputs (read-only)**: List binary sensors (door contacts, motion sensors, etc.)
   via `digitalin_list_req`. Each digital input exposes its current state and attributes.
   Real-time updates are supported via `DigitalInputUpdate`.
-- **User management**: Create and remove users on the CAME server via `user_create_req`
-  and `user_delete_req`; update passwords via `user_passwd_change_req`.
+- **Analog inputs (read-only)**: List standalone analog sensors (hygrometers,
+  thermometers, barometers) via `analogin_list_req`, independent of the
+  thermoregulation sensors.
+- **Cameras (TVCC, read-only)**: List IP cameras with their stream URIs.
+- **Maps (read-only)**: Retrieve floor-plan map pages with positioned device elements
+  via `map_descr_req`.
+- **User management**: Create and remove users on the CAME server, update passwords,
+  and list terminal permission groups.
 - **Real-time updates with typed classes**: Long-polling support with typed update objects
-  (`LightUpdate`, `OpeningUpdate`, `ThermoZoneUpdate`, `ScenarioUpdate`,
-  `DigitalInputUpdate`, `PlantUpdate`). `UpdateList` provides filtering by device type,
-  typed access via `get_typed_updates()` and `get_typed_by_device_type()`, and a
-  `has_plant_update` property for detecting plant configuration changes. Unrecognized
-  indications fall back to a generic `DeviceUpdate`.
+  (`LightUpdate`, `OpeningUpdate`, `ThermoZoneUpdate`, `ScenarioUpdate`, `RelayUpdate`,
+  `DigitalInputUpdate`, `AnalogInUpdate`, `TimerUpdate`, `EnergyMeterUpdate`,
+  `LoadsCtrlMeterUpdate`, `LoadsCtrlRelayUpdate`, `PlantUpdate`). `UpdateList` provides
+  filtering by device type, typed access via `get_typed_updates()` and
+  `get_typed_by_device_type()`, and a `has_plant_update` property for detecting plant
+  configuration changes. Unrecognized indications fall back to a generic `DeviceUpdate`.
 - **Configurable command timeout**: Instance-level `command_timeout` parameter (default
   30 seconds) applies to all commands, with per-call `timeout` override on
   `async_get_updates()` for long-polling scenarios.
-- **Discovery**: Server info, feature detection, user listing, floor and room topology.
+- **Discovery**: Server info, feature detection, user listing, merged floor and room
+  topology, and a connectivity check with latency measurement (`async_ping`).
 
 ## Planned Features
 
@@ -59,21 +83,18 @@ Domotic plant and can be tested against a real server. Features that are only kn
 reverse-engineered sources (without real traffic verification) are listed separately
 under [Future considerations](#future-considerations).
 
-### Version 1.7 — Energy meters
+### Version 1.13 — Energy statistics
 
-- **Meter listing**: List all energy meters with their current readings.
-- **Instant power**: Expose real-time power consumption via `meter_instant_power_ind`.
-- **Energy statistics**: Query historical consumption data (`energy_stat_req`) for
-  monitoring and dashboard integration.
+- **Historical consumption**: Query historical consumption data per meter
+  (`energy_stat_req`, with instant/day/week/month scopes) for monitoring and dashboard
+  integration.
 
-### Version 1.8 — Load control (read-only)
+### Version 1.14 — Load control threshold profiles
 
-- **Load control meters**: List load control meters with their current state
-  (`loadsctrl_meter_list_req`).
-- **Load control relays**: List load control relays with their current priorities
-  (`loadsctrl_relay_list_req`).
-- **Status indications**: Handle `loadsctrl_meter_ind` and `loadsctrl_relay_ind` for
-  real-time load state updates.
+- **Weekly hourly profiles**: Parse and edit the load controller's weekly threshold
+  profile (`profile_data`: 7 days × 24 hourly levels, each level 1–5 selecting the
+  active threshold as a fraction of `max_power`) through a validated, immutable
+  profile API, once the exact level-to-threshold mapping is confirmed on a real plant.
 
 ## Future considerations
 
@@ -81,17 +102,9 @@ The following features are known from reverse-engineered sources (API_reference.
 API_MANUAL.md) but have not been verified with real traffic captures. They may be
 considered for future development once real-world testing is possible:
 
-- **Load control (edit)**: Configure load control meter thresholds
-  (`loadsctrl_meter_set_req`) and load control relay priorities
-  (`loadsctrl_relay_set_req`).
-
-- **Relays (generic switches)**: List and control generic relay actuators. The API is
-  documented but no real traffic has been observed.
 - **Scenario management**: Create and delete scenarios (beyond the current list/activate).
 - **Audio system**: Sound zone and source management (entirely unverified).
-- **Cameras (TVCC)**: Camera listing (entirely unverified).
 - **Security system**: Area/scenario management and alarm control (entirely unverified).
-- **Maps**: Floor plan/map retrieval (entirely unverified).
 - **Infrastructure improvements**: Automated keep-alive scheduling, per-actuator scope
   queries, and connection resilience improvements.
 

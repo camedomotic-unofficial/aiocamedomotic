@@ -40,6 +40,11 @@ from .digital_input import (  # noqa: F401
 )
 from .energy_meter import EnergyMeter, EnergyMeterType  # noqa: F401
 from .light import Light, LightStatus, LightType  # noqa: F401
+from .loads_ctrl import (  # noqa: F401
+    LoadsCtrlMeter,
+    LoadsCtrlRelay,
+    LoadsCtrlRelayStatus,
+)
 from .map_page import MapPage  # noqa: F401
 from .opening import Opening, OpeningStatus, OpeningType  # noqa: F401
 from .relay import Relay, RelayStatus  # noqa: F401
@@ -60,6 +65,8 @@ from .update import (  # noqa: F401
     DigitalInputUpdate,
     EnergyMeterUpdate,
     LightUpdate,
+    LoadsCtrlMeterUpdate,
+    LoadsCtrlRelayUpdate,
     OpeningUpdate,
     PlantUpdate,
     RelayUpdate,
@@ -92,6 +99,11 @@ __all__ = [
     "LightStatus",
     "LightType",
     "LightUpdate",
+    "LoadsCtrlMeter",
+    "LoadsCtrlMeterUpdate",
+    "LoadsCtrlRelay",
+    "LoadsCtrlRelayStatus",
+    "LoadsCtrlRelayUpdate",
     "MapPage",
     "Opening",
     "OpeningStatus",

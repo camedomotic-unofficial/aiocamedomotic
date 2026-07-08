@@ -46,6 +46,8 @@ from .models import (
     EnergyMeter,
     Floor,
     Light,
+    LoadsCtrlMeter,
+    LoadsCtrlRelay,
     MapPage,
     Opening,
     PlantTopology,
@@ -564,6 +566,79 @@ class CameDomoticAPI:
         meters_list = json_response.get("array", []) or []
         LOGGER.info("Retrieved %d energy meter(s)", len(meters_list))
         return [EnergyMeter(meter_data) for meter_data in meters_list]
+
+    async def async_get_loadsctrl_meters(self) -> list[LoadsCtrlMeter]:
+        """Get the list of all loads controllers defined on the server.
+
+        Loads controllers (``loadsctrl`` feature) bind an energy meter to
+        an overload threshold and manage the load-shedding of their
+        associated loads. A plant may define any number of controllers
+        (including zero).
+
+        Returns:
+            list[LoadsCtrlMeter]: List of loads controllers. Returns an
+            empty list if none are defined or the server response lacks
+            the ``array`` key.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Fetching loadsctrl meters list")
+        payload = {
+            "cmd_name": _CommandName.LOADSCTRL_METER_LIST.value,
+        }
+
+        json_response = await self.auth.async_send_command(
+            payload,
+            response_command=_CommandNameResponse.LOADSCTRL_METER_LIST.value,
+        )
+
+        # Defaults to an empty list if the key is missing from the response JSON
+        meters_list = json_response.get("array", []) or []
+        LOGGER.info("Retrieved %d loadsctrl meter(s)", len(meters_list))
+        return [LoadsCtrlMeter(meter_data, self.auth) for meter_data in meters_list]
+
+    async def async_get_loadsctrl_relays(self, meter_id: int) -> list[LoadsCtrlRelay]:
+        """Get the loads managed by the given loads controller.
+
+        Convenience passthrough for ``loadsctrl_relay_list_req``;
+        :meth:`~aiocamedomotic.models.LoadsCtrlMeter.async_get_relays` is
+        the ergonomic path.
+
+        Args:
+            meter_id: The loads-controller ``id`` (as returned by
+                :meth:`async_get_loadsctrl_meters`), **not** the energy
+                meter's ``id``.
+
+        Returns:
+            list[LoadsCtrlRelay]: List of managed loads. Returns an empty
+            list if none are defined or the server response lacks the
+            ``array`` key.
+
+        Raises:
+            ValueError: If ``meter_id`` is not an integer.
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        if not isinstance(meter_id, int) or isinstance(meter_id, bool):
+            raise ValueError(f"meter_id must be an int, got {type(meter_id).__name__}")
+
+        LOGGER.debug("Fetching loadsctrl relays list for controller ID %s", meter_id)
+        payload = {
+            "cmd_name": _CommandName.LOADSCTRL_RELAY_LIST.value,
+            "id": meter_id,
+        }
+
+        json_response = await self.auth.async_send_command(
+            payload,
+            response_command=_CommandNameResponse.LOADSCTRL_RELAY_LIST.value,
+        )
+
+        # Defaults to an empty list if the key is missing from the response JSON
+        relays_list = json_response.get("array", []) or []
+        LOGGER.info("Retrieved %d loadsctrl relay(s)", len(relays_list))
+        return [LoadsCtrlRelay(relay_data, self.auth) for relay_data in relays_list]
 
     async def async_get_cameras(self) -> list[Camera]:
         """Get the list of all TVCC cameras defined on the server.

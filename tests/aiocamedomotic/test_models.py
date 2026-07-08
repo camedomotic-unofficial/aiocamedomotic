@@ -49,6 +49,9 @@ from aiocamedomotic.models import (
     LightStatus,
     LightType,
     LightUpdate,
+    LoadsCtrlMeterUpdate,
+    LoadsCtrlRelayStatus,
+    LoadsCtrlRelayUpdate,
     Opening,
     OpeningStatus,
     OpeningType,
@@ -76,6 +79,8 @@ from aiocamedomotic.models import (
     parse_update,
 )
 from tests.aiocamedomotic.mocked_responses import (
+    LOADSCTRL_METER_IND_STATUS_UPDATE_RESP,
+    LOADSCTRL_RELAY_IND_STATUS_UPDATE_RESP,
     METER_INSTANT_POWER_IND_STATUS_UPDATE_RESP,
     STATUS_UPDATE_RESP,
 )
@@ -83,6 +88,9 @@ from tests.aiocamedomotic.mocked_responses import (
 
 class TestDeviceType:
     def test_enum_values(self):
+        assert DeviceType.LOADSCTRL_RELAY == -5
+        assert DeviceType.LOADSCTRL_METER == -4
+        assert DeviceType.ANALOG_INPUT == -3
         assert DeviceType.ENERGY_SENSOR == -2
         assert DeviceType.ANALOG_SENSOR == -1
         assert DeviceType.LIGHT == 0
@@ -133,6 +141,14 @@ class TestDeviceType:
             _UPDATE_CMD_TO_DEVICE_TYPE["meter_instant_power_ind"]
             == DeviceType.ENERGY_SENSOR
         )
+        assert (
+            _UPDATE_CMD_TO_DEVICE_TYPE["loadsctrl_meter_ind"]
+            == DeviceType.LOADSCTRL_METER
+        )
+        assert (
+            _UPDATE_CMD_TO_DEVICE_TYPE["loadsctrl_relay_ind"]
+            == DeviceType.LOADSCTRL_RELAY
+        )
         # API_reference.md variant names (firmware compatibility)
         assert _UPDATE_CMD_TO_DEVICE_TYPE["light_update_ind"] == DeviceType.LIGHT
         assert _UPDATE_CMD_TO_DEVICE_TYPE["opening_update_ind"] == DeviceType.OPENING
@@ -159,6 +175,14 @@ class TestDeviceType:
             _DEVICE_TYPE_TO_FEATURE[DeviceType.DIGITAL_INPUT] == ServerFeature.DIGITALIN
         )
         assert _DEVICE_TYPE_TO_FEATURE[DeviceType.ENERGY_SENSOR] == ServerFeature.ENERGY
+        assert (
+            _DEVICE_TYPE_TO_FEATURE[DeviceType.LOADSCTRL_METER]
+            == ServerFeature.LOADSCTRL
+        )
+        assert (
+            _DEVICE_TYPE_TO_FEATURE[DeviceType.LOADSCTRL_RELAY]
+            == ServerFeature.LOADSCTRL
+        )
 
 
 class TestServerInfo:
@@ -3081,3 +3105,114 @@ class TestEnergyMeterUpdate:
         typed = updates.get_typed_by_device_type(DeviceType.ENERGY_SENSOR)
         assert len(typed) == 1
         assert isinstance(typed[0], EnergyMeterUpdate)
+
+
+class TestLoadsCtrlRelayUpdate:
+    def test_parse_loadsctrl_relay_ind(self):
+        """Real traffic: push echoed after an accepted relay set command."""
+        raw = LOADSCTRL_RELAY_IND_STATUS_UPDATE_RESP["result"][0]
+        update = parse_update(raw)
+        assert isinstance(update, LoadsCtrlRelayUpdate)
+        assert update.id == 65602
+        assert update.name == "Air conditioner"
+        assert update.act_id == 131
+        assert update.priority == 131
+        assert update.enabled is True
+        assert update.detached is False
+        assert update.status == LoadsCtrlRelayStatus.ON
+        assert update.loadtype == 1
+
+    def test_device_id_is_raw_id_not_act_id(self):
+        # Both act_id and id are present and differ: device_id must be the
+        # loadsctrl 'id', the key every loadsctrl command uses.
+        raw = {"cmd_name": "loadsctrl_relay_ind", "id": 65600, "act_id": 129}
+        update = parse_update(raw)
+        assert isinstance(update, LoadsCtrlRelayUpdate)
+        assert update.device_id == 65600
+
+    def test_device_type(self):
+        raw = {"cmd_name": "loadsctrl_relay_ind", "id": 65600}
+        assert get_update_device_type(raw) == DeviceType.LOADSCTRL_RELAY
+
+    def test_update_indicator(self):
+        raw = {"cmd_name": "loadsctrl_relay_ind", "id": 65600}
+        update = parse_update(raw)
+        assert update.update_indicator == UpdateIndicator.LOADSCTRL_RELAY
+
+    def test_status_unknown_value(self):
+        raw = {"cmd_name": "loadsctrl_relay_ind", "id": 65600, "status": 99}
+        update = parse_update(raw)
+        assert isinstance(update, LoadsCtrlRelayUpdate)
+        assert update.status == LoadsCtrlRelayStatus.UNKNOWN
+
+    def test_defaults_when_fields_missing(self):
+        raw = {"cmd_name": "loadsctrl_relay_ind", "id": 65600}
+        update = parse_update(raw)
+        assert isinstance(update, LoadsCtrlRelayUpdate)
+        assert update.act_id == 0
+        assert update.priority == 0
+        assert update.enabled is False
+        assert update.detached is False
+        assert update.status == LoadsCtrlRelayStatus.UNKNOWN
+        assert update.loadtype == 0
+
+    def test_get_typed_by_device_type(self):
+        updates = UpdateList(LOADSCTRL_RELAY_IND_STATUS_UPDATE_RESP["result"])
+        typed = updates.get_typed_by_device_type(DeviceType.LOADSCTRL_RELAY)
+        assert len(typed) == 1
+        assert isinstance(typed[0], LoadsCtrlRelayUpdate)
+
+
+class TestLoadsCtrlMeterUpdate:
+    def test_parse_loadsctrl_meter_ind(self):
+        """Earlier capture: push echoed after an accepted meter set command."""
+        raw = LOADSCTRL_METER_IND_STATUS_UPDATE_RESP["result"][0]
+        update = parse_update(raw)
+        assert isinstance(update, LoadsCtrlMeterUpdate)
+        assert update.id == 123456
+        assert update.name == "Meter 1"
+        assert update.meter_id == 1
+        assert update.power == 455
+        assert update.max_power == 4800
+        assert update.hysteresis == 1000
+        assert update.profile_data[0] == "155555555555555555555555"
+        assert len(update.profile_data) == 7
+
+    def test_profile_data_returns_copy(self):
+        raw = LOADSCTRL_METER_IND_STATUS_UPDATE_RESP["result"][0]
+        update = parse_update(raw)
+        assert isinstance(update, LoadsCtrlMeterUpdate)
+        profile = update.profile_data
+        profile[0] = "tampered"
+        assert update.raw_data["profile_data"][0] == "155555555555555555555555"
+
+    def test_device_id_is_raw_id(self):
+        raw = {"cmd_name": "loadsctrl_meter_ind", "id": 123456}
+        update = parse_update(raw)
+        assert isinstance(update, LoadsCtrlMeterUpdate)
+        assert update.device_id == 123456
+
+    def test_device_type(self):
+        raw = {"cmd_name": "loadsctrl_meter_ind", "id": 123456}
+        assert get_update_device_type(raw) == DeviceType.LOADSCTRL_METER
+
+    def test_update_indicator(self):
+        raw = {"cmd_name": "loadsctrl_meter_ind", "id": 123456}
+        update = parse_update(raw)
+        assert update.update_indicator == UpdateIndicator.LOADSCTRL_METER
+
+    def test_defaults_when_fields_missing(self):
+        raw = {"cmd_name": "loadsctrl_meter_ind", "id": 123456}
+        update = parse_update(raw)
+        assert isinstance(update, LoadsCtrlMeterUpdate)
+        assert update.meter_id == 0
+        assert update.power == 0
+        assert update.max_power == 0
+        assert update.hysteresis == 0
+        assert update.profile_data == []
+
+    def test_get_typed_by_device_type(self):
+        updates = UpdateList(LOADSCTRL_METER_IND_STATUS_UPDATE_RESP["result"])
+        typed = updates.get_typed_by_device_type(DeviceType.LOADSCTRL_METER)
+        assert len(typed) == 1
+        assert isinstance(typed[0], LoadsCtrlMeterUpdate)
