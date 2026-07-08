@@ -694,3 +694,25 @@ GENERIC_REPLY = {
     "cmd_name": "generic_reply",
     "sl_data_ack_reason": 0,
 }
+
+# Push update received after the measured power changed (real traffic,
+# swver 3.0.1): one meter_instant_power_ind per meter, full meter snapshot.
+METER_INSTANT_POWER_IND_STATUS_UPDATE_RESP = {
+    "cmd_name": "status_update_resp",
+    "cseq": 42,
+    "sl_data_ack_reason": 0,
+    "result": [
+        {
+            "name": "S1 + S2 + S3",
+            "id": 3,
+            "meter_type": 1,
+            "produced": 0,
+            "instant_power": 636,
+            "unit": "W",
+            "energy_unit": "Wh",
+            "last_24h_avg": 7788947,
+            "last_month_avg": 7788947,
+            "cmd_name": "meter_instant_power_ind",
+        }
+    ],
+}

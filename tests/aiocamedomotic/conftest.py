@@ -509,6 +509,22 @@ def timer_data():
 
 
 @pytest.fixture
+def energy_meter_data():
+    """Mock data for an energy meter (real traffic, swver 3.0.1)."""
+    return {
+        "name": "Consumed Energy",
+        "id": 4,
+        "meter_type": 1,
+        "produced": 0,
+        "instant_power": 595,
+        "unit": "W",
+        "energy_unit": "Wh",
+        "last_24h_avg": 5813270,
+        "last_month_avg": 5813270,
+    }
+
+
+@pytest.fixture
 def timer_data_minimal():
     """Mock data for a timer without stop/active fields (v3.0.1 format)."""
     return {
