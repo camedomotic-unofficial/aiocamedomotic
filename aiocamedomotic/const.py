@@ -1,16 +1,5 @@
-# Copyright 2024 - GitHub user: fredericks1982
-
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-
-#     http://www.apache.org/licenses/LICENSE-2.0
-
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: 2026 - GitHub user: fredericks1982
+# SPDX-License-Identifier: Apache-2.0
 
 """
 Constants for the CAME Domotic API.
@@ -96,7 +85,12 @@ class DeviceType(IntEnum):
     Each device in the CAME Domotic system is associated with one of these type
     identifiers. Not all device types are currently supported by this library.
 
+    Negative IDs are library-specific: they identify entity kinds that the
+    CAME API does not assign a numeric type to.
+
     Values:
+        - LOADSCTRL_RELAY (-5)
+        - LOADSCTRL_METER (-4)
         - ANALOG_INPUT (-3)
         - ENERGY_SENSOR (-2)
         - ANALOG_SENSOR (-1)
@@ -118,6 +112,8 @@ class DeviceType(IntEnum):
         - TIMER (15)
     """
 
+    LOADSCTRL_RELAY = -5
+    LOADSCTRL_METER = -4
     ANALOG_INPUT = -3
     ENERGY_SENSOR = -2
     ANALOG_SENSOR = -1
@@ -168,6 +164,8 @@ class _CommandName(Enum):
     RELAYS_LIST = "relays_list_req"
     THERMO_LIST = "thermo_list_req"
     METERS_LIST = "meters_list_req"
+    LOADSCTRL_METER_LIST = "loadsctrl_meter_list_req"
+    LOADSCTRL_RELAY_LIST = "loadsctrl_relay_list_req"
     DIGITALIN_LIST = "digitalin_list_req"
     ANALOGIN_LIST = "analogin_list_req"
     TIMERS_LIST = "timers_list_req"
@@ -188,6 +186,10 @@ class _CommandName(Enum):
     TIMERS_ENABLE = "timers_enable_req"
     TIMERS_ENABLE_DAY = "timers_enable_day_req"
     TIMERS_SET = "timers_set_req"
+    # Loadsctrl set commands: the server ack carries no cmd_name, so there is
+    # no _CommandNameResponse counterpart for these two.
+    LOADSCTRL_RELAY_SET = "loadsctrl_relay_set_req"
+    LOADSCTRL_METER_SET = "loadsctrl_meter_set_req"
     TERMINALS_GROUPS_LIST = "terminals_groups_list_req"
     MAP_DESCR = "map_descr_req"
 
@@ -205,6 +207,8 @@ class _CommandNameResponse(Enum):
     RELAYS_LIST = "relays_list_resp"
     THERMO_LIST = "thermo_list_resp"
     METERS_LIST = "meters_list_resp"
+    LOADSCTRL_METER_LIST = "loadsctrl_meter_list_resp"
+    LOADSCTRL_RELAY_LIST = "loadsctrl_relay_list_resp"
     DIGITALIN_LIST = "digitalin_list_resp"
     ANALOGIN_LIST = "analogin_list_resp"
     TIMERS_LIST = "timers_list_resp"
@@ -351,6 +355,8 @@ _UPDATE_CMD_TO_DEVICE_TYPE: dict[str, DeviceType] = {
     "scenario_status_ind": DeviceType.SCENARIO,
     "scenario_activation_ind": DeviceType.SCENARIO,
     "meter_instant_power_ind": DeviceType.ENERGY_SENSOR,
+    "loadsctrl_meter_ind": DeviceType.LOADSCTRL_METER,
+    "loadsctrl_relay_ind": DeviceType.LOADSCTRL_RELAY,
     "relay_status_ind": DeviceType.GENERIC_RELAY,
     # API_reference.md variant names (firmware compatibility)
     "light_update_ind": DeviceType.LIGHT,
@@ -376,6 +382,8 @@ _DEVICE_TYPE_TO_FEATURE: dict[DeviceType, ServerFeature] = {
     DeviceType.SCENARIO: ServerFeature.SCENARIOS,
     DeviceType.DIGITAL_INPUT: ServerFeature.DIGITALIN,
     DeviceType.ENERGY_SENSOR: ServerFeature.ENERGY,
+    DeviceType.LOADSCTRL_METER: ServerFeature.LOADSCTRL,
+    DeviceType.LOADSCTRL_RELAY: ServerFeature.LOADSCTRL,
     DeviceType.ANALOG_INPUT: ServerFeature.ANALOGIN,
     DeviceType.TIMER: ServerFeature.TIMERS,
 }

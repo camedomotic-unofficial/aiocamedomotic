@@ -1,16 +1,5 @@
-# Copyright 2024 - GitHub user: fredericks1982
-
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-
-#     http://www.apache.org/licenses/LICENSE-2.0
-
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: 2026 - GitHub user: fredericks1982
+# SPDX-License-Identifier: Apache-2.0
 
 # pylint: disable=missing-module-docstring
 # pylint: disable=missing-function-docstring
@@ -63,6 +52,14 @@ class TestHandleCameDomoticErrorsDecorator:
         @handle_came_domotic_errors
         async def dummy():
             raise aiohttp.ServerTimeoutError("timed out")
+
+        with pytest.raises(CameDomoticServerTimeoutError, match="timeout"):
+            await dummy()
+
+    async def test_asyncio_timeout_error(self):
+        @handle_came_domotic_errors
+        async def dummy():
+            raise asyncio.TimeoutError()
 
         with pytest.raises(CameDomoticServerTimeoutError, match="timeout"):
             await dummy()
@@ -386,6 +383,24 @@ class TestAuthSendCommand:
                     headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
                     timeout=aiohttp.ClientTimeout(total=_DEFAULT_COMMAND_TIMEOUT),
                 )
+
+    async def test_asyncio_timeout_raises_timeout_error(self, auth_instance):
+        payload = {"command": "test_command"}
+
+        with patch.object(
+            auth_instance.websession, "post", new_callable=AsyncMock
+        ) as mock_post:
+            # aiohttp raises a plain asyncio.TimeoutError when the total
+            # ClientTimeout expires (e.g. long poll with no updates)
+            mock_post.side_effect = asyncio.TimeoutError()
+
+            with patch.object(
+                auth_instance, "async_get_valid_client_id", new_callable=AsyncMock
+            ) as mock_get_client_id:
+                mock_get_client_id.return_value = "test_client_id"
+
+                with pytest.raises(CameDomoticServerTimeoutError, match="timed out"):
+                    await auth_instance.async_send_command(payload)
 
     async def test_timeout(self, auth_instance):
         payload = {"command": "test_command"}

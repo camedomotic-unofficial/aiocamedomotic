@@ -1,16 +1,5 @@
-# Copyright 2024 - GitHub user: fredericks1982
-
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-
-#     http://www.apache.org/licenses/LICENSE-2.0
-
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: 2026 - GitHub user: fredericks1982
+# SPDX-License-Identifier: Apache-2.0
 
 # pylint: disable=missing-module-docstring
 # pylint: disable=missing-function-docstring
@@ -521,6 +510,43 @@ def energy_meter_data():
         "energy_unit": "Wh",
         "last_24h_avg": 5813270,
         "last_month_avg": 5813270,
+    }
+
+
+@pytest.fixture
+def loadsctrl_meter_data():
+    """Mock data for a loads controller (real traffic, swver 3.0.1)."""
+    return {
+        "name": "Consumed Energy",
+        "id": 196612,
+        "hysteresis": 400,
+        "max_power": 5000,
+        "profile_data": [
+            "444444444444444444444444",
+            "444444444444444444444444",
+            "444444444444444444444444",
+            "444444444444444444444444",
+            "444444444444444444444444",
+            "444444444444444444444444",
+            "444444444444444444444444",
+        ],
+        "meter_id": 4,
+        "power": 595,
+    }
+
+
+@pytest.fixture
+def loadsctrl_relay_data():
+    """Mock data for a load managed by the loads controller."""
+    return {
+        "name": "Washing machine",
+        "id": 65600,
+        "priority": 129,
+        "enabled": 0,
+        "act_id": 129,
+        "detached": 0,
+        "status": 1,
+        "loadtype": 1,
     }
 
 

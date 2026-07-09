@@ -1,16 +1,5 @@
-# Copyright 2024 - GitHub user: fredericks1982
-
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-
-#     http://www.apache.org/licenses/LICENSE-2.0
-
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: 2026 - GitHub user: fredericks1982
+# SPDX-License-Identifier: Apache-2.0
 
 """
 This module defines the Python representation of each of the entity types used by the
@@ -40,6 +29,11 @@ from .digital_input import (  # noqa: F401
 )
 from .energy_meter import EnergyMeter, EnergyMeterType  # noqa: F401
 from .light import Light, LightStatus, LightType  # noqa: F401
+from .loads_ctrl import (  # noqa: F401
+    LoadsCtrlMeter,
+    LoadsCtrlRelay,
+    LoadsCtrlRelayStatus,
+)
 from .map_page import MapPage  # noqa: F401
 from .opening import Opening, OpeningStatus, OpeningType  # noqa: F401
 from .relay import Relay, RelayStatus  # noqa: F401
@@ -60,6 +54,8 @@ from .update import (  # noqa: F401
     DigitalInputUpdate,
     EnergyMeterUpdate,
     LightUpdate,
+    LoadsCtrlMeterUpdate,
+    LoadsCtrlRelayUpdate,
     OpeningUpdate,
     PlantUpdate,
     RelayUpdate,
@@ -92,6 +88,11 @@ __all__ = [
     "LightStatus",
     "LightType",
     "LightUpdate",
+    "LoadsCtrlMeter",
+    "LoadsCtrlMeterUpdate",
+    "LoadsCtrlRelay",
+    "LoadsCtrlRelayStatus",
+    "LoadsCtrlRelayUpdate",
     "MapPage",
     "Opening",
     "OpeningStatus",

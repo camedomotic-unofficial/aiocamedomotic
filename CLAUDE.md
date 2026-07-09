@@ -13,15 +13,23 @@ AIOCameDomotic is a Python library that provides an asynchronous API for interac
 - Run tests: `pytest`
 - Run specific test: `pytest tests/aiocamedomotic/test_auth.py::TestAuthInit::test_init`
 - Run tests with coverage: `pytest --cov=aiocamedomotic --cov-report=term-missing --cov-report=html`
-- Format code: `black .`
-- Lint code: `pylint aiocamedomotic tests`
+- Format code: `ruff format aiocamedomotic tests` (CI checks with `ruff format aiocamedomotic --check`)
+- Lint code: `ruff check aiocamedomotic` and `pylint aiocamedomotic tests` (CI runs `pylint --disable=W,R,C aiocamedomotic`)
 - Type check: `mypy aiocamedomotic`
-- Build docs: `cd docs && make html`
+- Build docs: `cd docs && make html` (or `python -m sphinx -b html source build/html` if `make` is unavailable)
 
 ## Code Style Guidelines
 
+- **License headers**: Every new source file (code, tests, docs, config, workflows) starts with the two-line SPDX header, in the file's native comment style. Do not use the long Apache boilerplate — the full license text lives only in `LICENSE`. Python/YAML/TOML example:
+
+  ```python
+  # SPDX-FileCopyrightText: 2026 - GitHub user: fredericks1982
+  # SPDX-License-Identifier: Apache-2.0
+  ```
+
+  (RST files use `..` comments, Markdown uses a `<!-- ... -->` block.)
 - **Imports**: Standard library first, third-party next, project imports last
-- **Formatting**: Black with default settings, 4-space indentation
+- **Formatting**: `ruff format` (Black-compatible style), line length 88, 4-space indentation
 - **Types**: Use type hints for all functions, return values, and parameters
 - **Naming**:
   - Classes: PascalCase (e.g., `CameDomoticAPI`)
@@ -29,7 +37,7 @@ AIOCameDomotic is a Python library that provides an asynchronous API for interac
   - Private methods: prefixed with underscore (e.g., `_attempt_login`)
   - Constants: UPPER_SNAKE_CASE (typically in const.py)
 - **Error Handling**: Custom exceptions from base `CameDomoticError`, specific try/except blocks
-- **Documentation**: Docstrings for all public classes/methods with parameters, return values, and exceptions. When adding a new model module, also add a corresponding `.. automodule::` entry in `docs/source/api_reference.rst`
+- **Documentation**: Docstrings for all public classes/methods with parameters, return values, and exceptions. When adding a new model module, export its public names in `aiocamedomotic/models/__init__.py` (imports plus sorted `__all__`): `docs/source/api_reference.rst` documents the models package through a single `.. automodule:: aiocamedomotic.models` directive, so do **not** add per-module `.. automodule::` entries
 - **Testing**: Pytest with mocks, fixtures, parameterization, and freezegun for time-dependent tests
 - **Comments**: never mention in comments of code, commits, PRs, etc. that have been generated with the help of Claude or any other AI tool
 

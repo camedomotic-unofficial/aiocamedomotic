@@ -1,16 +1,5 @@
-# Copyright 2024 - GitHub user: fredericks1982
-
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-
-#     http://www.apache.org/licenses/LICENSE-2.0
-
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: 2026 - GitHub user: fredericks1982
+# SPDX-License-Identifier: Apache-2.0
 
 """This module contains examples of responses from the CAME Domotic server.
 
@@ -693,6 +682,111 @@ GENERIC_REPLY = {
     "cseq": 4,
     "cmd_name": "generic_reply",
     "sl_data_ack_reason": 0,
+}
+
+LOADSCTRL_RELAY_LIST_RESP = {
+    "cmd_name": "loadsctrl_relay_list_resp",
+    "cseq": 20,
+    "array": [
+        {
+            "name": "Dishwasher",
+            "id": 65601,
+            "priority": 130,
+            "enabled": 1,
+            "act_id": 128,
+            "detached": 0,
+            "status": 1,
+            "loadtype": 1,
+        },
+        {
+            "name": "Washing machine",
+            "id": 65600,
+            "priority": 129,
+            "enabled": 0,
+            "act_id": 129,
+            "detached": 0,
+            "status": 1,
+            "loadtype": 1,
+        },
+        {
+            "name": "Tumble dryer",
+            "id": 65537,
+            "priority": 132,
+            "enabled": 0,
+            "act_id": 130,
+            "detached": 0,
+            "status": 0,
+            "loadtype": 1,
+        },
+        {
+            "name": "Air conditioner",
+            "id": 65602,
+            "priority": 131,
+            "enabled": 0,
+            "act_id": 131,
+            "detached": 0,
+            "status": 1,
+            "loadtype": 1,
+        },
+    ],
+    "sl_data_ack_reason": 0,
+}
+
+# Ack to loadsctrl_relay_set_req / loadsctrl_meter_set_req (real traffic,
+# swver 3.0.1): bare ack with NO cmd_name.
+LOADSCTRL_SET_ACK = {
+    "cseq": 21,
+    "sl_data_ack_reason": 0,
+}
+
+# Push update received after an accepted loadsctrl_relay_set_req (real
+# traffic, swver 3.0.1): full relay snapshot, echoed to all clients
+# including the issuer.
+LOADSCTRL_RELAY_IND_STATUS_UPDATE_RESP = {
+    "cmd_name": "status_update_resp",
+    "cseq": 22,
+    "sl_data_ack_reason": 0,
+    "result": [
+        {
+            "name": "Air conditioner",
+            "id": 65602,
+            "priority": 131,
+            "enabled": 1,
+            "act_id": 131,
+            "detached": 0,
+            "status": 1,
+            "loadtype": 1,
+            "cmd_name": "loadsctrl_relay_ind",
+        }
+    ],
+}
+
+# Push update received after an accepted loadsctrl_meter_set_req (earlier
+# capture): full controller snapshot.
+LOADSCTRL_METER_IND_STATUS_UPDATE_RESP = {
+    "cmd_name": "status_update_resp",
+    "cseq": 151,
+    "sl_data_ack_reason": 0,
+    "result": [
+        {
+            "name": "Meter 1",
+            "id": 123456,
+            "hysteresis": 1000,
+            "max_power": 4800,
+            "profile_data": [
+                "155555555555555555555555",
+                "555555555555555555555555",
+                "555555555555555555555555",
+                "555555555555555555555555",
+                "555555555555555555555555",
+                "555555555555555555555555",
+                "555555555555555555555555",
+            ],
+            "meter_id": 1,
+            "power": 455,
+            "cmd_name": "loadsctrl_meter_ind",
+        }
+    ],
 }
 
 # Push update received after the measured power changed (real traffic,
