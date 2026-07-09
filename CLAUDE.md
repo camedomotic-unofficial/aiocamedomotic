@@ -23,7 +23,7 @@ AIOCameDomotic is a Python library that provides an asynchronous API for interac
 - **License headers**: Every new source file (code, tests, docs, config, workflows) starts with the two-line SPDX header, in the file's native comment style. Do not use the long Apache boilerplate — the full license text lives only in `LICENSE`. Python/YAML/TOML example:
 
   ```python
-  # SPDX-FileCopyrightText: 2024 - GitHub user: fredericks1982
+  # SPDX-FileCopyrightText: 2026 - GitHub user: fredericks1982
   # SPDX-License-Identifier: Apache-2.0
   ```
 
