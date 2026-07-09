@@ -179,10 +179,8 @@ class LoadsCtrlRelay(CameEntity):
             CameDomoticAuthError: If the authentication fails.
             CameDomoticServerError: If the server returns an error.
         """
-        await self.auth.async_get_valid_client_id()
         LOGGER.debug(
-            "User authenticated, sending 'loadsctrl_relay_set_req' command "
-            "to the API (enabled=%s).",
+            "Sending 'loadsctrl_relay_set_req' command to the API (enabled=%s).",
             enabled,
         )
 
@@ -229,10 +227,8 @@ class LoadsCtrlRelay(CameEntity):
         if priority < 0:
             raise ValueError(f"priority must be >= 0, got {priority}")
 
-        await self.auth.async_get_valid_client_id()
         LOGGER.debug(
-            "User authenticated, sending 'loadsctrl_relay_set_req' command "
-            "to the API (priority=%d).",
+            "Sending 'loadsctrl_relay_set_req' command to the API (priority=%d).",
             priority,
         )
 
@@ -435,10 +431,9 @@ class LoadsCtrlMeter(CameEntity):
             list(profile_data) if profile_data is not None else self.profile_data
         )
 
-        await self.auth.async_get_valid_client_id()
         LOGGER.debug(
-            "User authenticated, sending 'loadsctrl_meter_set_req' command "
-            "to the API (max_power=%d, hysteresis=%d).",
+            "Sending 'loadsctrl_meter_set_req' command to the API "
+            "(max_power=%d, hysteresis=%d).",
             new_max_power,
             new_hysteresis,
         )
