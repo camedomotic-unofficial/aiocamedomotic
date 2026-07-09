@@ -330,7 +330,9 @@ Example output:
 .. note::
     The ``brightness`` parameter is silently ignored for non-dimmable
     (STEP_STEP) lights. The ``rgb`` parameter is silently ignored for
-    non-RGB lights.
+    non-RGB lights. Dimmer hardware may quantize the requested brightness
+    to its own steps, so the server can report back a slightly different
+    value (e.g. requesting ``50`` may result in ``52``).
 
 Openings
 ^^^^^^^^
@@ -738,7 +740,7 @@ Example output:
       Slot 2: 22:00:00 → N/A
 
 .. note::
-    The ``stop`` and ``active`` fields mayb be not
+    The ``stop`` and ``active`` fields may not be
     present in the server response. The corresponding properties return
     ``None`` in that case. Your code should handle both cases.
 
@@ -1094,12 +1096,10 @@ the wire command requires the full configuration on every write:
     await ctrl.async_set_config(max_power=5000, hysteresis=300)
 
 .. note::
-    ``async_set_config()`` is **experimental**: the command was observed in
-    an earlier real-traffic capture but has not been re-verified against a
-    live server by this library. The ``profile_data`` parameter (the weekly
-    hourly threshold profile) is accepted only for the mandatory raw
-    round-trip and is strictly validated (7 strings of 24 digits in
-    ``1``-``5``); profile *editing* is not yet a library feature.
+    The ``profile_data`` parameter (the weekly hourly threshold profile) is
+    accepted only for the mandatory raw round-trip and is strictly
+    validated (7 strings of 24 digits in ``1``-``5``); profile *editing* is
+    not yet a library feature.
 
 Configuration writes and load changes are echoed back as push updates —
 see :ref:`loadsctrl-updates` in the monitoring section below.
@@ -1137,7 +1137,7 @@ processes each batch of updates as it arrives:
                 continue
 
             for update in updates.get_typed_updates():
-                print(f"[{update.device_type}] {update.name} (ID: {update.device_id})")
+                print(f"[{update.device_type.name}] {update.name} (ID: {update.device_id})")
 
             # Brief pause to avoid tight looping on rapid server responses
             await asyncio.sleep(1)
@@ -1146,9 +1146,9 @@ Example output:
 
 .. code-block:: text
 
-    [DeviceType.LIGHT] Living Room Chandelier (ID: 1)
-    [DeviceType.OPENING] Bedroom Shutter (ID: 10)
-    [DeviceType.THERMO_ZONE] Living Room (ID: 1)
+    [LIGHT] Living Room Chandelier (ID: 1)
+    [OPENING] Bedroom Shutter (ID: 10)
+    [THERMOSTAT] Living Room (ID: 1)
 
 .. note::
     The ``asyncio.sleep(1)`` acts as a safety throttle in case the server
