@@ -1086,11 +1086,12 @@ present on the plant, reassigning them in ascending order to your sequence:
     ``async_set_detach_order()`` writes **only the relays whose priority
     actually changes** (the official app does the same), so a no-op reorder
     sends no set commands. It raises ``ValueError`` if the sequence is not
-    a permutation of the controller's relays (same IDs, no duplicates), or
-    on plants where relays share **duplicate priority values** — there a
-    full detach order cannot be expressed by reassigning the existing
-    values, and you must fall back to explicit ``async_set_priority()``
-    calls.
+    a permutation of the controller's relays (same IDs, no duplicates).
+    The method is not atomic (one set command per changed relay), but it
+    is **safe to retry**: if a call fails partway through and leaves two
+    relays sharing a priority value, calling it again repairs the
+    duplicates into a strictly increasing sequence and converges to the
+    requested order.
 
 **Updating the controller configuration:**
 

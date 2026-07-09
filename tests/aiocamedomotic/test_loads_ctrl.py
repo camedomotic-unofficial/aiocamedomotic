@@ -22,6 +22,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from aiocamedomotic import Auth, CameDomoticAPI
+from aiocamedomotic.errors import CameDomoticServerError
 from aiocamedomotic.models import (
     LoadsCtrlMeter,
     LoadsCtrlRelay,
@@ -364,13 +365,37 @@ class TestLoadsCtrlMeter:
         mock_send_command.assert_not_called()
 
     @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
-    async def test_async_set_config_hysteresis_not_positive(
+    async def test_async_set_config_hysteresis_negative(
         self, mock_send_command, loadsctrl_meter_data, auth_instance
     ):
         meter = LoadsCtrlMeter(loadsctrl_meter_data, auth_instance)
-        with pytest.raises(ValueError, match="hysteresis must be a positive int"):
+        with pytest.raises(ValueError, match="hysteresis must be a non-negative int"):
             await meter.async_set_config(hysteresis=-1)
         mock_send_command.assert_not_called()
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    @patch.object(Auth, "async_get_valid_client_id", new_callable=AsyncMock)
+    async def test_async_set_config_hysteresis_zero_allowed(
+        self,
+        mock_get_client_id,
+        mock_send_command,
+        loadsctrl_meter_data,
+        auth_instance,
+    ):
+        meter = LoadsCtrlMeter(loadsctrl_meter_data, auth_instance)
+
+        await meter.async_set_config(hysteresis=0)
+
+        mock_send_command.assert_called_once_with(
+            {
+                "cmd_name": "loadsctrl_meter_set_req",
+                "id": 196612,
+                "max_power": 5000,
+                "hysteresis": 0,
+                "profile_data": ["4" * 24] * 7,
+            }
+        )
+        assert meter.hysteresis == 0
 
     @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
     async def test_async_set_config_profile_wrong_count(
@@ -460,6 +485,53 @@ class TestLoadsCtrlMeter:
 
     @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
     @patch.object(Auth, "async_get_valid_client_id", new_callable=AsyncMock)
+    async def test_async_set_detach_order_uses_fresh_enabled_state(
+        self,
+        mock_get_client_id,
+        mock_send_command,
+        loadsctrl_meter_data,
+        auth_instance,
+    ):
+        meter = LoadsCtrlMeter(loadsctrl_meter_data, auth_instance)
+        # The caller's cached objects: relay 65601 believes it is enabled,
+        # from an earlier fetch.
+        stale_relays = [
+            LoadsCtrlRelay(copy.deepcopy(data), auth_instance)
+            for data in LOADSCTRL_RELAY_LIST_RESP["array"]
+        ]
+        by_id = {r.id: r for r in stale_relays}
+        assert by_id[65601].enabled is True
+
+        # Server-side truth has since changed: another client disabled it.
+        fresh_resp = copy.deepcopy(LOADSCTRL_RELAY_LIST_RESP)
+        for relay_data in fresh_resp["array"]:
+            if relay_data["id"] == 65601:
+                relay_data["enabled"] = 0
+
+        desired = [by_id[65601], by_id[65600], by_id[65602], by_id[65537]]
+        mock_send_command.side_effect = [
+            fresh_resp,
+            dict(LOADSCTRL_SET_ACK),
+            dict(LOADSCTRL_SET_ACK),
+        ]
+
+        await meter.async_set_detach_order(desired)
+
+        # The write for 65601 must carry the FRESH enabled value (0), not
+        # the caller's stale cached value (1) - otherwise this call would
+        # silently revert the other client's change.
+        assert mock_send_command.call_args_list[1].args[0] == {
+            "cmd_name": "loadsctrl_relay_set_req",
+            "id": 65601,
+            "enabled": 0,
+            "priority": 129,
+        }
+        # The caller's object is synced to the fresh state too
+        assert by_id[65601].enabled is False
+        assert by_id[65601].priority == 129
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    @patch.object(Auth, "async_get_valid_client_id", new_callable=AsyncMock)
     async def test_async_set_detach_order_no_changes(
         self,
         mock_get_client_id,
@@ -529,12 +601,19 @@ class TestLoadsCtrlMeter:
             await meter.async_set_detach_order(relays[:3] + [foreign])
 
     @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
-    async def test_async_set_detach_order_duplicate_priorities(
-        self, mock_send_command, loadsctrl_meter_data, auth_instance
+    @patch.object(Auth, "async_get_valid_client_id", new_callable=AsyncMock)
+    async def test_async_set_detach_order_repairs_duplicate_priorities(
+        self,
+        mock_get_client_id,
+        mock_send_command,
+        loadsctrl_meter_data,
+        auth_instance,
+        caplog,
     ):
         meter = LoadsCtrlMeter(loadsctrl_meter_data, auth_instance)
-        # Plant with duplicate priorities (observed on some firmwares:
-        # every relay at the same priority value)
+        # Plant where every relay shares the same priority value: a full
+        # detach order cannot be expressed with the existing value set, so
+        # the method must repair it into a strictly increasing sequence.
         duplicate_resp = copy.deepcopy(LOADSCTRL_RELAY_LIST_RESP)
         for relay_data in duplicate_resp["array"]:
             relay_data["priority"] = 82
@@ -542,10 +621,72 @@ class TestLoadsCtrlMeter:
             LoadsCtrlRelay(copy.deepcopy(data), auth_instance)
             for data in duplicate_resp["array"]
         ]
-        mock_send_command.return_value = duplicate_resp
+        mock_send_command.side_effect = [duplicate_resp] + [dict(LOADSCTRL_SET_ACK)] * 3
 
-        with pytest.raises(ValueError, match="duplicate priority"):
-            await meter.async_set_detach_order(relays)
+        await meter.async_set_detach_order(relays)
+
+        # Repaired sequence 82, 83, 84, 85: the first relay keeps 82
+        # (no write), the others are bumped in request order.
+        assert mock_send_command.call_count == 4
+        written = [call.args[0] for call in mock_send_command.call_args_list[1:]]
+        assert [(w["id"], w["priority"]) for w in written] == [
+            (relays[1].id, 83),
+            (relays[2].id, 84),
+            (relays[3].id, 85),
+        ]
+        assert "duplicate relay" in caplog.text
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    @patch.object(Auth, "async_get_valid_client_id", new_callable=AsyncMock)
+    async def test_async_set_detach_order_replay_after_partial_failure(
+        self,
+        mock_get_client_id,
+        mock_send_command,
+        loadsctrl_meter_data,
+        auth_instance,
+    ):
+        meter = LoadsCtrlMeter(loadsctrl_meter_data, auth_instance)
+        relays = [
+            LoadsCtrlRelay(copy.deepcopy(data), auth_instance)
+            for data in LOADSCTRL_RELAY_LIST_RESP["array"]
+        ]
+        by_id = {r.id: r for r in relays}
+        # Swap the two first loads to shed: 65601 gets 129, 65600 gets 130.
+        desired = [by_id[65601], by_id[65600], by_id[65602], by_id[65537]]
+
+        # First call: the write for 65601 (-> 129) succeeds, then the
+        # write for 65600 (-> 130) fails, leaving 65600 and 65601 both
+        # at priority 129 on the plant (value 130 temporarily lost).
+        mock_send_command.side_effect = [
+            copy.deepcopy(LOADSCTRL_RELAY_LIST_RESP),
+            dict(LOADSCTRL_SET_ACK),
+            CameDomoticServerError("boom"),
+        ]
+        with pytest.raises(CameDomoticServerError):
+            await meter.async_set_detach_order(desired)
+
+        after_failure_resp = copy.deepcopy(LOADSCTRL_RELAY_LIST_RESP)
+        for relay_data in after_failure_resp["array"]:
+            if relay_data["id"] == 65601:
+                relay_data["priority"] = 129
+
+        # Replaying the same request must repair the duplicate (129, 129,
+        # 131, 132 -> 129, 130, 131, 132) and finish the reorder with a
+        # single write, restoring the originally intended end state.
+        mock_send_command.side_effect = [
+            after_failure_resp,
+            dict(LOADSCTRL_SET_ACK),
+        ]
+        await meter.async_set_detach_order(desired)
+
+        assert mock_send_command.call_args_list[-1].args[0] == {
+            "cmd_name": "loadsctrl_relay_set_req",
+            "id": 65600,
+            "enabled": 0,
+            "priority": 130,
+        }
+        assert by_id[65601].priority == 129
+        assert by_id[65600].priority == 130
 
 
 class TestAPILoadsCtrl:
@@ -639,11 +780,11 @@ class TestAPILoadsCtrl:
         assert await api.async_get_loadsctrl_relays(123456) == []
 
     @patch.object(Auth, "async_send_command")
-    async def test_async_get_loadsctrl_relays_invalid_meter_id(
+    async def test_async_get_loadsctrl_relays_invalid_controller_id(
         self, mock_send_command, auth_instance
     ):
         api = CameDomoticAPI(auth_instance)
 
-        with pytest.raises(ValueError, match="meter_id must be an int"):
+        with pytest.raises(ValueError, match="controller_id must be an int"):
             await api.async_get_loadsctrl_relays("123456")
         mock_send_command.assert_not_called()

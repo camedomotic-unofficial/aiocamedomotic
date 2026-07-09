@@ -45,9 +45,10 @@ Protocol notes (from real captured traffic, ETI/Domo swver 3.0.1):
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Sequence
+from typing import Any
 
 from ..auth import Auth
 from ..const import _CommandName, _CommandNameResponse
@@ -403,8 +404,9 @@ class LoadsCtrlMeter(CameEntity):
         Args:
             max_power: New overload threshold in Watts (positive integer),
                 or ``None`` to keep the current value.
-            hysteresis: New hysteresis in Watts (positive integer), or
-                ``None`` to keep the current value.
+            hysteresis: New hysteresis in Watts (non-negative integer; ``0``
+                disables the hysteresis band), or ``None`` to keep the
+                current value.
             profile_data: New weekly hourly threshold profile in raw wire
                 format — exactly 7 strings of exactly 24 characters, each
                 character a digit ``1``-``5`` — or ``None`` to keep the
@@ -413,9 +415,9 @@ class LoadsCtrlMeter(CameEntity):
                 is not yet available.
 
         Raises:
-            ValueError: If ``max_power`` or ``hysteresis`` is not a
-                positive integer, or if ``profile_data`` does not match the
-                required shape.
+            ValueError: If ``max_power`` is not a positive integer, if
+                ``hysteresis`` is not a non-negative integer, or if
+                ``profile_data`` does not match the required shape.
             CameDomoticAuthError: If the authentication fails.
             CameDomoticServerError: If the server returns an error.
         """
@@ -428,9 +430,11 @@ class LoadsCtrlMeter(CameEntity):
         if hysteresis is not None and (
             not isinstance(hysteresis, int)
             or isinstance(hysteresis, bool)
-            or hysteresis <= 0
+            or hysteresis < 0
         ):
-            raise ValueError(f"hysteresis must be a positive int, got {hysteresis!r}")
+            raise ValueError(
+                f"hysteresis must be a non-negative int, got {hysteresis!r}"
+            )
         if profile_data is not None:
             self._validate_profile_data(profile_data)
 
@@ -486,6 +490,29 @@ class LoadsCtrlMeter(CameEntity):
         relays). Reusing the existing value set keeps whatever absolute
         numbering convention the plant uses intact.
 
+        Each write is issued through a freshly-fetched relay object (not
+        the caller-supplied one), so it carries the ``enabled`` flag as of
+        this call's own relay-list fetch rather than whatever value the
+        caller's object happened to have cached — otherwise a stale
+        caller-side ``enabled`` would be silently written back over a
+        concurrent change made by another client. The caller-supplied
+        objects are updated with the resulting state afterward, so they
+        remain a valid source for further calls.
+
+        This method is not atomic: it issues one set command per changed
+        relay, sequentially. If a call fails partway through, the plant can
+        be left with two relays sharing the same priority value (the new
+        value is written to one relay before the old value is cleared from
+        the other). This is safe to recover from by simply calling the
+        method again: duplicate priority values found on the plant are
+        repaired into a strictly increasing sequence (each duplicate is
+        bumped just above the value before it) before being reassigned, so
+        a replay of the same request converges to the requested order. The
+        same repair also applies to plants whose priorities contain
+        duplicates for any other reason, in which case some relays end up
+        with priority values not previously used on the plant; a warning
+        is logged when this happens.
+
         Args:
             relays: The desired detach order. Must be a permutation of this
                 controller's relays (same IDs, no duplicates) — fetch them
@@ -493,10 +520,7 @@ class LoadsCtrlMeter(CameEntity):
 
         Raises:
             ValueError: If ``relays`` is not a permutation of this
-                controller's relays, or if the plant uses duplicate
-                priority values (in which case a full detach order cannot
-                be expressed by reassigning them — fall back to explicit
-                :meth:`LoadsCtrlRelay.async_set_priority` calls).
+                controller's relays (same IDs, no duplicates).
             CameDomoticAuthError: If the authentication fails.
             CameDomoticServerError: If the server returns an error.
         """
@@ -512,17 +536,31 @@ class LoadsCtrlMeter(CameEntity):
                 "(same IDs, no duplicates); fetch them via async_get_relays() first"
             )
 
-        priorities = sorted(relay.priority for relay in current_relays)
-        if len(set(priorities)) != len(priorities):
-            raise ValueError(
-                "this plant uses duplicate priority values, so a full detach "
-                "order cannot be expressed; use async_set_priority explicitly"
+        # Duplicate priority values (e.g. left behind by a previous call
+        # of this method that failed partway through) cannot express a
+        # full detach order: repair them into a strictly increasing
+        # sequence so the request is always applicable.
+        current_priorities = sorted(relay.priority for relay in current_relays)
+        priorities = list(current_priorities)
+        for index in range(1, len(priorities)):
+            if priorities[index] <= priorities[index - 1]:
+                priorities[index] = priorities[index - 1] + 1
+        if priorities != current_priorities:
+            LOGGER.warning(
+                "Loads controller '%s' (ID: %s) reports duplicate relay "
+                "priority values; repairing them to %s to apply the "
+                "requested detach order.",
+                self.name,
+                self.id,
+                priorities,
             )
 
         changed = 0
         for relay, new_priority in zip(relays, priorities, strict=True):
-            if current_by_id[relay.id].priority != new_priority:
-                await relay.async_set_priority(new_priority)
+            fresh_relay = current_by_id[relay.id]
+            if fresh_relay.priority != new_priority:
+                await fresh_relay.async_set_priority(new_priority)
+                relay.raw_data.update(fresh_relay.raw_data)
                 changed += 1
 
         LOGGER.info(

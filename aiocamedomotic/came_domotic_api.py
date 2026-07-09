@@ -599,7 +599,9 @@ class CameDomoticAPI:
         LOGGER.info("Retrieved %d loadsctrl meter(s)", len(meters_list))
         return [LoadsCtrlMeter(meter_data, self.auth) for meter_data in meters_list]
 
-    async def async_get_loadsctrl_relays(self, meter_id: int) -> list[LoadsCtrlRelay]:
+    async def async_get_loadsctrl_relays(
+        self, controller_id: int
+    ) -> list[LoadsCtrlRelay]:
         """Get the loads managed by the given loads controller.
 
         Convenience passthrough for ``loadsctrl_relay_list_req``;
@@ -607,7 +609,7 @@ class CameDomoticAPI:
         the ergonomic path.
 
         Args:
-            meter_id: The loads-controller ``id`` (as returned by
+            controller_id: The loads-controller ``id`` (as returned by
                 :meth:`async_get_loadsctrl_meters`), **not** the energy
                 meter's ``id``.
 
@@ -617,17 +619,21 @@ class CameDomoticAPI:
             ``array`` key.
 
         Raises:
-            ValueError: If ``meter_id`` is not an integer.
+            ValueError: If ``controller_id`` is not an integer.
             CameDomoticAuthError: If the authentication fails.
             CameDomoticServerError: If the server returns an error.
         """
-        if not isinstance(meter_id, int) or isinstance(meter_id, bool):
-            raise ValueError(f"meter_id must be an int, got {type(meter_id).__name__}")
+        if not isinstance(controller_id, int) or isinstance(controller_id, bool):
+            raise ValueError(
+                f"controller_id must be an int, got {type(controller_id).__name__}"
+            )
 
-        LOGGER.debug("Fetching loadsctrl relays list for controller ID %s", meter_id)
+        LOGGER.debug(
+            "Fetching loadsctrl relays list for controller ID %s", controller_id
+        )
         payload = {
             "cmd_name": _CommandName.LOADSCTRL_RELAY_LIST.value,
-            "id": meter_id,
+            "id": controller_id,
         }
 
         json_response = await self.auth.async_send_command(
