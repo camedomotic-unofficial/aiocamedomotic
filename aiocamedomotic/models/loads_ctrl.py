@@ -136,8 +136,7 @@ class LoadsCtrlRelay(CameEntity):
         """Detach-order priority (raw server value).
 
         **Lower value = detached first.** The absolute numbering is a
-        plant-specific convention; duplicates across relays are possible on
-        some plants/firmwares, so uniqueness must not be assumed.
+        plant-specific convention.
         """
         return self.raw_data.get("priority", 0)
 
@@ -400,12 +399,6 @@ class LoadsCtrlMeter(CameEntity):
         Sends ``loadsctrl_meter_set_req``. The wire command requires the
         full triple, so any unspecified argument is re-sent with its
         current value from ``raw_data``.
-
-        .. note::
-            This command is **experimental**: it is documented in the CAME
-            API and was observed in an earlier real-traffic capture, but it
-            has not been re-verified against a live server by this library.
-            Behaviour may differ across firmware versions.
 
         Args:
             max_power: New overload threshold in Watts (positive integer),
