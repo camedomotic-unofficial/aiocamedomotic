@@ -36,12 +36,17 @@ permissions:
   contents: read
   security-events: write # For reporting security issues
 
+# Cancel superseded runs on the same PR; never cancel runs on main or schedule
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   bandit:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Run Bandit
         run: |
@@ -51,12 +56,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0 # fetch all history so multiple commits can be scanned
 
       - name: GitGuardian scan
-        uses: GitGuardian/ggshield-action@v1.48.0
+        uses: GitGuardian/ggshield-action@da20be06cafe5e8633dc24744efe1efe8d30f06b # v1.52.2
         env:
           GITHUB_PUSH_BEFORE_SHA: ${{ github.event.before }}
           GITHUB_PUSH_BASE_SHA: ${{ github.event.base }}
