@@ -64,7 +64,7 @@ def handle_came_domotic_errors(func: _F) -> _F:
 
     The decorator catches the following exceptions:
     - aiohttp.ClientResponseError: for HTTP errors (4xx, 5xx)
-    - aiohttp.ServerTimeoutError: for timeouts
+    - TimeoutError: for timeouts (asyncio.TimeoutError, ServerTimeoutError)
     - aiohttp.ClientError: for other network-related errors
     - CameDomoticAuthError: for authentication errors
     - any other exception: for unforeseen errors
@@ -85,8 +85,10 @@ def handle_came_domotic_errors(func: _F) -> _F:
             raise CameDomoticServerError(
                 f"HTTP POST resulted in an HTTP {e.status} error ({e.message})"
             ) from e
-        except aiohttp.ServerTimeoutError as e:
-            # Handle timeouts specifically
+        except TimeoutError as e:
+            # Handle timeouts specifically. aiohttp raises a plain
+            # asyncio.TimeoutError (builtin TimeoutError on Python 3.11+)
+            # when the total ClientTimeout expires, e.g. on a long poll.
             LOGGER.error("Timeout in %s: %s", func.__name__, e)
             raise CameDomoticServerTimeoutError(
                 f"HTTP POST resulted in a timeout error ({e})"
@@ -506,6 +508,15 @@ class Auth:
             cmd_name = (command or {}).get("cmd_name")
             LOGGER.error("Error sending command '%s': %s", cmd_name, e)
             raise e
+        except TimeoutError as e:
+            # aiohttp raises a plain asyncio.TimeoutError (builtin
+            # TimeoutError on Python 3.11+) when the total ClientTimeout
+            # expires, e.g. on a long poll with no pending updates.
+            cmd_name = (command or {}).get("cmd_name")
+            LOGGER.error("Timeout sending command '%s': %s", cmd_name, e)
+            raise CameDomoticServerTimeoutError(
+                f"Request timed out sending command '{cmd_name}'"
+            ) from e
         except Exception as e:
             cmd_name = (command or {}).get("cmd_name")
             LOGGER.exception("Error sending command '%s': %s", cmd_name, e)

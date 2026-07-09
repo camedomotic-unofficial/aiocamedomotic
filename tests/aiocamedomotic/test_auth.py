@@ -56,6 +56,14 @@ class TestHandleCameDomoticErrorsDecorator:
         with pytest.raises(CameDomoticServerTimeoutError, match="timeout"):
             await dummy()
 
+    async def test_asyncio_timeout_error(self):
+        @handle_came_domotic_errors
+        async def dummy():
+            raise asyncio.TimeoutError()
+
+        with pytest.raises(CameDomoticServerTimeoutError, match="timeout"):
+            await dummy()
+
     async def test_client_error(self):
         @handle_came_domotic_errors
         async def dummy():
@@ -375,6 +383,24 @@ class TestAuthSendCommand:
                     headers=Auth._DEFAULT_HTTP_HEADERS,  # pylint: disable=protected-access
                     timeout=aiohttp.ClientTimeout(total=_DEFAULT_COMMAND_TIMEOUT),
                 )
+
+    async def test_asyncio_timeout_raises_timeout_error(self, auth_instance):
+        payload = {"command": "test_command"}
+
+        with patch.object(
+            auth_instance.websession, "post", new_callable=AsyncMock
+        ) as mock_post:
+            # aiohttp raises a plain asyncio.TimeoutError when the total
+            # ClientTimeout expires (e.g. long poll with no updates)
+            mock_post.side_effect = asyncio.TimeoutError()
+
+            with patch.object(
+                auth_instance, "async_get_valid_client_id", new_callable=AsyncMock
+            ) as mock_get_client_id:
+                mock_get_client_id.return_value = "test_client_id"
+
+                with pytest.raises(CameDomoticServerTimeoutError, match="timed out"):
+                    await auth_instance.async_send_command(payload)
 
     async def test_timeout(self, auth_instance):
         payload = {"command": "test_command"}
