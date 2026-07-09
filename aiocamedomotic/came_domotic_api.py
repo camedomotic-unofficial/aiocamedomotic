@@ -43,6 +43,7 @@ from .models import (
     AnalogSensorType,
     Camera,
     DigitalInput,
+    EnergyMeter,
     Floor,
     Light,
     MapPage,
@@ -532,6 +533,37 @@ class CameDomoticAPI:
         analogin_list = json_response.get("array", []) or []
         LOGGER.info("Retrieved %d analog input(s)", len(analogin_list))
         return [AnalogIn(analogin_data) for analogin_data in analogin_list]
+
+    async def async_get_energy_meters(self) -> list[EnergyMeter]:
+        """Get the list of all energy meters defined on the server.
+
+        Energy meters are read-only, plant-level entities exposed via the
+        ``energy`` feature. They report the instantaneous power measured on
+        a line and energy values, and have no floor/room
+        placement.
+
+        Returns:
+            list[EnergyMeter]: List of energy meters. Returns an empty list
+            if none are defined or the server response lacks the ``array``
+            key.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Fetching energy meters list")
+        payload = {
+            "cmd_name": _CommandName.METERS_LIST.value,
+        }
+
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.METERS_LIST.value
+        )
+
+        # Defaults to an empty list if the key is missing from the response JSON
+        meters_list = json_response.get("array", []) or []
+        LOGGER.info("Retrieved %d energy meter(s)", len(meters_list))
+        return [EnergyMeter(meter_data) for meter_data in meters_list]
 
     async def async_get_cameras(self) -> list[Camera]:
         """Get the list of all TVCC cameras defined on the server.

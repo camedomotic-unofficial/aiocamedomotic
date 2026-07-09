@@ -37,7 +37,8 @@ and controlling devices, and monitoring real-time changes. For a minimal
             ThermoZoneMode, ThermoZoneSeason, ThermoZoneStatus,
             Timer, TimerTimeSlot, TimerUpdate,
             DeviceUpdate, LightUpdate, OpeningUpdate, RelayUpdate,
-            ThermoZoneUpdate, ScenarioUpdate, DigitalInputUpdate, PlantUpdate,
+            ThermoZoneUpdate, ScenarioUpdate, DigitalInputUpdate,
+            EnergyMeterUpdate, PlantUpdate,
         )
         from aiocamedomotic.errors import (
             CameDomoticError,
@@ -239,6 +240,9 @@ entries against enum members to decide which device APIs to call:
 
     if ServerFeature.TIMERS in server_info.features:
         timers = await api.async_get_timers()
+
+    if ServerFeature.ENERGY in server_info.features:
+        meters = await api.async_get_energy_meters()
 
 Floors and rooms
 ^^^^^^^^^^^^^^^^
@@ -889,6 +893,57 @@ state, adds a day, sets a time slot, and reverts everything:
 
     asyncio.run(main())
 
+Energy meters
+^^^^^^^^^^^^^
+
+Energy meters are read-only sensors exposed via the ``energy`` feature. They
+report the instantaneous power measured on a line (e.g. the whole-home
+consumption) together with energy values. Unlike lights or
+openings, energy meters are **plant-level entities keyed by** ``id``: they
+have no ``act_id`` and no floor/room placement. The number of meters and
+their names are entirely plant-specific — always discover them via the API.
+
+**Fetching and inspecting energy meters:**
+
+.. code-block:: python
+
+    meters = await api.async_get_energy_meters()
+
+    for meter in meters:
+        print(f"ID: {meter.id}, Name: {meter.name}, "
+              f"Power: {meter.instant_power} {meter.unit}")
+
+Example output:
+
+.. code-block:: text
+
+    ID: 4, Name: Consumed Energy, Power: 595 W
+    ID: 3, Name: Line 1 + Line 2, Power: 595 W
+
+**Finding a specific energy meter:**
+
+.. code-block:: python
+
+    # By ID
+    main_meter = next((m for m in meters if m.id == 4), None)
+
+    # By name
+    consumption = next((m for m in meters if m.name == "Consumed Energy"), None)
+
+**Reading the energy values:**
+
+Each meter also exposes the raw ``last_24h_avg`` and ``last_month_avg``
+fields, expressed in ``energy_unit`` (typically ``Wh``):
+
+.. code-block:: python
+
+    if main_meter:
+        print(f"last_24h_avg: {main_meter.last_24h_avg} {main_meter.energy_unit}")
+        print(f"last_month_avg: {main_meter.last_month_avg} {main_meter.energy_unit}")
+
+Real-time power readings are delivered as push updates — see
+:ref:`energy-meter-updates` in the monitoring section below.
+
 
 Monitoring real-time updates
 ----------------------------
@@ -1022,6 +1077,9 @@ compatibility. For **typed** update objects with convenient properties, use
                 f"days={update.days}, slots={len(update.timetable)}"
             )
 
+        elif isinstance(update, EnergyMeterUpdate):
+            print(f"Meter '{update.name}': {update.instant_power} {update.unit}")
+
         elif isinstance(update, PlantUpdate):
             print("Plant configuration changed, re-fetching devices...")
 
@@ -1117,6 +1175,46 @@ without needing to merge changes.
     The ``timer_info_ind`` indication name was confirmed from real server
     traffic (firmware 3.0.1). A legacy variant ``timer_update_ind`` is also
     handled for firmware compatibility.
+
+.. _energy-meter-updates:
+
+Energy meter updates
+^^^^^^^^^^^^^^^^^^^^
+
+When the power measured by an energy meter changes, the server pushes a
+``meter_instant_power_ind`` indication — one per meter, each containing a
+**complete snapshot** of the meter state (the same fields as the meter list
+response), with the energy values refreshed in the same push. The library
+parses it into an :class:`~aiocamedomotic.models.update.EnergyMeterUpdate`
+object whose ``device_id`` is the meter's ``id``.
+
+This is the recommended way to track power consumption in real time,
+instead of repeatedly calling ``async_get_energy_meters()``:
+
+.. code-block:: python
+
+    while True:
+        try:
+            updates = await api.async_get_updates(timeout=120)
+        except CameDomoticServerTimeoutError:
+            continue
+
+        for update in updates.get_typed_updates():
+            if isinstance(update, EnergyMeterUpdate):
+                print(
+                    f"Meter '{update.name}' (ID: {update.device_id}): "
+                    f"{update.instant_power} {update.unit}, "
+                    f"last_24h_avg={update.last_24h_avg} {update.energy_unit}"
+                )
+
+        await asyncio.sleep(1)
+
+Example output:
+
+.. code-block:: text
+
+    Meter 'Line 1 + Line 2' (ID: 3): 636 W, last_24h_avg=7788947 Wh
+    Meter 'Consumed Energy' (ID: 4): 636 W, last_24h_avg=5813290 Wh
 
 
 Advanced topics

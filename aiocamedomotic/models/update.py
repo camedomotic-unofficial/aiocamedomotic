@@ -31,6 +31,7 @@ from typing import Any
 from ..const import _UPDATE_CMD_TO_DEVICE_TYPE, DeviceType, UpdateIndicator
 from ..utils import LOGGER
 from .base import CameEntity
+from .energy_meter import EnergyMeterType
 from .light import LightStatus, LightType
 from .opening import OpeningStatus
 from .relay import RelayStatus
@@ -446,6 +447,75 @@ class TimerUpdate(DeviceUpdate):
 
 
 @dataclass
+class EnergyMeterUpdate(DeviceUpdate):
+    """Typed update for an energy meter (``meter_instant_power_ind``).
+
+    Pushed by the server when the power measured by a meter changes. The
+    payload is a complete snapshot of the meter state (same shape as a
+    ``meters_list_resp`` item), including refreshed energy values.
+    """
+
+    @property
+    def id(self) -> int:
+        """Meter identifier (energy meters have no ``act_id``)."""
+        return self.raw_data["id"]
+
+    @property
+    def meter_type(self) -> EnergyMeterType:
+        """Type of the meter (POWER is the only value observed so far)."""
+        try:
+            return EnergyMeterType(self.raw_data["meter_type"])
+        except (ValueError, KeyError):
+            return EnergyMeterType.UNKNOWN
+
+    @property
+    def instant_power(self) -> int:
+        """Current power reading, in the unit reported by :attr:`unit`.
+
+        The value is passed through exactly as reported by the server
+        (no unit conversion is applied).
+        """
+        return self.raw_data.get("instant_power", 0)
+
+    @property
+    def unit(self) -> str:
+        """Unit of measurement for :attr:`instant_power` (``'W'`` observed)."""
+        return self.raw_data.get("unit", "W")
+
+    @property
+    def energy_unit(self) -> str:
+        """Unit of measurement (``'Wh'`` observed) for the
+        :attr:`last_24h_avg` and :attr:`last_month_avg` values."""
+        return self.raw_data.get("energy_unit", "Wh")
+
+    @property
+    def produced(self) -> int:
+        """Raw ``produced`` field (``0`` observed on consumption meters)."""
+        return self.raw_data.get("produced", 0)
+
+    @property
+    def last_24h_avg(self) -> int:
+        """Raw ``last_24h_avg`` field, in :attr:`energy_unit`.
+
+        The value is passed through exactly as reported by the server.
+        """
+        return self.raw_data.get("last_24h_avg", 0)
+
+    @property
+    def last_month_avg(self) -> int:
+        """Raw ``last_month_avg`` field, in :attr:`energy_unit`.
+
+        The value is passed through exactly as reported by the server.
+        """
+        return self.raw_data.get("last_month_avg", 0)
+
+    @property
+    def device_id(self) -> int | None:
+        """For energy meters the primary ID is ``id``."""
+        return self.raw_data.get("id")
+
+
+@dataclass
 class PlantUpdate(DeviceUpdate):
     """Marker update for ``plant_update_ind``.
 
@@ -479,6 +549,7 @@ _INDICATOR_TO_UPDATE_CLASS: dict[str, type[DeviceUpdate]] = {
     "digitalin_update_ind": DigitalInputUpdate,
     "analogin_status_ind": AnalogInUpdate,
     "analogin_update_ind": AnalogInUpdate,
+    "meter_instant_power_ind": EnergyMeterUpdate,
     "timer_info_ind": TimerUpdate,
     "timer_update_ind": TimerUpdate,
     "plant_update_ind": PlantUpdate,

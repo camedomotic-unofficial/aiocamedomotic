@@ -42,6 +42,8 @@ from aiocamedomotic.models import (
     DigitalInputStatus,
     DigitalInputType,
     DigitalInputUpdate,
+    EnergyMeterType,
+    EnergyMeterUpdate,
     Floor,
     Light,
     LightStatus,
@@ -73,7 +75,10 @@ from aiocamedomotic.models import (
     get_update_device_type,
     parse_update,
 )
-from tests.aiocamedomotic.mocked_responses import STATUS_UPDATE_RESP
+from tests.aiocamedomotic.mocked_responses import (
+    METER_INSTANT_POWER_IND_STATUS_UPDATE_RESP,
+    STATUS_UPDATE_RESP,
+)
 
 
 class TestDeviceType:
@@ -3015,3 +3020,64 @@ class TestTimerUpdate:
         assert update.days == 0
         assert update.bars == 0
         assert update.timetable == []
+
+
+class TestEnergyMeterUpdate:
+    def test_parse_meter_instant_power_ind(self):
+        """Real traffic: push received after the measured power changed."""
+        raw = METER_INSTANT_POWER_IND_STATUS_UPDATE_RESP["result"][0]
+        update = parse_update(raw)
+        assert isinstance(update, EnergyMeterUpdate)
+        assert update.id == 3
+        assert update.name == "S1 + S2 + S3"
+        assert update.meter_type == EnergyMeterType.POWER
+        assert update.instant_power == 636
+        assert update.unit == "W"
+        assert update.energy_unit == "Wh"
+        assert update.produced == 0
+        assert update.last_24h_avg == 7788947
+        assert update.last_month_avg == 7788947
+
+    def test_device_id_is_raw_id(self):
+        raw = {"cmd_name": "meter_instant_power_ind", "id": 3}
+        update = parse_update(raw)
+        assert isinstance(update, EnergyMeterUpdate)
+        assert update.device_id == 3
+
+    def test_device_type(self):
+        raw = {"cmd_name": "meter_instant_power_ind", "id": 3}
+        assert get_update_device_type(raw) == DeviceType.ENERGY_SENSOR
+
+    def test_update_indicator(self):
+        raw = {"cmd_name": "meter_instant_power_ind", "id": 3}
+        update = parse_update(raw)
+        assert update.update_indicator == UpdateIndicator.ENERGY_METER
+
+    def test_meter_type_unknown_value(self):
+        raw = {"cmd_name": "meter_instant_power_ind", "id": 3, "meter_type": 99}
+        update = parse_update(raw)
+        assert isinstance(update, EnergyMeterUpdate)
+        assert update.meter_type == EnergyMeterType.UNKNOWN
+
+    def test_meter_type_missing(self):
+        raw = {"cmd_name": "meter_instant_power_ind", "id": 3}
+        update = parse_update(raw)
+        assert isinstance(update, EnergyMeterUpdate)
+        assert update.meter_type == EnergyMeterType.UNKNOWN
+
+    def test_defaults_when_fields_missing(self):
+        raw = {"cmd_name": "meter_instant_power_ind", "id": 3}
+        update = parse_update(raw)
+        assert isinstance(update, EnergyMeterUpdate)
+        assert update.instant_power == 0
+        assert update.unit == "W"
+        assert update.energy_unit == "Wh"
+        assert update.produced == 0
+        assert update.last_24h_avg == 0
+        assert update.last_month_avg == 0
+
+    def test_get_typed_by_device_type(self):
+        updates = UpdateList(METER_INSTANT_POWER_IND_STATUS_UPDATE_RESP["result"])
+        typed = updates.get_typed_by_device_type(DeviceType.ENERGY_SENSOR)
+        assert len(typed) == 1
+        assert isinstance(typed[0], EnergyMeterUpdate)
