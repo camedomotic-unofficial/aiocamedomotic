@@ -539,7 +539,7 @@ class CameDomoticAPI:
 
         Energy meters are read-only, plant-level entities exposed via the
         ``energy`` feature. They report the instantaneous power measured on
-        a line and cumulative energy counters, and have no floor/room
+        a line and energy values, and have no floor/room
         placement.
 
         Returns:

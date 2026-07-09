@@ -452,7 +452,7 @@ class EnergyMeterUpdate(DeviceUpdate):
 
     Pushed by the server when the power measured by a meter changes. The
     payload is a complete snapshot of the meter state (same shape as a
-    ``meters_list_resp`` item), including refreshed energy counters.
+    ``meters_list_resp`` item), including refreshed energy values.
     """
 
     @property
@@ -469,7 +469,7 @@ class EnergyMeterUpdate(DeviceUpdate):
             return EnergyMeterType.UNKNOWN
 
     @property
-    def instant_power(self) -> float:
+    def instant_power(self) -> int:
         """Current power reading, in the unit reported by :attr:`unit`.
 
         The value is passed through exactly as reported by the server
@@ -484,7 +484,8 @@ class EnergyMeterUpdate(DeviceUpdate):
 
     @property
     def energy_unit(self) -> str:
-        """Unit of measurement for the energy counters (``'Wh'`` observed)."""
+        """Unit of measurement (``'Wh'`` observed) for the
+        :attr:`last_24h_avg` and :attr:`last_month_avg` values."""
         return self.raw_data.get("energy_unit", "Wh")
 
     @property
@@ -496,9 +497,7 @@ class EnergyMeterUpdate(DeviceUpdate):
     def last_24h_avg(self) -> int:
         """Raw ``last_24h_avg`` field, in :attr:`energy_unit`.
 
-        On observed firmware this behaves as a **cumulative energy
-        counter**, not as an average — see
-        :attr:`~aiocamedomotic.models.energy_meter.EnergyMeter.last_24h_avg`.
+        The value is passed through exactly as reported by the server.
         """
         return self.raw_data.get("last_24h_avg", 0)
 
@@ -506,9 +505,7 @@ class EnergyMeterUpdate(DeviceUpdate):
     def last_month_avg(self) -> int:
         """Raw ``last_month_avg`` field, in :attr:`energy_unit`.
 
-        On observed firmware this behaves as a **cumulative energy
-        counter**, not as an average — see
-        :attr:`~aiocamedomotic.models.energy_meter.EnergyMeter.last_month_avg`.
+        The value is passed through exactly as reported by the server.
         """
         return self.raw_data.get("last_month_avg", 0)
 

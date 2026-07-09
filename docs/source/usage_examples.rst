@@ -898,7 +898,7 @@ Energy meters
 
 Energy meters are read-only sensors exposed via the ``energy`` feature. They
 report the instantaneous power measured on a line (e.g. the whole-home
-consumption) together with cumulative energy counters. Unlike lights or
+consumption) together with energy values. Unlike lights or
 openings, energy meters are **plant-level entities keyed by** ``id``: they
 have no ``act_id`` and no floor/room placement. The number of meters and
 their names are entirely plant-specific — always discover them via the API.
@@ -930,7 +930,7 @@ Example output:
     # By name
     consumption = next((m for m in meters if m.name == "Consumed Energy"), None)
 
-**Reading the energy counters:**
+**Reading the energy values:**
 
 Each meter also exposes the raw ``last_24h_avg`` and ``last_month_avg``
 fields, expressed in ``energy_unit`` (typically ``Wh``):
@@ -938,17 +938,8 @@ fields, expressed in ``energy_unit`` (typically ``Wh``):
 .. code-block:: python
 
     if main_meter:
-        print(f"Counter: {main_meter.last_24h_avg} {main_meter.energy_unit}")
-
-.. note::
-    **Despite their names,** ``last_24h_avg`` **and** ``last_month_avg``
-    **behave as cumulative energy counters on observed firmware, not as
-    averages.** In captured traffic both fields held the same value and
-    increased monotonically, in step with the energy actually consumed
-    (e.g. +20 Wh over ~2 minutes at ~636 W). Do not present them as
-    averages. On the plus side, this counter-like behavior makes them
-    suitable as a ``total_increasing`` energy source — for example to feed
-    Home Assistant's Energy dashboard.
+        print(f"last_24h_avg: {main_meter.last_24h_avg} {main_meter.energy_unit}")
+        print(f"last_month_avg: {main_meter.last_month_avg} {main_meter.energy_unit}")
 
 Real-time power readings are delivered as push updates — see
 :ref:`energy-meter-updates` in the monitoring section below.
@@ -1193,7 +1184,7 @@ Energy meter updates
 When the power measured by an energy meter changes, the server pushes a
 ``meter_instant_power_ind`` indication — one per meter, each containing a
 **complete snapshot** of the meter state (the same fields as the meter list
-response), with the energy counters refreshed in the same push. The library
+response), with the energy values refreshed in the same push. The library
 parses it into an :class:`~aiocamedomotic.models.update.EnergyMeterUpdate`
 object whose ``device_id`` is the meter's ``id``.
 
@@ -1213,7 +1204,7 @@ instead of repeatedly calling ``async_get_energy_meters()``:
                 print(
                     f"Meter '{update.name}' (ID: {update.device_id}): "
                     f"{update.instant_power} {update.unit}, "
-                    f"counter={update.last_24h_avg} {update.energy_unit}"
+                    f"last_24h_avg={update.last_24h_avg} {update.energy_unit}"
                 )
 
         await asyncio.sleep(1)
@@ -1222,15 +1213,8 @@ Example output:
 
 .. code-block:: text
 
-    Meter 'Line 1 + Line 2' (ID: 3): 636 W, counter=7788947 Wh
-    Meter 'Consumed Energy' (ID: 4): 636 W, counter=5813290 Wh
-
-.. note::
-    The exact power-change threshold that triggers a push is not documented;
-    in captured traffic a change of roughly 40 W was enough. The
-    ``last_24h_avg`` / ``last_month_avg`` counters carried by the update
-    have the same cumulative-counter semantics described in the
-    `Energy meters`_ section above.
+    Meter 'Line 1 + Line 2' (ID: 3): 636 W, last_24h_avg=7788947 Wh
+    Meter 'Consumed Energy' (ID: 4): 636 W, last_24h_avg=5813290 Wh
 
 
 Advanced topics

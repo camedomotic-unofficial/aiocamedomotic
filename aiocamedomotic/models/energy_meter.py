@@ -18,7 +18,7 @@ CAME Domotic energy meter entity models.
 This module implements the class for working with energy meters in a CAME
 Domotic system. Energy meters are read-only, plant-level entities exposed via
 the ``energy`` feature: they report the instantaneous power measured on a
-line together with cumulative energy counters. They have no ``act_id`` and
+line together with energy values. They have no ``act_id`` and
 no floor/room placement — the ``id`` field is their identifier, and it is
 also the matching key for ``meter_instant_power_ind`` push updates.
 
@@ -58,7 +58,7 @@ class EnergyMeter(CameEntity):
     Represents an energy meter exposed via the ``energy`` feature. Energy
     meters are plant-level entities keyed by :attr:`id` (they have no
     ``act_id``, floor, or room). They report the current power reading and
-    cumulative energy counters, and cannot be controlled.
+    energy values, and cannot be controlled.
 
     Args:
         raw_data: Dictionary containing the meter data from the API.
@@ -108,7 +108,7 @@ class EnergyMeter(CameEntity):
             return EnergyMeterType.UNKNOWN
 
     @property
-    def instant_power(self) -> float:
+    def instant_power(self) -> int:
         """Current power reading, in the unit reported by :attr:`unit`.
 
         The value is passed through exactly as reported by the server
@@ -123,7 +123,8 @@ class EnergyMeter(CameEntity):
 
     @property
     def energy_unit(self) -> str:
-        """Unit of measurement for the energy counters (``'Wh'`` observed)."""
+        """Unit of measurement (``'Wh'`` observed) for the
+        :attr:`last_24h_avg` and :attr:`last_month_avg` values."""
         return self.raw_data.get("energy_unit", "Wh")
 
     @property
@@ -139,13 +140,7 @@ class EnergyMeter(CameEntity):
     def last_24h_avg(self) -> int:
         """Raw ``last_24h_avg`` field from the server, in :attr:`energy_unit`.
 
-        .. note::
-            Despite the field name, on observed firmware this behaves as a
-            **cumulative energy counter** (total Wh, monotonically
-            increasing), not as an average. Do not present it as an average;
-            its counter-like behavior makes it suitable as a
-            ``total_increasing`` energy source (e.g. for Home Assistant's
-            Energy dashboard).
+        The value is passed through exactly as reported by the server.
         """
         return self.raw_data.get("last_24h_avg", 0)
 
@@ -153,13 +148,6 @@ class EnergyMeter(CameEntity):
     def last_month_avg(self) -> int:
         """Raw ``last_month_avg`` field from the server, in :attr:`energy_unit`.
 
-        .. note::
-            Despite the field name, on observed firmware this behaves as a
-            **cumulative energy counter** (total Wh, monotonically
-            increasing), not as an average — it held the same value as
-            :attr:`last_24h_avg` at all times in captured traffic. Do not
-            present it as an average; its counter-like behavior makes it
-            suitable as a ``total_increasing`` energy source (e.g. for Home
-            Assistant's Energy dashboard).
+        The value is passed through exactly as reported by the server.
         """
         return self.raw_data.get("last_month_avg", 0)
