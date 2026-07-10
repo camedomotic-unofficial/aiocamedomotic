@@ -55,6 +55,7 @@ from aiocamedomotic.models import (
     ScenarioUpdate,
     ServerInfo,
     TerminalGroup,
+    ThermoProfile,
     ThermoZone,
     ThermoZoneFanSpeed,
     ThermoZoneMode,
@@ -2563,6 +2564,60 @@ class TestThermoZone:
         assert call_payload["extended_infos"] == 1
         assert call_payload["mode"] == 2  # preserves current AUTO mode
         assert call_payload["set_point"] == 348  # preserves current setpoint
+
+
+class TestThermoZoneProfile:
+    def test_profile_data_raw(
+        self, thermo_zone_data_winter_auto, thermo_profile_wire_data, auth_instance
+    ):
+        zone_data = {
+            **thermo_zone_data_winter_auto,
+            "profile_data": thermo_profile_wire_data,
+        }
+        zone = ThermoZone(zone_data, auth_instance)
+        assert zone.profile_data == thermo_profile_wire_data
+
+    def test_profile_data_returns_copy(
+        self, thermo_zone_data_winter_auto, thermo_profile_wire_data, auth_instance
+    ):
+        zone_data = {
+            **thermo_zone_data_winter_auto,
+            "profile_data": thermo_profile_wire_data,
+        }
+        zone = ThermoZone(zone_data, auth_instance)
+        rows = zone.profile_data
+        rows[0] = "tampered"
+        assert zone.raw_data["profile_data"][0] == thermo_profile_wire_data[0]
+
+    def test_profile_data_missing(self, thermo_zone_data_winter_auto, auth_instance):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        assert zone.profile_data == []
+
+    def test_profile_typed_view(
+        self, thermo_zone_data_winter_auto, thermo_profile_wire_data, auth_instance
+    ):
+        zone_data = {
+            **thermo_zone_data_winter_auto,
+            "profile_data": thermo_profile_wire_data,
+        }
+        zone = ThermoZone(zone_data, auth_instance)
+        assert isinstance(zone.profile, ThermoProfile)
+        assert zone.profile.to_wire() == thermo_profile_wire_data
+
+    def test_profile_missing_raw_data(
+        self, thermo_zone_data_winter_auto, auth_instance
+    ):
+        zone = ThermoZone(thermo_zone_data_winter_auto, auth_instance)
+        with pytest.raises(ValueError, match="exactly 8 strings"):
+            _ = zone.profile
+
+    def test_profile_malformed_raw_data(
+        self, thermo_zone_data_winter_auto, auth_instance
+    ):
+        zone_data = {**thermo_zone_data_winter_auto, "profile_data": ["9" * 96] * 8}
+        zone = ThermoZone(zone_data, auth_instance)
+        with pytest.raises(ValueError, match="only digits"):
+            _ = zone.profile
 
 
 class TestThermoZoneFanSpeed:

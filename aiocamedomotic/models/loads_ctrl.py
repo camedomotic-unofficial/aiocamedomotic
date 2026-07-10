@@ -46,6 +46,7 @@ from ..utils import (
     EntityValidator,
 )
 from .base import CameEntity
+from .profiles import LoadsCtrlProfile
 
 
 class LoadsCtrlRelayStatus(Enum):
@@ -332,13 +333,27 @@ class LoadsCtrlMeter(CameEntity):
         Seven strings — one per weekday, Monday first — of 24 characters
         each (one per hour of day). Each character is a digit ``1``-``5``
         selecting the power threshold active in that hour as a fraction of
-        :attr:`max_power`. The library exposes the raw value only; profile
-        editing is not yet a library feature.
+        :attr:`max_power`. For a typed view use :attr:`profile`.
 
         Returns a copy: mutating the returned list does not affect
         ``raw_data``.
         """
         return list(self.raw_data.get("profile_data", []))
+
+    @property
+    def profile(self) -> LoadsCtrlProfile:
+        """Weekly hourly threshold profile (typed view).
+
+        Parsed fresh from ``raw_data`` on every access (never cached), so
+        it always reflects the latest known server state. Edit it with the
+        :class:`LoadsCtrlProfile` methods and write it back via
+        :meth:`async_set_config`.
+
+        Raises:
+            ValueError: If ``raw_data`` lacks a well-formed
+                ``profile_data`` value.
+        """
+        return LoadsCtrlProfile.from_wire(self.raw_data.get("profile_data", []))
 
     async def async_get_relays(self) -> list[LoadsCtrlRelay]:
         """Get the loads managed by this controller.
@@ -378,7 +393,7 @@ class LoadsCtrlMeter(CameEntity):
         *,
         max_power: int | None = None,
         hysteresis: int | None = None,
-        profile_data: list[str] | None = None,
+        profile_data: LoadsCtrlProfile | None = None,
     ) -> None:
         """Update the controller configuration.
 
@@ -392,17 +407,15 @@ class LoadsCtrlMeter(CameEntity):
             hysteresis: New hysteresis in Watts (non-negative integer; ``0``
                 disables the hysteresis band), or ``None`` to keep the
                 current value.
-            profile_data: New weekly hourly threshold profile in raw wire
-                format — exactly 7 strings of exactly 24 characters, each
-                character a digit ``1``-``5`` — or ``None`` to keep the
-                current value. This parameter exists mainly for the
-                mandatory wire round-trip: an ergonomic profile-editing API
-                is not yet available.
+            profile_data: New weekly hourly threshold profile as a
+                :class:`LoadsCtrlProfile` (typically obtained from
+                :attr:`profile` and edited), or ``None`` to keep the
+                current value.
 
         Raises:
             ValueError: If ``max_power`` is not a positive integer, if
                 ``hysteresis`` is not a non-negative integer, or if
-                ``profile_data`` does not match the required shape.
+                ``profile_data`` is not a ``LoadsCtrlProfile``.
             CameDomoticAuthError: If the authentication fails.
             CameDomoticServerError: If the server returns an error.
         """
@@ -420,15 +433,18 @@ class LoadsCtrlMeter(CameEntity):
             raise ValueError(
                 f"hysteresis must be a non-negative int, got {hysteresis!r}"
             )
-        if profile_data is not None:
-            self._validate_profile_data(profile_data)
+        if profile_data is not None and not isinstance(profile_data, LoadsCtrlProfile):
+            raise ValueError(
+                "profile_data must be a LoadsCtrlProfile, "
+                f"got {type(profile_data).__name__}"
+            )
 
         # The wire command requires the full triple: source untouched
         # values from raw_data.
         new_max_power = max_power if max_power is not None else self.max_power
         new_hysteresis = hysteresis if hysteresis is not None else self.hysteresis
         new_profile = (
-            list(profile_data) if profile_data is not None else self.profile_data
+            profile_data.to_wire() if profile_data is not None else self.profile_data
         )
 
         LOGGER.debug(
@@ -553,26 +569,3 @@ class LoadsCtrlMeter(CameEntity):
             self.id,
             changed,
         )
-
-    @staticmethod
-    def _validate_profile_data(profile_data: list[str]) -> None:
-        """Validate the raw weekly profile shape (7 x 24 digits in 1-5).
-
-        A malformed profile would be written to the controller, so the
-        shape is checked strictly before sending.
-        """
-        if not isinstance(profile_data, list) or len(profile_data) != 7:
-            raise ValueError(
-                "profile_data must be a list of exactly 7 strings "
-                "(one per weekday, Monday first)"
-            )
-        for index, day in enumerate(profile_data):
-            if not isinstance(day, str) or len(day) != 24:
-                raise ValueError(
-                    f"profile_data[{index}] must be a string of exactly 24 "
-                    "characters (one per hour of day)"
-                )
-            if any(char not in "12345" for char in day):
-                raise ValueError(
-                    f"profile_data[{index}] must contain only digits in the range 1-5"
-                )

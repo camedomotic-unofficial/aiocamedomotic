@@ -36,6 +36,14 @@ from .loads_ctrl import (  # noqa: F401
 )
 from .map_page import MapPage  # noqa: F401
 from .opening import Opening, OpeningStatus, OpeningType  # noqa: F401
+from .profiles import (  # noqa: F401
+    WEEKDAYS,
+    LoadsCtrlProfile,
+    ProfileDay,
+    ProfileSpan,
+    ThermoProfile,
+    WeeklyProfile,
+)
 from .relay import Relay, RelayStatus  # noqa: F401
 from .scenario import Scenario, ScenarioStatus  # noqa: F401
 from .thermo_zone import (  # noqa: F401
@@ -90,6 +98,7 @@ __all__ = [
     "LightUpdate",
     "LoadsCtrlMeter",
     "LoadsCtrlMeterUpdate",
+    "LoadsCtrlProfile",
     "LoadsCtrlRelay",
     "LoadsCtrlRelayStatus",
     "LoadsCtrlRelayUpdate",
@@ -100,6 +109,8 @@ __all__ = [
     "OpeningUpdate",
     "PlantTopology",
     "PlantUpdate",
+    "ProfileDay",
+    "ProfileSpan",
     "Relay",
     "RelayStatus",
     "RelayUpdate",
@@ -110,6 +121,7 @@ __all__ = [
     "ServerFeature",
     "ServerInfo",
     "TerminalGroup",
+    "ThermoProfile",
     "ThermoZone",
     "ThermoZoneFanSpeed",
     "ThermoZoneMode",
@@ -124,6 +136,8 @@ __all__ = [
     "UpdateIndicator",
     "UpdateList",
     "User",
+    "WEEKDAYS",
+    "WeeklyProfile",
     "get_update_device_type",
     "parse_update",
 ]

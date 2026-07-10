@@ -25,6 +25,7 @@ from ..utils import (
     EntityValidator,
 )
 from .base import CameEntity
+from .profiles import ThermoProfile
 
 
 class ThermoZoneStatus(Enum):
@@ -278,6 +279,38 @@ class ThermoZone(CameEntity):
         if raw is None:
             return None
         return raw / 10.0
+
+    @property
+    def profile_data(self) -> list[str]:
+        """Weekly setpoint-level profile (raw wire format, copied).
+
+        Eight strings — Monday..Sunday plus the JOLLY profile as the 8th
+        row — of 96 characters each (one per quarter hour of day). Each
+        character is a digit ``1``-``5`` selecting one of the five setpoint
+        levels shown in the official app. For a typed view use
+        :attr:`profile`.
+
+        Read-only: the thermo profile set command has never been observed
+        in captured traffic, so writing a profile back to the zone is not
+        yet supported by the library.
+
+        Returns a copy: mutating the returned list does not affect
+        ``raw_data``. Returns an empty list if the zone data carries no
+        profile (push updates do not include it).
+        """
+        return list(self.raw_data.get("profile_data", []))
+
+    @property
+    def profile(self) -> ThermoProfile:
+        """Weekly setpoint-level profile (typed view).
+
+        Parsed fresh from ``raw_data`` on every access (never cached).
+
+        Raises:
+            ValueError: If ``raw_data`` lacks a well-formed
+                ``profile_data`` value.
+        """
+        return ThermoProfile.from_wire(self.raw_data.get("profile_data", []))
 
     async def async_set_config(
         self,

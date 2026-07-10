@@ -14,8 +14,10 @@ from aiocamedomotic import Auth, CameDomoticAPI
 from aiocamedomotic.errors import CameDomoticServerError
 from aiocamedomotic.models import (
     LoadsCtrlMeter,
+    LoadsCtrlProfile,
     LoadsCtrlRelay,
     LoadsCtrlRelayStatus,
+    ProfileDay,
 )
 from tests.aiocamedomotic.mocked_responses import (
     LOADSCTRL_METER_LIST_RESP,
@@ -274,7 +276,7 @@ class TestLoadsCtrlMeter:
         auth_instance,
     ):
         meter = LoadsCtrlMeter(loadsctrl_meter_data, auth_instance)
-        new_profile = ["5" * 24] * 7
+        new_profile = LoadsCtrlProfile.constant(5)
 
         await meter.async_set_config(
             max_power=4800, hysteresis=1000, profile_data=new_profile
@@ -287,12 +289,12 @@ class TestLoadsCtrlMeter:
                 "id": 196612,
                 "max_power": 4800,
                 "hysteresis": 1000,
-                "profile_data": new_profile,
+                "profile_data": ["5" * 24] * 7,
             }
         )
         assert meter.max_power == 4800
         assert meter.hysteresis == 1000
-        assert meter.profile_data == new_profile
+        assert meter.profile_data == ["5" * 24] * 7
 
     @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
     @patch.object(Auth, "async_get_valid_client_id", new_callable=AsyncMock)
@@ -387,40 +389,62 @@ class TestLoadsCtrlMeter:
         assert meter.hysteresis == 0
 
     @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
-    async def test_async_set_config_profile_wrong_count(
+    async def test_async_set_config_profile_raw_list_rejected(
         self, mock_send_command, loadsctrl_meter_data, auth_instance
     ):
         meter = LoadsCtrlMeter(loadsctrl_meter_data, auth_instance)
+        with pytest.raises(ValueError, match="must be a LoadsCtrlProfile"):
+            await meter.async_set_config(profile_data=["5" * 24] * 7)
+        mock_send_command.assert_not_called()
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    @patch.object(Auth, "async_get_valid_client_id", new_callable=AsyncMock)
+    async def test_async_set_config_edited_profile(
+        self,
+        mock_get_client_id,
+        mock_send_command,
+        loadsctrl_meter_data,
+        auth_instance,
+    ):
+        meter = LoadsCtrlMeter(loadsctrl_meter_data, auth_instance)
+        new_profile = meter.profile.with_level(
+            2, days=ProfileDay.SUNDAY, start=8, end=18
+        )
+
+        await meter.async_set_config(profile_data=new_profile)
+
+        expected_wire = ["4" * 24] * 6 + ["4" * 8 + "2" * 10 + "4" * 6]
+        mock_send_command.assert_called_once_with(
+            {
+                "cmd_name": "loadsctrl_meter_set_req",
+                "id": 196612,
+                "max_power": 5000,
+                "hysteresis": 400,
+                "profile_data": expected_wire,
+            }
+        )
+        assert meter.profile_data == expected_wire
+
+    def test_profile_typed_view(self, loadsctrl_meter_data, auth_instance):
+        meter = LoadsCtrlMeter(loadsctrl_meter_data, auth_instance)
+        assert isinstance(meter.profile, LoadsCtrlProfile)
+        assert meter.profile.to_wire() == ["4" * 24] * 7
+
+    def test_profile_fresh_parse_per_access(self, loadsctrl_meter_data, auth_instance):
+        meter = LoadsCtrlMeter(loadsctrl_meter_data, auth_instance)
+        meter.raw_data["profile_data"] = ["5" * 24] * 7
+        assert meter.profile.to_wire() == ["5" * 24] * 7
+
+    def test_profile_missing_raw_data(self, auth_instance):
+        meter = LoadsCtrlMeter({"name": "Controller", "id": 1}, auth_instance)
         with pytest.raises(ValueError, match="exactly 7 strings"):
-            await meter.async_set_config(profile_data=["5" * 24] * 6)
-        mock_send_command.assert_not_called()
+            _ = meter.profile
 
-    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
-    async def test_async_set_config_profile_wrong_length(
-        self, mock_send_command, loadsctrl_meter_data, auth_instance
-    ):
+    def test_profile_malformed_raw_data(self, loadsctrl_meter_data, auth_instance):
+        loadsctrl_meter_data["profile_data"] = ["9" * 24] * 7
         meter = LoadsCtrlMeter(loadsctrl_meter_data, auth_instance)
-        with pytest.raises(ValueError, match="exactly 24"):
-            await meter.async_set_config(profile_data=["5" * 23] + ["5" * 24] * 6)
-        mock_send_command.assert_not_called()
-
-    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
-    async def test_async_set_config_profile_char_out_of_range(
-        self, mock_send_command, loadsctrl_meter_data, auth_instance
-    ):
-        meter = LoadsCtrlMeter(loadsctrl_meter_data, auth_instance)
-        with pytest.raises(ValueError, match="digits in the\\s+range 1-5"):
-            await meter.async_set_config(profile_data=["6" * 24] + ["5" * 24] * 6)
-        mock_send_command.assert_not_called()
-
-    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
-    async def test_async_set_config_profile_non_string_entry(
-        self, mock_send_command, loadsctrl_meter_data, auth_instance
-    ):
-        meter = LoadsCtrlMeter(loadsctrl_meter_data, auth_instance)
-        with pytest.raises(ValueError, match="must be a string"):
-            await meter.async_set_config(profile_data=[44444] + ["5" * 24] * 6)
-        mock_send_command.assert_not_called()
+        with pytest.raises(ValueError, match="only digits"):
+            _ = meter.profile
 
     @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
     @patch.object(Auth, "async_get_valid_client_id", new_callable=AsyncMock)
