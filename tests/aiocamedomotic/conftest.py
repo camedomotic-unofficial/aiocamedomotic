@@ -551,6 +551,17 @@ def loadsctrl_relay_data():
 
 
 @pytest.fixture
+def thermo_profile_wire_data():
+    """Mock thermo profile rows (8 x 96, modeled on real traffic, swver 3.0.1).
+
+    Hour-aligned runs, as written by the official app: 8h at level 1,
+    1h at level 4, 7h at level 3, 8h at level 1. The 8th row is the
+    JOLLY profile.
+    """
+    return ["1" * 32 + "4" * 4 + "3" * 28 + "1" * 32] * 8
+
+
+@pytest.fixture
 def timer_data_minimal():
     """Mock data for a timer without stop/active fields (v3.0.1 format)."""
     return {

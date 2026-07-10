@@ -1242,6 +1242,26 @@ class TestAPIThermoZones:
         assert zones[1].name == "Room 2"
 
     @patch.object(Auth, "async_send_command")
+    async def test_async_get_thermo_zones_request_payload(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = THERMO_LIST_RESP
+
+        await api.async_get_thermo_zones()
+
+        # extended_infos=2 is required for the server to include the
+        # profile_data and antifreeze fields (real server behavior).
+        mock_send_command.assert_called_once_with(
+            {
+                "cmd_name": "thermo_list_req",
+                "topologic_scope": "plant",
+                "extended_infos": 2,
+            },
+            response_command="thermo_list_resp",
+        )
+
+    @patch.object(Auth, "async_send_command")
     async def test_async_get_thermo_zones_empty_array(
         self, mock_send_command, auth_instance
     ):

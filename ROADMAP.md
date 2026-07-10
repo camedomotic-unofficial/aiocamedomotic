@@ -25,7 +25,9 @@ insights. We look forward to growing this library together with our users and co
   Switch between seasons (WINTER, SUMMER, PLANT_OFF) plant-wide via `thermo_season_req`.
   Expose fan speed, dehumidifier state (enabled/setpoint), and auxiliary temperature
   sensors (t1, t2, t3) on `ThermoZone` and `ThermoZoneUpdate`. Top-level analog sensor
-  readings (temperature, humidity, pressure) are also exposed.
+  readings (temperature, humidity, pressure) are also exposed. Each zone's weekly
+  setpoint schedule (8 rows: Monday–Sunday plus the JOLLY profile, quarter-hour wire
+  resolution) is exposed **read-only** as a typed, immutable `ThermoProfile` object.
 - **Timers management**: List timers with their timetables via `timers_list_req`;
   enable/disable timers, toggle individual days, and set timetables via
   `timers_enable_req`, `timers_enable_day_req`, and `timers_set_req`.
@@ -37,7 +39,10 @@ insights. We look forward to growing this library together with our users and co
   loads, change their detach priorities (including bulk reordering), and configure the
   controller's power threshold and hysteresis (`loadsctrl_relay_set_req`,
   `loadsctrl_meter_set_req`); real-time state via `loadsctrl_meter_ind` and
-  `loadsctrl_relay_ind`.
+  `loadsctrl_relay_ind`. The controller's weekly threshold profile (`profile_data`:
+  7 days × 24 hourly levels, each level 1–5 selecting the active threshold as a
+  fraction of `max_power`) can be read, edited, and written back through the typed,
+  immutable `LoadsCtrlProfile` API (verified against a real plant).
 - **Generic relays**: List and control simple on/off relay actuators via
   `relays_list_req` and `relay_activation_req` (documented API, not yet verified against
   a real server).
@@ -78,19 +83,13 @@ under [Future considerations](#future-considerations).
   (`energy_stat_req`, with instant/day/week/month scopes) for monitoring and dashboard
   integration.
 
-### Version 1.14 — Load control threshold profiles
+### Version 1.14 — Thermostat profile writing
 
-- **Weekly hourly profiles**: Parse and edit the load controller's weekly threshold
-  profile (`profile_data`: 7 days × 24 hourly levels, each level 1–5 selecting the
-  active threshold as a fraction of `max_power`) through a validated, immutable
-  profile API, once the exact level-to-threshold mapping is confirmed on a real plant.
-
-### Version 1.15 — Thermostat hourly profiles
-
-- **Weekly schedules**: Parse and edit the thermostat zones' hourly schedule profiles
-  via `thermo_zone_config_req` (`profile_id` / `profile_data` fields), enabling
-  AUTO-mode weekly programming from the library, once the profile wire format is
-  verified against a real plant.
+- **Weekly schedule editing**: Write the thermostat zones' weekly setpoint profiles
+  back to the server, enabling AUTO-mode weekly programming from the library. Reading
+  and editing are already supported through the typed `ThermoProfile` API; writing is
+  blocked on capturing the profile set command from the official app, which has not
+  been observed in real traffic yet.
 
 ## Future considerations
 

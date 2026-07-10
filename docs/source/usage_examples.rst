@@ -21,14 +21,15 @@ and controlling devices, and monitoring real-time changes. For a minimal
         from aiocamedomotic import CameDomoticAPI
         from aiocamedomotic.models import (
             AnalogSensorType, DeviceType, DigitalInputStatus, LightStatus,
-            LightType, OpeningStatus, RelayStatus, ScenarioStatus,
-            ServerFeature, ThermoZoneFanSpeed,
+            LightType, LoadsCtrlProfile, OpeningStatus, ProfileDay,
+            RelayStatus, ScenarioStatus,
+            ServerFeature, ThermoProfile, ThermoZoneFanSpeed,
             ThermoZoneMode, ThermoZoneSeason, ThermoZoneStatus,
             Timer, TimerTimeSlot, TimerUpdate,
             DeviceUpdate, LightUpdate, OpeningUpdate, RelayUpdate,
             ThermoZoneUpdate, ScenarioUpdate, DigitalInputUpdate,
             EnergyMeterUpdate, LoadsCtrlMeterUpdate, LoadsCtrlRelayUpdate,
-            PlantUpdate,
+            PlantUpdate, WEEKDAYS,
         )
         from aiocamedomotic.errors import (
             CameDomoticError,
@@ -459,6 +460,84 @@ Example output:
     provided, the ``extended_infos`` flag is set automatically.
 
     Season can only be changed at the plant level via ``async_set_thermo_season()``.
+
+Weekly setpoint profile
+"""""""""""""""""""""""
+
+Each thermo zone carries a weekly schedule that selects, hour by hour, which
+of the **five setpoint levels** shown in the official CAME app is active.
+The ``profile`` property exposes it as a typed
+:class:`~aiocamedomotic.models.ThermoProfile` object with **8 rows**:
+Monday through Sunday, plus the special **JOLLY** profile (the schedule used
+while the zone is in ``ThermoZoneMode.JOLLY``) as the 8th row.
+
+Rows are addressed with :class:`~aiocamedomotic.models.ProfileDay`, whose
+``MONDAY``..``SUNDAY`` values (0-6) match ``datetime.date.weekday()``, so
+``ProfileDay(some_date.weekday())`` always picks the right row.
+
+**Reading the profile:**
+
+.. code-block:: python
+
+    from datetime import datetime, time
+    from aiocamedomotic.models import ProfileDay
+
+    zones = await api.async_get_thermo_zones()
+    zone = next((z for z in zones if z.name == "Office"), None)
+    profile = zone.profile
+
+    # Level active on a given day at a given moment
+    print(profile.level_at(ProfileDay.MONDAY, 8))            # int hour (0-23)
+    print(profile.level_at(ProfileDay.MONDAY, time(6, 30)))  # any time of day
+
+    # Level active right now
+    now = datetime.now()
+    print(profile.level_at(ProfileDay(now.weekday()), now))
+
+    # The JOLLY row is addressed like a day
+    print(profile.level_at(ProfileDay.JOLLY, 12))
+
+**Viewing a day as time spans:**
+
+``spans()`` returns a day's schedule as runs of consecutive equal levels —
+handy for displaying the schedule the way the official app draws it:
+
+.. code-block:: python
+
+    for span in profile.spans(ProfileDay.MONDAY):
+        print(f"{span.start} - {span.end}: level {span.level}")
+
+Example output:
+
+.. code-block:: text
+
+    00:00:00 - 08:00:00: level 1
+    08:00:00 - 09:00:00: level 4
+    09:00:00 - 15:00:00: level 3
+    15:00:00 - 00:00:00: level 1
+
+Each span is a half-open ``[start, end)`` range; the last span's ``end`` of
+``00:00`` means "through midnight".
+
+The ``profile_data`` property exposes the same schedule in raw wire format:
+8 strings of 96 characters (one per quarter hour of day), each character a
+digit ``1``-``5``. The official app edits profiles per hour, so the four
+quarters within an hour normally share the same level; the typed API speaks
+in hours only.
+
+.. note::
+    Thermo profiles are currently **read-only**: the command the official
+    app uses to write them has not been mapped yet, so the library cannot
+    send an edited thermo profile back to the server. The editing methods
+    described in :ref:`loadsctrl-weekly-profile` work on ``ThermoProfile``
+    objects too (with one extra option: pass
+    ``days=aiocamedomotic.models.WEEKDAYS`` to target Monday..Sunday while
+    leaving the JOLLY row untouched, since ``days=None`` targets all 8
+    rows), but the result can only be used locally.
+
+    Zone objects returned by ``async_get_thermo_zones()`` always carry the
+    profile; ``ThermoZoneUpdate`` push updates do **not** include it, so
+    read profiles from the zone list, not from updates.
 
 Analog sensors
 ^^^^^^^^^^^^^^
@@ -1095,14 +1174,100 @@ the wire command requires the full configuration on every write:
     await ctrl.async_set_config(max_power=4500)
     await ctrl.async_set_config(max_power=5000, hysteresis=300)
 
-.. note::
-    The ``profile_data`` parameter (the weekly hourly threshold profile) is
-    accepted only for the mandatory raw round-trip and is strictly
-    validated (7 strings of 24 digits in ``1``-``5``); profile *editing* is
-    not yet a library feature.
-
 Configuration writes and load changes are echoed back as push updates —
 see :ref:`loadsctrl-updates` in the monitoring section below.
+
+.. _loadsctrl-weekly-profile:
+
+Weekly threshold profile
+""""""""""""""""""""""""
+
+Besides the fixed ``max_power`` value, each controller carries a weekly
+schedule that selects, hour by hour, which of the **five threshold levels**
+shown in the official CAME app is active (each level is a fraction of
+``max_power``). The ``profile`` property exposes it as a typed
+:class:`~aiocamedomotic.models.LoadsCtrlProfile` object with 7 rows
+(Monday through Sunday) of 24 hourly slots, each set to a level ``1``-``5``.
+
+**Reading the profile:**
+
+.. code-block:: python
+
+    from aiocamedomotic.models import ProfileDay
+
+    profile = ctrl.profile
+
+    # Level active on Monday at 08:00
+    print(profile.level_at(ProfileDay.MONDAY, 8))
+
+    # A day's schedule as runs of consecutive equal levels
+    for span in profile.spans(ProfileDay.MONDAY):
+        print(f"{span.start} - {span.end}: level {span.level}")
+
+Example output:
+
+.. code-block:: text
+
+    4
+    00:00:00 - 00:00:00: level 4
+
+Here the whole day runs at level 4, so there is a single span covering the
+full day: spans are half-open ``[start, end)`` ranges, and an ``end`` of
+``00:00`` means "through midnight". (The ``profile_data`` property exposes
+the same schedule in raw wire format: 7 strings of 24 hourly digits.)
+
+**Editing the profile:**
+
+Profiles are **immutable value objects**: every editing method returns a
+*new* profile and leaves the original untouched, so nothing reaches the
+server until you explicitly write the result back with
+``async_set_config()``. Edits are hour-based (``start`` inclusive, ``end``
+exclusive), matching how the official app edits profiles:
+
+.. code-block:: python
+
+    from aiocamedomotic.models import LoadsCtrlProfile, ProfileDay
+
+    # Level 2 on Monday from 08:00 to 12:00
+    edited = profile.with_level(2, days=ProfileDay.MONDAY, start=8, end=12)
+
+    # Level 1 every day from 22:00 through midnight
+    # (days omitted → all days; end omitted → end of day)
+    edited = edited.with_level(1, start=22)
+
+    # Copy Monday's whole schedule onto the weekend
+    edited = edited.with_day_copied(
+        ProfileDay.MONDAY, to=[ProfileDay.SATURDAY, ProfileDay.SUNDAY]
+    )
+
+    # Or start from scratch: every hour of every day at level 5
+    flat = LoadsCtrlProfile.constant(5)
+
+Spans that cross midnight must be split into two calls (e.g. 22:00-06:00 is
+``with_level(1, start=22)`` on one day plus ``with_level(1, end=6)`` on the
+next).
+
+**Writing the profile back:**
+
+Pass the edited profile to ``async_set_config()`` — alone or together with
+``max_power``/``hysteresis``. As with the other configuration values, the
+accepted state is echoed back as a ``loadsctrl_meter_ind`` push update:
+
+.. code-block:: python
+
+    await ctrl.async_set_config(profile_data=edited)
+
+    # Re-fetch to confirm the server state
+    ctrl = (await api.async_get_loadsctrl_meters())[0]
+    print(ctrl.profile == edited)  # True
+
+.. note::
+    ``profile_data`` accepts a ``LoadsCtrlProfile`` object only (typically
+    obtained from ``ctrl.profile`` and edited), not raw digit strings — to
+    send a raw server-captured value, parse it first with
+    ``LoadsCtrlProfile.from_wire(raw_list)``. Profiles compare by value, so
+    two profiles with the same grid are equal regardless of how they were
+    built.
 
 
 Monitoring real-time updates
