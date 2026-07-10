@@ -534,6 +534,8 @@ class LoadsCtrlProfile(WeeklyProfile):
     :meth:`LoadsCtrlMeter.async_set_config`.
     """
 
+    __slots__ = ()
+
     DAYS = WEEKDAYS
     WIRE_SLOTS_PER_DAY = 24
 
@@ -551,6 +553,8 @@ class ThermoProfile(WeeklyProfile):
     has never been observed in captured traffic, so writing a profile back
     to a zone is not yet supported by the library.
     """
+
+    __slots__ = ()
 
     DAYS = WEEKDAYS + (ProfileDay.JOLLY,)
     WIRE_SLOTS_PER_DAY = 96
