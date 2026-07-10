@@ -288,7 +288,8 @@ from aiocamedomotic.models import (
     Timer, TimerTimeSlot, TimerUpdate,
     DeviceUpdate, LightUpdate, OpeningUpdate, RelayUpdate,
     ThermoZoneUpdate, ScenarioUpdate, DigitalInputUpdate,
-    EnergyMeterUpdate, PlantUpdate,
+    EnergyMeterUpdate, LoadsCtrlMeterUpdate, LoadsCtrlRelayUpdate,
+    PlantUpdate,
 )
 from aiocamedomotic.errors import (
     CameDomoticError,
@@ -483,6 +484,9 @@ if ServerFeature.TIMERS in server_info.features:
 
 if ServerFeature.ENERGY in server_info.features:
     meters = await api.async_get_energy_meters()
+
+if ServerFeature.LOADSCTRL in server_info.features:
+    controllers = await api.async_get_loadsctrl_meters()
 ```
 
 #### Floors and rooms
@@ -575,7 +579,9 @@ if rgb_strip:
 ##### NOTE
 The `brightness` parameter is silently ignored for non-dimmable
 (STEP_STEP) lights. The `rgb` parameter is silently ignored for
-non-RGB lights.
+non-RGB lights. Dimmer hardware may quantize the requested brightness
+to its own steps, so the server can report back a slightly different
+value (e.g. requesting `50` may result in `52`).
 
 #### Openings
 
@@ -973,7 +979,7 @@ Slot 2: 22:00:00 → N/A
 ```
 
 ##### NOTE
-The `stop` and `active` fields mayb be not
+The `stop` and `active` fields may not be
 present in the server response. The corresponding properties return
 `None` in that case. Your code should handle both cases.
 
@@ -1167,6 +1173,170 @@ if main_meter:
 Real-time power readings are delivered as push updates — see
 [Energy meter updates](#energy-meter-updates) in the monitoring section below.
 
+#### Loads control
+
+The `loadsctrl` feature implements **load shedding**: a loads
+**controller** ([`LoadsCtrlMeter`](#aiocamedomotic.models.LoadsCtrlMeter)) watches an
+energy meter and, when consumption exceeds its `max_power` threshold
+(with a `hysteresis` band around it to avoid flapping), it *detaches*
+its **managed loads** ([`LoadsCtrlRelay`](#aiocamedomotic.models.LoadsCtrlRelay)) —
+typically high-consumption appliances — one at a time until consumption
+drops below the threshold again.
+
+The order in which loads are shed is defined by each load’s `priority`
+value: **the lower the priority value, the earlier the load is detached**.
+Keep this direction in mind throughout this section — your most expendable
+appliance should have the *lowest* priority value.
+
+##### NOTE
+The number and names of controllers and loads are **entirely
+plant-specific**: another plant may have any number of loads (including
+zero) with arbitrary user-defined names. Never hard-code load names or
+counts — always discover them via the API, as shown below.
+
+**Fetching the loads controllers:**
+
+```python
+controllers = await api.async_get_loadsctrl_meters()
+
+for ctrl in controllers:
+    print(
+        f"ID: {ctrl.id}, Name: {ctrl.name}, "
+        f"Max power: {ctrl.max_power} W, "
+        f"Hysteresis: {ctrl.hysteresis} W, "
+        f"Current power: {ctrl.power} W, "
+        f"Energy meter ID: {ctrl.meter_id}"
+    )
+```
+
+Example output:
+
+```text
+ID: 196612, Name: Consumed Energy, Max power: 5000 W, Hysteresis: 400 W, Current power: 595 W, Energy meter ID: 4
+```
+
+The controller’s `meter_id` is the `id` of the energy meter it watches
+(see the [Energy meters]() section above); the controller’s own `id` is a
+separate, opaque value.
+
+**Fetching the managed loads:**
+
+The examples below reuse the `controllers` list fetched above. Get the
+loads managed by a controller with `async_get_relays()`, and sort them by
+`priority` to display the detach order (first row = first load shed):
+
+```python
+if not controllers:
+    print("No loads controller on this plant")
+else:
+    ctrl = controllers[0]
+    relays = sorted(await ctrl.async_get_relays(), key=lambda r: r.priority)
+
+    for relay in relays:
+        print(
+            f"Priority: {relay.priority}, Name: {relay.name}, "
+            f"Enabled: {relay.enabled}, Detached: {relay.detached}, "
+            f"Status: {relay.status}"
+        )
+```
+
+Example output:
+
+```text
+Priority: 129, Name: Washing machine, Enabled: False, Detached: False, Status: LoadsCtrlRelayStatus.ON
+Priority: 130, Name: Dishwasher, Enabled: True, Detached: False, Status: LoadsCtrlRelayStatus.ON
+Priority: 131, Name: Air conditioner, Enabled: False, Detached: False, Status: LoadsCtrlRelayStatus.ON
+Priority: 132, Name: Tumble dryer, Enabled: False, Detached: False, Status: LoadsCtrlRelayStatus.OFF
+```
+
+`detached` tells you whether the controller has currently shed the load,
+and `status` is the read-only relay output state (there is no loadsctrl
+command to switch the relay itself).
+
+**Finding a specific load:**
+
+```python
+# By ID
+washer = next((r for r in relays if r.id == 65600), None)
+
+# By name
+dryer = next((r for r in relays if r.name == "Tumble dryer"), None)
+```
+
+**Enabling or disabling a load:**
+
+A load participates in load shedding only while it is *enabled* — this is
+the per-appliance toggle you see in the official CAME app. Disabling a load
+means the controller will never detach it, regardless of priority:
+
+```python
+if washer:
+    await washer.async_set_enabled(True)   # controller may shed it
+    await washer.async_set_enabled(False)  # controller leaves it alone
+```
+
+**Changing a single load’s priority:**
+
+Use `async_set_priority()` to move one load within the detach order.
+Remember the direction: a *lower* value means the load is shed *earlier*.
+The wire command always carries both fields, so the current `enabled`
+flag is re-sent automatically alongside the new priority:
+
+```python
+if washer:
+    await washer.async_set_priority(130)
+```
+
+**Reordering the whole detach order:**
+
+To rewrite the full shedding sequence in one call, build the desired order
+(first element = first load shed) and pass it to
+`async_set_detach_order()`. The method reuses the priority values already
+present on the plant, reassigning them in ascending order to your sequence:
+
+```python
+# Current order: washer, dishwasher, air conditioner, dryer.
+# Make the dishwasher the first load to shed, then the washer:
+by_name = {r.name: r for r in relays}
+await ctrl.async_set_detach_order([
+    by_name["Dishwasher"],
+    by_name["Washing machine"],
+    by_name["Air conditioner"],
+    by_name["Tumble dryer"],
+])
+```
+
+##### NOTE
+`async_set_detach_order()` writes **only the relays whose priority
+actually changes** (the official app does the same), so a no-op reorder
+sends no set commands. It raises `ValueError` if the sequence is not
+a permutation of the controller’s relays (same IDs, no duplicates).
+The method is not atomic (one set command per changed relay), but it
+is **safe to retry**: if a call fails partway through and leaves two
+relays sharing a priority value, calling it again repairs the
+duplicates into a strictly increasing sequence and converges to the
+requested order.
+
+**Updating the controller configuration:**
+
+`async_set_config()` changes the overload threshold (`max_power`)
+and/or the `hysteresis`. Unspecified values are re-sent unchanged, since
+the wire command requires the full configuration on every write:
+
+```python
+await ctrl.async_set_config(max_power=4500)
+await ctrl.async_set_config(max_power=5000, hysteresis=300)
+```
+
+##### NOTE
+The `profile_data` parameter (the weekly hourly threshold profile) is
+accepted only for the mandatory raw round-trip and is strictly
+validated (7 strings of 24 digits in `1`-`5`); profile *editing* is
+not yet a library feature.
+
+Configuration writes and load changes are echoed back as push updates —
+see [Loads control updates](#loadsctrl-updates) in the monitoring section below.
+
 ### Monitoring real-time updates
 
 The CAME Domotic server supports **long polling** for real-time status updates.
@@ -1196,7 +1366,7 @@ async with await CameDomoticAPI.async_create(
             continue
 
         for update in updates.get_typed_updates():
-            print(f"[{update.device_type}] {update.name} (ID: {update.device_id})")
+            print(f"[{update.device_type.name}] {update.name} (ID: {update.device_id})")
 
         # Brief pause to avoid tight looping on rapid server responses
         await asyncio.sleep(1)
@@ -1205,9 +1375,9 @@ async with await CameDomoticAPI.async_create(
 Example output:
 
 ```text
-[DeviceType.LIGHT] Living Room Chandelier (ID: 1)
-[DeviceType.OPENING] Bedroom Shutter (ID: 10)
-[DeviceType.THERMO_ZONE] Living Room (ID: 1)
+[LIGHT] Living Room Chandelier (ID: 1)
+[OPENING] Bedroom Shutter (ID: 10)
+[THERMOSTAT] Living Room (ID: 1)
 ```
 
 ##### NOTE
@@ -1296,6 +1466,18 @@ for update in updates.get_typed_updates():
 
     elif isinstance(update, EnergyMeterUpdate):
         print(f"Meter '{update.name}': {update.instant_power} {update.unit}")
+
+    elif isinstance(update, LoadsCtrlRelayUpdate):
+        print(
+            f"Load '{update.name}': enabled={update.enabled}, "
+            f"priority={update.priority}, detached={update.detached}"
+        )
+
+    elif isinstance(update, LoadsCtrlMeterUpdate):
+        print(
+            f"Loads controller '{update.name}': "
+            f"max_power={update.max_power} W, hysteresis={update.hysteresis} W"
+        )
 
     elif isinstance(update, PlantUpdate):
         print("Plant configuration changed, re-fetching devices...")
@@ -1427,6 +1609,56 @@ Example output:
 ```text
 Meter 'Line 1 + Line 2' (ID: 3): 636 W, last_24h_avg=7788947 Wh
 Meter 'Consumed Energy' (ID: 4): 636 W, last_24h_avg=5813290 Wh
+```
+
+#### Loads control updates
+
+The server pushes a `loadsctrl_relay_ind` after **every accepted**
+`loadsctrl_relay_set_req` (enable/disable or priority change), and a
+`loadsctrl_meter_ind` after a controller configuration write. Both carry
+a **complete snapshot** of the affected entity, parsed into
+[`LoadsCtrlRelayUpdate`](#aiocamedomotic.models.LoadsCtrlRelayUpdate) /
+[`LoadsCtrlMeterUpdate`](#aiocamedomotic.models.LoadsCtrlMeterUpdate); for both,
+`device_id` is the loadsctrl `id` (not the relay’s `act_id`).
+
+##### NOTE
+**Your own writes are echoed back to you.** These pushes are sent to
+*all* clients — including the one that issued the set command. A
+consumer polling `async_get_updates()` must therefore expect to
+receive updates for changes it made itself, and treat the pushed
+snapshot as the authoritative state (which makes it safe to simply
+overwrite any cached data).
+
+```python
+while True:
+    try:
+        updates = await api.async_get_updates(timeout=120)
+    except CameDomoticServerTimeoutError:
+        continue
+
+    for update in updates.get_typed_updates():
+        if isinstance(update, LoadsCtrlRelayUpdate):
+            print(
+                f"Load '{update.name}' (ID: {update.device_id}): "
+                f"enabled={update.enabled}, priority={update.priority}, "
+                f"detached={update.detached}"
+            )
+        elif isinstance(update, LoadsCtrlMeterUpdate):
+            print(
+                f"Controller '{update.name}' (ID: {update.device_id}): "
+                f"max_power={update.max_power} W, "
+                f"hysteresis={update.hysteresis} W, power={update.power} W"
+            )
+
+    await asyncio.sleep(1)
+```
+
+Example output (after enabling a load and swapping two priorities):
+
+```text
+Load 'Washing machine' (ID: 65600): enabled=True, priority=129, detached=False
+Load 'Dishwasher' (ID: 65601): enabled=True, priority=129, detached=False
+Load 'Washing machine' (ID: 65600): enabled=True, priority=130, detached=False
 ```
 
 ### Advanced topics
@@ -1709,6 +1941,48 @@ Get the list of all the light devices defined on the server.
 * **Return type:**
   list[[Light](#aiocamedomotic.models.Light)]
 * **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_get_loadsctrl_meters() → list[[LoadsCtrlMeter](#aiocamedomotic.models.LoadsCtrlMeter)]
+
+Get the list of all loads controllers defined on the server.
+
+Loads controllers (`loadsctrl` feature) bind an energy meter to
+an overload threshold and manage the load-shedding of their
+associated loads. A plant may define any number of controllers
+(including zero).
+
+* **Returns:**
+  List of loads controllers. Returns an
+  empty list if none are defined or the server response lacks
+  the `array` key.
+* **Return type:**
+  list[[LoadsCtrlMeter](#aiocamedomotic.models.LoadsCtrlMeter)]
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_get_loadsctrl_relays(controller_id: int) → list[[LoadsCtrlRelay](#aiocamedomotic.models.LoadsCtrlRelay)]
+
+Get the loads managed by the given loads controller.
+
+Convenience passthrough for `loadsctrl_relay_list_req`;
+[`async_get_relays()`](#aiocamedomotic.models.LoadsCtrlMeter.async_get_relays) is
+the ergonomic path.
+
+* **Parameters:**
+  **controller_id** – The loads-controller `id` (as returned by
+  [`async_get_loadsctrl_meters()`](#aiocamedomotic.came_domotic_api.CameDomoticAPI.async_get_loadsctrl_meters)), **not** the energy
+  meter’s `id`.
+* **Returns:**
+  List of managed loads. Returns an empty
+  list if none are defined or the server response lacks the
+  `array` key.
+* **Return type:**
+  list[[LoadsCtrlRelay](#aiocamedomotic.models.LoadsCtrlRelay)]
+* **Raises:**
+  * **ValueError** – If `controller_id` is not an integer.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
@@ -2126,8 +2400,13 @@ Device type IDs used by the CAME ETI/Domo system.
 Each device in the CAME Domotic system is associated with one of these type
 identifiers. Not all device types are currently supported by this library.
 
+Negative IDs are library-specific: they identify entity kinds that the
+CAME API does not assign a numeric type to.
+
 Values:
-: - ANALOG_INPUT (-3)
+: - LOADSCTRL_RELAY (-5)
+  - LOADSCTRL_METER (-4)
+  - ANALOG_INPUT (-3)
   - ENERGY_SENSOR (-2)
   - ANALOG_SENSOR (-1)
   - LIGHT (0)
@@ -2522,6 +2801,348 @@ Room index.
 ##### *property* status *: [LightStatus](#aiocamedomotic.models.LightStatus)*
 
 Light status (OFF, ON, AUTO).
+
+#### *class* aiocamedomotic.models.LoadsCtrlMeter(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+
+The loads controller bound to an energy meter (`loadsctrl` feature).
+
+Binds an energy meter ([`meter_id`](#aiocamedomotic.models.LoadsCtrlMeter.meter_id)) to an overload threshold
+([`max_power`](#aiocamedomotic.models.LoadsCtrlMeter.max_power)), a hysteresis, and a weekly hourly threshold profile
+([`profile_data`](#aiocamedomotic.models.LoadsCtrlMeter.profile_data)). When consumption exceeds the threshold, the
+controller detaches its managed loads (fetched via
+[`async_get_relays()`](#aiocamedomotic.models.LoadsCtrlMeter.async_get_relays)) in priority order — lower priority value
+first.
+
+A plant may define any number of controllers (including zero); code
+should never assume a single controller.
+
+* **Raises:**
+  **ValueError** – If `name` or `id` keys are missing from the input
+      data, if `id` is not an integer, or if the auth argument is
+      not an instance of the expected `Auth` class.
+
+##### *async* async_get_relays() → list[[LoadsCtrlRelay](#aiocamedomotic.models.LoadsCtrlRelay)]
+
+Get the loads managed by this controller.
+
+Sends `loadsctrl_relay_list_req` with this controller’s
+[`id`](#aiocamedomotic.models.LoadsCtrlMeter.id). Relays are returned in server order; sort by
+[`LoadsCtrlRelay.priority`](#aiocamedomotic.models.LoadsCtrlRelay.priority) (ascending) to get the detach-order
+view shown by the official app.
+
+* **Returns:**
+  List of managed loads. Returns an empty
+  list if none are defined or the server response lacks the
+  `array` key.
+* **Return type:**
+  list[[LoadsCtrlRelay](#aiocamedomotic.models.LoadsCtrlRelay)]
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_set_config(\*, max_power: int | None = None, hysteresis: int | None = None, profile_data: list[str] | None = None) → None
+
+Update the controller configuration.
+
+Sends `loadsctrl_meter_set_req`. The wire command requires the
+full triple, so any unspecified argument is re-sent with its
+current value from `raw_data`.
+
+* **Parameters:**
+  * **max_power** – New overload threshold in Watts (positive integer),
+    or `None` to keep the current value.
+  * **hysteresis** – New hysteresis in Watts (non-negative integer; `0`
+    disables the hysteresis band), or `None` to keep the
+    current value.
+  * **profile_data** – New weekly hourly threshold profile in raw wire
+    format — exactly 7 strings of exactly 24 characters, each
+    character a digit `1`-`5` — or `None` to keep the
+    current value. This parameter exists mainly for the
+    mandatory wire round-trip: an ergonomic profile-editing API
+    is not yet available.
+* **Raises:**
+  * **ValueError** – If `max_power` is not a positive integer, if
+        `hysteresis` is not a non-negative integer, or if
+        `profile_data` does not match the required shape.
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_set_detach_order(relays: Sequence[[LoadsCtrlRelay](#aiocamedomotic.models.LoadsCtrlRelay)]) → None
+
+Rewrite priorities so loads are shed in the given order.
+
+The first element of `relays` is shed first (**lower priority
+value = shed first**). The method fetches the controller’s current
+relay list, takes the existing priority values, sorts them
+ascending, and reassigns them to `relays` in sequence order —
+sending one `loadsctrl_relay_set_req` per relay whose priority
+actually changes (the official app also writes only changed
+relays). Reusing the existing value set keeps whatever absolute
+numbering convention the plant uses intact.
+
+Each write is issued through a freshly-fetched relay object (not
+the caller-supplied one), so it carries the `enabled` flag as of
+this call’s own relay-list fetch rather than whatever value the
+caller’s object happened to have cached — otherwise a stale
+caller-side `enabled` would be silently written back over a
+concurrent change made by another client. The caller-supplied
+objects are updated with the resulting state afterward, so they
+remain a valid source for further calls.
+
+This method is not atomic: it issues one set command per changed
+relay, sequentially. If a call fails partway through, the plant can
+be left with two relays sharing the same priority value (the new
+value is written to one relay before the old value is cleared from
+the other). This is safe to recover from by simply calling the
+method again: duplicate priority values found on the plant are
+repaired into a strictly increasing sequence (each duplicate is
+bumped just above the value before it) before being reassigned, so
+a replay of the same request converges to the requested order. The
+same repair also applies to plants whose priorities contain
+duplicates for any other reason, in which case some relays end up
+with priority values not previously used on the plant; a warning
+is logged when this happens.
+
+* **Parameters:**
+  **relays** – The desired detach order. Must be a permutation of this
+  controller’s relays (same IDs, no duplicates) — fetch them
+  via [`async_get_relays()`](#aiocamedomotic.models.LoadsCtrlMeter.async_get_relays) first.
+* **Raises:**
+  * **ValueError** – If `relays` is not a permutation of this
+        controller’s relays (same IDs, no duplicates).
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *property* hysteresis *: int*
+
+Hysteresis around the overload threshold, in Watts.
+
+##### *property* id *: int*
+
+Loads-controller identifier (opaque server value).
+
+Required by `loadsctrl_relay_list_req`; do not confuse it with
+the bound energy meter’s [`meter_id`](#aiocamedomotic.models.LoadsCtrlMeter.meter_id).
+
+##### *property* max_power *: int*
+
+Overload threshold in Watts.
+
+##### *property* meter_id *: int*
+
+The `id` of the associated energy meter (from the meters list).
+
+##### *property* name *: str*
+
+Controller name (mirrors the bound energy meter’s name).
+
+##### *property* power *: float*
+
+Current power reading in Watts (same as the meter’s power).
+
+The value is passed through exactly as reported by the server
+(no unit conversion is applied).
+
+##### *property* profile_data *: list[str]*
+
+Weekly hourly threshold profile (raw wire format, copied).
+
+Seven strings — one per weekday, Monday first — of 24 characters
+each (one per hour of day). Each character is a digit `1`-`5`
+selecting the power threshold active in that hour as a fraction of
+[`max_power`](#aiocamedomotic.models.LoadsCtrlMeter.max_power). The library exposes the raw value only; profile
+editing is not yet a library feature.
+
+Returns a copy: mutating the returned list does not affect
+`raw_data`.
+
+#### *class* aiocamedomotic.models.LoadsCtrlMeterUpdate(raw_data: dict[str, Any])
+
+Typed update for a loads controller (`loadsctrl_meter_ind`).
+
+Pushed by the server after an accepted `loadsctrl_meter_set_req`,
+to **all** clients — including the one that issued the set. The payload
+is a complete snapshot of the controller state (same shape as a
+`loadsctrl_meter_list_resp` item).
+
+##### *property* device_id *: int | None*
+
+For loads controllers the primary ID is `id`.
+
+##### *property* hysteresis *: int*
+
+Hysteresis around the overload threshold, in Watts.
+
+##### *property* id *: int*
+
+Loads-controller identifier (opaque server value).
+
+##### *property* max_power *: int*
+
+Overload threshold in Watts.
+
+##### *property* meter_id *: int*
+
+The `id` of the associated energy meter.
+
+##### *property* power *: float*
+
+Current power reading in Watts (no unit conversion applied).
+
+##### *property* profile_data *: list[str]*
+
+Weekly hourly threshold profile (raw wire format, copied).
+
+#### *class* aiocamedomotic.models.LoadsCtrlRelay(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+
+A load managed by a loads controller (`loadsctrl` feature).
+
+Represents an appliance that the loads controller can *detach* (shed)
+when consumption exceeds the configured threshold. Loads are shed in
+priority order: **lower priority value = detached first**.
+
+Writable properties are changed via [`async_set_enabled()`](#aiocamedomotic.models.LoadsCtrlRelay.async_set_enabled) and
+[`async_set_priority()`](#aiocamedomotic.models.LoadsCtrlRelay.async_set_priority).
+
+* **Raises:**
+  **ValueError** – If `name` or `id` keys are missing from the input
+      data, if `id` is not an integer, or if the auth argument is
+      not an instance of the expected `Auth` class.
+
+##### *property* act_id *: int*
+
+Underlying actuator ID.
+
+Not used by any loadsctrl command: all loadsctrl operations are
+keyed by [`id`](#aiocamedomotic.models.LoadsCtrlRelay.id).
+
+##### *async* async_set_enabled(enabled: bool) → None
+
+Enable or disable this load’s participation in load shedding.
+
+This is the equivalent of the per-appliance toggle in the official
+app. The wire command requires both fields, so the **current**
+[`priority`](#aiocamedomotic.models.LoadsCtrlRelay.priority) is re-sent alongside the new `enabled` flag.
+
+* **Parameters:**
+  **enabled** – `True` to let the controller shed this load on
+  overload, `False` to exclude it from load shedding.
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_set_priority(priority: int) → None
+
+Set the detach-order priority (raw server value).
+
+**Lower priority value = detached first.** The wire command requires
+both fields, so the **current** [`enabled`](#aiocamedomotic.models.LoadsCtrlRelay.enabled) flag is re-sent
+alongside the new priority.
+
+* **Parameters:**
+  **priority** – The new priority value (non-negative integer). The
+  absolute numbering convention is plant-specific; the usual
+  pattern is to swap/reuse the values already present on the
+  plant (see
+  [`LoadsCtrlMeter.async_set_detach_order()`](#aiocamedomotic.models.LoadsCtrlMeter.async_set_detach_order)).
+* **Raises:**
+  * **ValueError** – If `priority` is not a non-negative integer.
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *property* detached *: bool*
+
+Whether the controller has currently shed this load.
+
+##### *property* enabled *: bool*
+
+Whether the load participates in load shedding.
+
+This is the per-appliance on/off toggle shown in the official app.
+
+##### *property* id *: int*
+
+Load identifier.
+
+This is the key used by `loadsctrl_relay_set_req` and carried by
+`loadsctrl_relay_ind` push updates (not [`act_id`](#aiocamedomotic.models.LoadsCtrlRelay.act_id)).
+
+##### *property* loadtype *: int*
+
+Raw `loadtype` field (opaque; `1` observed, semantics unknown).
+
+##### *property* name *: str*
+
+Appliance name (user-defined, plant-specific).
+
+##### *property* priority *: int*
+
+Detach-order priority (raw server value).
+
+**Lower value = detached first.** The absolute numbering is a
+plant-specific convention.
+
+##### *property* status *: [LoadsCtrlRelayStatus](#aiocamedomotic.models.LoadsCtrlRelayStatus)*
+
+Current relay output state (read-only).
+
+#### *class* aiocamedomotic.models.LoadsCtrlRelayStatus(\*values)
+
+Current output state of a load-control relay.
+
+Allowed values are:
+: - OFF (0)
+  - ON (1)
+  - UNKNOWN (-1): Returned when the server reports an unrecognised
+    status value.
+
+The relay output state is read-only: the loadsctrl commands cannot
+switch the relay on or off directly.
+
+#### *class* aiocamedomotic.models.LoadsCtrlRelayUpdate(raw_data: dict[str, Any])
+
+Typed update for a load-control relay (`loadsctrl_relay_ind`).
+
+Pushed by the server after every accepted `loadsctrl_relay_set_req`,
+to **all** clients — including the one that issued the set. The payload
+is a complete snapshot of the relay state (same shape as a
+`loadsctrl_relay_list_resp` item) and should be treated as the
+authoritative confirmation of the change.
+
+##### *property* act_id *: int*
+
+Underlying actuator ID (not used by loadsctrl commands).
+
+##### *property* detached *: bool*
+
+Whether the controller has currently shed this load.
+
+##### *property* device_id *: int | None*
+
+For loadsctrl relays the primary ID is `id`.
+
+Both `act_id` and `id` are present in the payload and differ:
+`id` is the key every loadsctrl command uses.
+
+##### *property* enabled *: bool*
+
+Whether the load participates in load shedding.
+
+##### *property* id *: int*
+
+Load identifier (the key used by all loadsctrl commands).
+
+##### *property* loadtype *: int*
+
+Raw `loadtype` field (opaque; `1` observed).
+
+##### *property* priority *: int*
+
+Detach-order priority (lower value = detached first).
+
+##### *property* status *: [LoadsCtrlRelayStatus](#aiocamedomotic.models.LoadsCtrlRelayStatus)*
+
+Current relay output state (OFF, ON).
 
 #### *class* aiocamedomotic.models.MapPage(raw_data: dict[str, Any])
 
@@ -3626,8 +4247,13 @@ Device type IDs used by the CAME ETI/Domo system.
 Each device in the CAME Domotic system is associated with one of these type
 identifiers. Not all device types are currently supported by this library.
 
+Negative IDs are library-specific: they identify entity kinds that the
+CAME API does not assign a numeric type to.
+
 Values:
-: - ANALOG_INPUT (-3)
+: - LOADSCTRL_RELAY (-5)
+  - LOADSCTRL_METER (-4)
+  - ANALOG_INPUT (-3)
   - ENERGY_SENSOR (-2)
   - ANALOG_SENSOR (-1)
   - LIGHT (0)
@@ -3992,7 +4618,7 @@ Decorator to handle CAME Domotic API errors.
 
 The decorator catches the following exceptions:
 - aiohttp.ClientResponseError: for HTTP errors (4xx, 5xx)
-- aiohttp.ServerTimeoutError: for timeouts
+- TimeoutError: for timeouts (asyncio.TimeoutError, ServerTimeoutError)
 - aiohttp.ClientError: for other network-related errors
 - CameDomoticAuthError: for authentication errors
 - any other exception: for unforeseen errors
