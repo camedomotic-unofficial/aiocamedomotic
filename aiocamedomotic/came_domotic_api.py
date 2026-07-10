@@ -332,6 +332,7 @@ class CameDomoticAPI:
         payload = {
             "cmd_name": _CommandName.THERMO_LIST.value,
             "topologic_scope": _TopologicScope.PLANT.value,
+            "extended_infos": 2,
         }
 
         json_response = await self.auth.async_send_command(
