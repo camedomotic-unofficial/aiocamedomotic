@@ -74,13 +74,6 @@ library in your projects. Before you begin, ensure you have:
 - Python 3.12, 3.13 or 3.14 installed on your system.
 - Access to a CAME Domotic server.
 
-##### WARNING
-CAME ETI/Domo servers expose their API over plain HTTP only, so all traffic —
-including your credentials at login — travels unencrypted on the local network.
-This is a limitation of the CAME hardware, not of this library. Keep the server
-on a trusted network, never expose its HTTP port to the internet, and prefer a
-VPN for remote access.
-
 ### Installation
 
 Use [pip](https://pip.pypa.io/en/stable/) to install the latest version of the CAME
