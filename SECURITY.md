@@ -35,9 +35,8 @@ supported with security updates.
 
 | Version | Supported |
 | ------- | --------- |
-| 1.0.x   | ✅         |
-| 1.0.x   | ❌         |
-| 0.x.    | ❌         |
+| 1.x.x   | ✅         |
+| < 1.0   | ❌         |
 
 ## Reporting a vulnerability
 
@@ -57,7 +56,7 @@ within our project, we kindly ask you to follow these steps:
 
 Our project undergoes continuous integration and deployment (CI/CD), incorporating various security and code quality tools to ensure the safety and reliability of our codebase. Here are some of the measures and tools we use:
 
-- **Static code analysis**: We use `mypy`, `pylint`, `flake8`, and `black` to enforce coding standards and identify potential issues.
+- **Static code analysis**: We use `mypy`, `pylint`, and `ruff` to enforce coding standards and identify potential issues.
 - **Security scanning**: `bandit` and `gitguardian` scan our code for security vulnerabilities and secrets, respectively.
 - **Dependencies security**: `Dependabot` scans our dependencies for known vulnerabilities and automatically creates pull requests to update them.
 - **Automated testing**: `pytest` ensures that our code behaves as expected and that new changes do not introduce regressions.
