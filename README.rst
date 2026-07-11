@@ -54,29 +54,6 @@ interested in experimenting with a CAME Domotic plant.
     life-support systems. Always use official and supported tools for such applications.
 
 
-Security considerations
------------------------
-
-CAME ETI/Domo servers expose their API over **plain HTTP only**: all traffic between
-this library and the server, including the username and password sent at login, travels
-**unencrypted** on your local network. This is a limitation of the CAME hardware and
-its proprietary protocol, **not of this library** — the official CAME clients
-communicate the same way, and the server offers no TLS/HTTPS endpoint.
-
-In practice this means that anyone able to sniff traffic on your LAN could capture your
-CAME credentials and control your plant. To keep your installation safe:
-
-- Keep the CAME server on a **trusted local network** (ideally a dedicated VLAN or an
-  isolated IoT network segment).
-- **Never expose** the CAME server's HTTP port directly to the internet (no port
-  forwarding). For remote access, use a **VPN** into your home network.
-- Use a **dedicated CAME user** with a password not reused for any other service.
-
-On its side, the library never persists your credentials to disk, keeps them encrypted
-in memory, and automatically redacts passwords and other sensitive values from its
-debug and traffic logs.
-
-
 Key Features
 ------------
 - **Simplicity**: Easy interaction with domotic entities.
