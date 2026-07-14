@@ -2034,7 +2034,7 @@ For full API details, see the [API Reference](#api-reference).
 
 This module exposes the CAME Domotic API to the end-users.
 
-#### *class* aiocamedomotic.came_domotic_api.CameDomoticAPI(auth: [Auth](#aiocamedomotic.auth.Auth), , command_timeout: int = 30)
+#### *class* aiocamedomotic.came_domotic_api.CameDomoticAPI(auth: [Auth](#aiocamedomotic.auth.Auth), \*, command_timeout: int = 30)
 
 Main class, exposes all the public methods of the CAME Domotic API.
 
@@ -2057,7 +2057,7 @@ Add a new user to the CAME Domotic server.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async classmethod* async_create(host: str, username: str, password: str, , websession: ClientSession | None = None, close_websession_on_disposal: bool = False, command_timeout: int = 30) → [CameDomoticAPI](#aiocamedomotic.came_domotic_api.CameDomoticAPI)
+##### *async classmethod* async_create(host: str, username: str, password: str, \*, websession: ClientSession | None = None, close_websession_on_disposal: bool = False, command_timeout: int = 30) → [CameDomoticAPI](#aiocamedomotic.came_domotic_api.CameDomoticAPI)
 
 Create a CameDomoticAPI object.
 
@@ -3101,7 +3101,7 @@ view shown by the official app.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_set_config(, max_power: int | None = None, hysteresis: int | None = None, profile_data: [LoadsCtrlProfile](#aiocamedomotic.models.LoadsCtrlProfile) | None = None) → None
+##### *async* async_set_config(\*, max_power: int | None = None, hysteresis: int | None = None, profile_data: [LoadsCtrlProfile](#aiocamedomotic.models.LoadsCtrlProfile) | None = None) → None
 
 Update the controller configuration.
 
@@ -3930,7 +3930,7 @@ ID of the thermoregulation zone.
 
 Antifreeze temperature in degrees Celsius, or None if not set.
 
-##### *async* async_set_config(mode: [ThermoZoneMode](#aiocamedomotic.models.ThermoZoneMode), set_point: float, , fan_speed: [ThermoZoneFanSpeed](#aiocamedomotic.models.ThermoZoneFanSpeed) | None = None) → None
+##### *async* async_set_config(mode: [ThermoZoneMode](#aiocamedomotic.models.ThermoZoneMode), set_point: float, \*, fan_speed: [ThermoZoneFanSpeed](#aiocamedomotic.models.ThermoZoneFanSpeed) | None = None) → None
 
 Configure the thermoregulation zone.
 
@@ -4652,7 +4652,7 @@ modified.
   **ValueError** – If `source` or any target is not a row of this
       profile type.
 
-##### with_level(level: int, , days: [ProfileDay](#aiocamedomotic.models.ProfileDay) | int | Iterable[[ProfileDay](#aiocamedomotic.models.ProfileDay) | int] | None = None, start: time | int = 0, end: time | int | None = None) → Self
+##### with_level(level: int, \*, days: [ProfileDay](#aiocamedomotic.models.ProfileDay) | int | Iterable[[ProfileDay](#aiocamedomotic.models.ProfileDay) | int] | None = None, start: time | int = 0, end: time | int | None = None) → Self
 
 Return a copy with `[start, end)` on `days` set to `level`.
 
@@ -4927,7 +4927,7 @@ In case of special needs, consider requesting the implementation of the desired
 feature in the CAME Domotic library, or forking the library and implement
 the feature yourself.
 
-#### *class* aiocamedomotic.auth.Auth(websession: ClientSession, host: str, username: str, password: str, , close_websession_on_disposal: bool = False)
+#### *class* aiocamedomotic.auth.Auth(websession: ClientSession, host: str, username: str, password: str, \*, close_websession_on_disposal: bool = False)
 
 Class to make authenticated requests to the CAME Domotic API server.
 
@@ -4942,7 +4942,7 @@ This class is not meant to be used directly, but through the `CameDomoticAPI`
 class. To create an instance of this class, use the factory method
 `async_create`.
 
-##### *async classmethod* async_create(websession: ClientSession, host: str, username: str, password: str, , close_websession_on_disposal: bool = False, command_timeout: int = 30) → [Auth](#aiocamedomotic.auth.Auth)
+##### *async classmethod* async_create(websession: ClientSession, host: str, username: str, password: str, \*, close_websession_on_disposal: bool = False, command_timeout: int = 30) → [Auth](#aiocamedomotic.auth.Auth)
 
 Create an Auth instance.
 
@@ -5018,7 +5018,7 @@ Check the response status and raise an error if necessary.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – if there is an authentication error with
         the remote CAME Domotic server.
 
-##### *async* async_send_command(command: dict[str, Any], , response_command: str | None = None, timeout: int | None = None, skip_ack_check: bool = False, command_type: str = 'sl_data_req', additional_payload: dict[str, Any] | None = None, \_caller_holds_lock: bool = False) → dict[str, Any]
+##### *async* async_send_command(command: dict[str, Any], \*, response_command: str | None = None, timeout: int | None = None, skip_ack_check: bool = False, command_type: str = 'sl_data_req', additional_payload: dict[str, Any] | None = None, \_caller_holds_lock: bool = False) → dict[str, Any]
 
 Send a command to the CAME Domotic server.
 
