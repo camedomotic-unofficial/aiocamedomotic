@@ -2,9 +2,7 @@
 
 > Async Python library for interacting with CAME Domotic home automation systems. Provides automatic session management and device control.
 
-## Welcome!
-
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-D22128.svg)](https://opensource.org/licenses/Apache-2.0)[![Python 3.12 | 3.13 | 3.14](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-417fb0.svg)](https://www.python.org)[![SonarCloud - Security Rating](https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_aiocamedomotic&metric=security_rating)](https://sonarcloud.io/project/overview?id=camedomotic-unofficial_aiocamedomotic)[![SonarCloud - Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_aiocamedomotic&metric=vulnerabilities)](https://sonarcloud.io/project/overview?id=camedomotic-unofficial_aiocamedomotic)[![SonarCloud - Bugs](https://sonarcloud.io/api/project_badges/measure?project=camedomotic-unofficial_aiocamedomotic&metric=bugs)](https://sonarcloud.io/project/overview?id=camedomotic-unofficial_aiocamedomotic)[![Documentation status](https://readthedocs.org/projects/aiocamedomotic/badge/?version=latest)](https://aiocamedomotic.readthedocs.io/en/latest/?badge=latest)
+## Overview
 
 The **CAME Domotic Library** ([aiocamedomotic](https://github.com/camedomotic-unofficial/aiocamedomotic))
 provides a streamlined Python interface for interacting with CAME Domotic plants, much
@@ -18,7 +16,7 @@ Although primarily developed for use with
 under the [Apache license 2.0](http://www.apache.org/licenses/LICENSE-2.0) for anyone
 interested in experimenting with a CAME Domotic plant.
 
-##### IMPORTANT
+**IMPORTANT:**
 This library is independently developed and is not affiliated with, endorsed by,
 or supported by [CAME](https://www.came.com/). It may not be compatible with all
 CAME Domotic systems. While this library is stable and publicly released, it comes
@@ -33,38 +31,6 @@ with no guarantees. Use at your own risk.
 - **First of its kind**: Unique in providing integration with CAME Domotic systems.
 - **Open source**: Freely available under the Apache 2.0 license, inviting
   contributions and adaptations.
-
-### Quick Start
-
-Have a look at the following guides to learn how to install and use the library:
-
-- [Getting started](https://aiocamedomotic.readthedocs.io/latest/getting_started.html)
-- [Usage examples](https://aiocamedomotic.readthedocs.io/latest/usage_examples.html)
-
-Once you are a bit more familiar with the library, you may want to explore the following
-resources too:
-
-- [API reference](https://aiocamedomotic.readthedocs.io/latest/api_reference.html)
-- [LLM-friendly docs](https://github.com/camedomotic-unofficial/aiocamedomotic/blob/main/llms.txt)
-  (also available: [full version](https://github.com/camedomotic-unofficial/aiocamedomotic/blob/main/llms-full.txt))
-- [What’s new (releases)](https://github.com/camedomotic-unofficial/aiocamedomotic/releases)
-- [Development roadmap](https://github.com/camedomotic-unofficial/aiocamedomotic/blob/main/ROADMAP.md#development-roadmap)
-- [Security Policy](https://github.com/camedomotic-unofficial/aiocamedomotic/blob/main/SECURITY.md#security-policy)
-- [Contributing to Our Project](https://github.com/camedomotic-unofficial/aiocamedomotic/blob/main/CONTRIBUTING.md#contributing-to-our-project)
-
-### Acknowledgments
-
-Special thanks to Andrea Michielan for his foundational work with the
-[eti_domo](https://github.com/andrea-michielan/eti_domo) library, which greatly
-facilitated the initial development of this library. We also found great inspiration in
-the Home Assistant document
-[Building a Python library for an API](https://developers.home-assistant.io/docs/api_lib_index).
-
-## License
-
-This project is licensed under the Apache License 2.0. For more details, see the
-[LICENSE file](https://github.com/camedomotic-unofficial/aiocamedomotic/blob/main/LICENSE)
-on GitHub.
 
 ## Getting started
 
@@ -244,7 +210,7 @@ CAME Domotic server: connecting, discovering what the server offers, fetching
 and controlling devices, and monitoring real-time changes. For a minimal
 “hello world” example, see [Getting started](#getting-started).
 
-##### NOTE
+**NOTE:**
 The examples below assume the library is installed (`pip install
 aiocamedomotic`). Unless otherwise noted, all code runs inside an
 `async with` block:
@@ -300,7 +266,7 @@ async def main():
 asyncio.run(main())
 ```
 
-##### NOTE
+**NOTE:**
 The session is **not** authenticated at creation time. The library
 authenticates lazily on the first real API call, like `async_get_server_info()`.
 If the credentials are invalid, a `CameDomoticAuthError` will be raised at that
@@ -550,7 +516,7 @@ if rgb_strip:
     await rgb_strip.async_set_status(LightStatus.ON, brightness=75, rgb=[0, 128, 255])
 ```
 
-##### NOTE
+**NOTE:**
 The `brightness` parameter is silently ignored for non-dimmable
 (STEP_STEP) lights. The `rgb` parameter is silently ignored for
 non-RGB lights. Dimmer hardware may quantize the requested brightness
@@ -659,7 +625,7 @@ await zone.async_set_fan_speed(ThermoZoneFanSpeed.SLOW)
 await api.async_set_thermo_season(ThermoZoneSeason.WINTER)
 ```
 
-##### WARNING
+**WARNING:**
 **Setting the season to** `PLANT_OFF` **forces all zones to** `OFF`.
 
 When the season is set to `PLANT_OFF`, the CAME server automatically
@@ -672,7 +638,7 @@ If your application needs to restore zone operation after re-enabling a
 season, you must track each zone’s previous mode yourself and re-apply it
 after changing the season.
 
-##### NOTE
+**NOTE:**
 Temperature values are returned as floats in degrees Celsius.
 
 The `fan_speed` parameter in `async_set_config` is optional; when
@@ -743,7 +709,7 @@ digit `1`-`5`. The official app edits profiles per hour, so the four
 quarters within an hour normally share the same level; the typed API speaks
 in hours only.
 
-##### NOTE
+**NOTE:**
 Thermo profiles are currently **read-only**: the command the official
 app uses to write them has not been mapped yet, so the library cannot
 send an edited thermo profile back to the server. The editing methods
@@ -835,7 +801,7 @@ button = next((di for di in digital_inputs if di.act_id == 1), None)
 sensor = next((di for di in digital_inputs if di.name == "Front door button"), None)
 ```
 
-##### NOTE
+**NOTE:**
 Some digital inputs do not report a `status` until their first state
 change. In that case, `status` returns `DigitalInputStatus.UNKNOWN`.
 
@@ -845,7 +811,7 @@ Analog inputs are read-only standalone sensors exposed via the `analogin` featur
 They provide a numeric reading and a unit of measurement and cannot be
 controlled remotely.
 
-##### NOTE
+**NOTE:**
 These sensors are independent of the thermoregulation system’s
 [`AnalogSensor`](#aiocamedomotic.models.AnalogSensor). The same physical sensor
 may appear in both endpoints.
@@ -1029,7 +995,7 @@ Slot 0: 10:00:00 → 18:30:00
 Slot 2: 22:00:00 → N/A
 ```
 
-##### NOTE
+**NOTE:**
 The `stop` and `active` fields may not be
 present in the server response. The corresponding properties return
 `None` in that case. Your code should handle both cases.
@@ -1088,7 +1054,7 @@ for slot in timer.timetable:
 await timer.async_set_timetable([None, None, None, None])
 ```
 
-##### IMPORTANT
+**IMPORTANT:**
 `async_set_timetable()` always sends **all 4 slots** to the server.
 To keep existing slots unchanged, read the current timetable first and
 merge your changes:
@@ -1239,7 +1205,7 @@ value: **the lower the priority value, the earlier the load is detached**.
 Keep this direction in mind throughout this section — your most expendable
 appliance should have the *lowest* priority value.
 
-##### NOTE
+**NOTE:**
 The number and names of controllers and loads are **entirely
 plant-specific**: another plant may have any number of loads (including
 zero) with arbitrary user-defined names. Never hard-code load names or
@@ -1357,7 +1323,7 @@ await ctrl.async_set_detach_order([
 ])
 ```
 
-##### NOTE
+**NOTE:**
 `async_set_detach_order()` writes **only the relays whose priority
 actually changes** (the official app does the same), so a no-op reorder
 sends no set commands. It raises `ValueError` if the sequence is not
@@ -1463,7 +1429,7 @@ ctrl = (await api.async_get_loadsctrl_meters())[0]
 print(ctrl.profile == edited)  # True
 ```
 
-##### NOTE
+**NOTE:**
 `profile_data` accepts a `LoadsCtrlProfile` object only (typically
 obtained from `ctrl.profile` and edited), not raw digit strings — to
 send a raw server-captured value, parse it first with
@@ -1565,7 +1531,7 @@ Example output:
 [THERMOSTAT] Living Room (ID: 1)
 ```
 
-##### NOTE
+**NOTE:**
 The `asyncio.sleep(1)` acts as a safety throttle in case the server
 returns immediately (e.g. errors or rapid update bursts). If you need to
 run the polling loop alongside other logic, wrap it in
@@ -1597,7 +1563,7 @@ disconnections:
 updates = await api.async_get_updates(timeout=120)
 ```
 
-##### NOTE
+**NOTE:**
 If no `timeout` is passed to `async_get_updates()`, it falls back to
 the instance-level `command_timeout` (default: 30s). For most real-time
 monitoring use cases, a timeout of **60–120 seconds** is recommended.
@@ -1691,7 +1657,7 @@ if updates.has_plant_update:
     digital_inputs = await api.async_get_digital_inputs()
 ```
 
-##### NOTE
+**NOTE:**
 Plant updates are relatively rare. They typically occur when an installer
 modifies the system configuration. Failing to handle them may result in
 stale device data or missing newly added devices.
@@ -1757,7 +1723,7 @@ Each update is a **complete snapshot** of the timer’s state — not a delta.
 You can safely overwrite the cached timer data with the update payload
 without needing to merge changes.
 
-##### NOTE
+**NOTE:**
 The `timer_info_ind` indication name was confirmed from real server
 traffic (firmware 3.0.1). A legacy variant `timer_update_ind` is also
 handled for firmware compatibility.
@@ -1809,7 +1775,7 @@ a **complete snapshot** of the affected entity, parsed into
 [`LoadsCtrlMeterUpdate`](#aiocamedomotic.models.LoadsCtrlMeterUpdate); for both,
 `device_id` is the loadsctrl `id` (not the relay’s `act_id`).
 
-##### NOTE
+**NOTE:**
 **Your own writes are echoed back to you.** These pushes are sent to
 *all* clients — including the one that issued the set command. A
 consumer polling `async_get_updates()` must therefore expect to
@@ -1920,7 +1886,7 @@ if guest:
     await guest.async_change_password("old_pwd", "new_pwd")
 ```
 
-##### NOTE
+**NOTE:**
 Changing the password does not invalidate existing active sessions for
 that user — they remain valid until they expire; the new password is
 required at the next login. If the changed user is the currently
@@ -1971,7 +1937,7 @@ else:
     print("No valid session — it will be renewed automatically on the next call.")
 ```
 
-##### NOTE
+**NOTE:**
 You rarely need to call this. The library handles reauthentication
 automatically whenever the session expires.
 
@@ -2002,7 +1968,7 @@ async def async_discover_came_server(host: str, mac_address: str) -> bool:
     return await async_is_came_endpoint(host)
 ```
 
-##### NOTE
+**NOTE:**
 `CAME_MAC_PREFIXES` contains prefixes in **colon-separated uppercase hex**
 format (e.g. `"00:1C:B2"`). Make sure the MAC address you pass uses the
 same format (`"00:1C:B2:AA:BB:CC"`) before comparing. Other common
@@ -2052,14 +2018,14 @@ The following fields are redacted automatically:
 - Host IP in the URL → last octet masked (e.g. `192.168.1.***`)
 - Usernames inside `sl_users_list` items → partially masked
 
-##### NOTE
+**NOTE:**
 The traffic logger level is independent from the main library logger.
 Setting `aiocamedomotic` to `WARNING` and
 `aiocamedomotic.traffic` to `DEBUG` is a valid configuration —
 you will see only the HTTP traffic, without the library’s internal
 debug messages.
 
-##### SEE ALSO
+**SEE ALSO:**
 For full API details, see the [API Reference](#api-reference).
 
 ## API Reference
@@ -2068,7 +2034,7 @@ For full API details, see the [API Reference](#api-reference).
 
 This module exposes the CAME Domotic API to the end-users.
 
-#### *class* aiocamedomotic.came_domotic_api.CameDomoticAPI(auth: [Auth](#aiocamedomotic.auth.Auth), \*, command_timeout: int = 30)
+#### *class* aiocamedomotic.came_domotic_api.CameDomoticAPI(auth: [Auth](#aiocamedomotic.auth.Auth), , command_timeout: int = 30)
 
 Main class, exposes all the public methods of the CAME Domotic API.
 
@@ -2091,7 +2057,7 @@ Add a new user to the CAME Domotic server.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async classmethod* async_create(host: str, username: str, password: str, \*, websession: ClientSession | None = None, close_websession_on_disposal: bool = False, command_timeout: int = 30) → [CameDomoticAPI](#aiocamedomotic.came_domotic_api.CameDomoticAPI)
+##### *async classmethod* async_create(host: str, username: str, password: str, , websession: ClientSession | None = None, close_websession_on_disposal: bool = False, command_timeout: int = 30) → [CameDomoticAPI](#aiocamedomotic.came_domotic_api.CameDomoticAPI)
 
 Create a CameDomoticAPI object.
 
@@ -2101,7 +2067,7 @@ Create a CameDomoticAPI object.
   * **password** (*str*) – The password to use for the API.
   * **websession** (*aiohttp.ClientSession* *,* *optional*) – The aiohttp session to use for
     the API. If not provided, a new aiohttp.ClientSession will be created.
-  * **close_websession_on_disposal** (*bool* *,* *default False*) – 
+  * **close_websession_on_disposal** (*bool* *,* *default False*) –
 
     Controls whether the
     aiohttp session is closed when this object is disposed.
@@ -2128,7 +2094,7 @@ Create a CameDomoticAPI object.
   [**CameDomoticServerNotFoundError**](#aiocamedomotic.errors.CameDomoticServerNotFoundError) – if the host doesn’t respond to an HTTP
       request or doesn’t expose the CAME Domotic API endpoint.
 
-##### NOTE
+**NOTE:**
 The session is not logged in until the first request is made.
 
 ##### *async* async_dispose() → None
@@ -2492,7 +2458,7 @@ Set the global thermoregulation season for all zones.
 This is a plant-level command that changes the season for the
 entire thermoregulation system.
 
-##### WARNING
+**WARNING:**
 Setting `season` to `PLANT_OFF` causes the CAME server to
 automatically switch **all** thermoregulation zones to
 `ThermoZoneMode.OFF`. Reverting the season back to `WINTER`
@@ -2577,7 +2543,7 @@ separate from the thermoregulation zones.
   * **sensor_type** – The type of sensor (temperature, humidity, or pressure).
     Defaults to `AnalogSensorType.UNKNOWN` if not specified.
 
-##### NOTE
+**NOTE:**
 The `value` property returns the real sensor reading in the
 unit reported by `unit` (e.g., degrees C, %, hPa).
 
@@ -2628,7 +2594,7 @@ Cameras are read-only devices that provide streaming video and still-image
 URIs for IP cameras connected to the CAME Domotic system. They cannot be
 controlled remotely — this is purely a viewing/monitoring feature.
 
-##### WARNING
+**WARNING:**
 The `uri` and `uri_still` fields point directly to camera HTTP
 endpoints on the local network. These URIs may contain embedded
 authentication credentials (e.g. `http://user:pass@camera/stream`).
@@ -3135,7 +3101,7 @@ view shown by the official app.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_set_config(\*, max_power: int | None = None, hysteresis: int | None = None, profile_data: [LoadsCtrlProfile](#aiocamedomotic.models.LoadsCtrlProfile) | None = None) → None
+##### *async* async_set_config(, max_power: int | None = None, hysteresis: int | None = None, profile_data: [LoadsCtrlProfile](#aiocamedomotic.models.LoadsCtrlProfile) | None = None) → None
 
 Update the controller configuration.
 
@@ -3964,11 +3930,11 @@ ID of the thermoregulation zone.
 
 Antifreeze temperature in degrees Celsius, or None if not set.
 
-##### *async* async_set_config(mode: [ThermoZoneMode](#aiocamedomotic.models.ThermoZoneMode), set_point: float, \*, fan_speed: [ThermoZoneFanSpeed](#aiocamedomotic.models.ThermoZoneFanSpeed) | None = None) → None
+##### *async* async_set_config(mode: [ThermoZoneMode](#aiocamedomotic.models.ThermoZoneMode), set_point: float, , fan_speed: [ThermoZoneFanSpeed](#aiocamedomotic.models.ThermoZoneFanSpeed) | None = None) → None
 
 Configure the thermoregulation zone.
 
-##### NOTE
+**NOTE:**
 The season cannot be changed via this method.
 Use `CameDomoticAPI.async_set_thermo_season()` to change the
 season at the plant level.
@@ -4006,7 +3972,7 @@ Set the operating mode, keeping the current target temperature.
 
 Set the target temperature, keeping the current operating mode.
 
-##### WARNING
+**WARNING:**
 This method only has an effect when the zone is in
 `ThermoZoneMode.MANUAL` mode. When the zone is in any other mode
 (e.g. `AUTO`, `JOLLY`), the server accepts the request without error but
@@ -4528,7 +4494,7 @@ Change the password of this user on the CAME Domotic server.
   * **current_password** (*str*) – The user’s current password.
   * **new_password** (*str*) – The desired new password.
 
-##### NOTE
+**NOTE:**
 Changing the password does not invalidate existing active sessions
 for that user — they remain valid until they expire. The new
 password will be required at the next login.
@@ -4564,7 +4530,7 @@ Set the user as the current user in the CAME Domotic API session.
 * **Raises:**
   [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
 
-##### NOTE
+**NOTE:**
 This method logs out the current user and logs in with the new user.
 If login with the new credentials fails, a
 `CameDomoticAuthError` is raised and the previous credentials
@@ -4686,7 +4652,7 @@ modified.
   **ValueError** – If `source` or any target is not a row of this
       profile type.
 
-##### with_level(level: int, \*, days: [ProfileDay](#aiocamedomotic.models.ProfileDay) | int | Iterable[[ProfileDay](#aiocamedomotic.models.ProfileDay) | int] | None = None, start: time | int = 0, end: time | int | None = None) → Self
+##### with_level(level: int, , days: [ProfileDay](#aiocamedomotic.models.ProfileDay) | int | Iterable[[ProfileDay](#aiocamedomotic.models.ProfileDay) | int] | None = None, start: time | int = 0, end: time | int | None = None) → Self
 
 Return a copy with `[start, end)` on `days` set to `level`.
 
@@ -4952,7 +4918,7 @@ See also the exception hierarchy mapping for Home Assistant integrations:
 
 This module manages the HTTP interaction with the CAME Domotic API.
 
-##### NOTE
+**NOTE:**
 As a consumer of the CAME Domotic library, **it’s quite unlikely that you
 will need to use this class directly**: you should use the `CameDomoticAPI` and the
 CameEntity classes instead.
@@ -4961,7 +4927,7 @@ In case of special needs, consider requesting the implementation of the desired
 feature in the CAME Domotic library, or forking the library and implement
 the feature yourself.
 
-#### *class* aiocamedomotic.auth.Auth(websession: ClientSession, host: str, username: str, password: str, \*, close_websession_on_disposal: bool = False)
+#### *class* aiocamedomotic.auth.Auth(websession: ClientSession, host: str, username: str, password: str, , close_websession_on_disposal: bool = False)
 
 Class to make authenticated requests to the CAME Domotic API server.
 
@@ -4971,12 +4937,12 @@ Security features:
   using Fernet symmetric encryption with a runtime-generated key. Credentials
   are explicitly cleared on disposal and as a safety net on garbage collection.
 
-##### NOTE
+**NOTE:**
 This class is not meant to be used directly, but through the `CameDomoticAPI`
 class. To create an instance of this class, use the factory method
 `async_create`.
 
-##### *async classmethod* async_create(websession: ClientSession, host: str, username: str, password: str, \*, close_websession_on_disposal: bool = False, command_timeout: int = 30) → [Auth](#aiocamedomotic.auth.Auth)
+##### *async classmethod* async_create(websession: ClientSession, host: str, username: str, password: str, , close_websession_on_disposal: bool = False, command_timeout: int = 30) → [Auth](#aiocamedomotic.auth.Auth)
 
 Create an Auth instance.
 
@@ -4997,7 +4963,7 @@ Create an Auth instance.
 * **Return type:**
   [Auth](#aiocamedomotic.auth.Auth)
 
-##### NOTE
+**NOTE:**
 The session is not logged in until the first request is made.
 
 ##### *async* async_dispose() → None
@@ -5052,7 +5018,7 @@ Check the response status and raise an error if necessary.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – if there is an authentication error with
         the remote CAME Domotic server.
 
-##### *async* async_send_command(command: dict[str, Any], \*, response_command: str | None = None, timeout: int | None = None, skip_ack_check: bool = False, command_type: str = 'sl_data_req', additional_payload: dict[str, Any] | None = None, \_caller_holds_lock: bool = False) → dict[str, Any]
+##### *async* async_send_command(command: dict[str, Any], , response_command: str | None = None, timeout: int | None = None, skip_ack_check: bool = False, command_type: str = 'sl_data_req', additional_payload: dict[str, Any] | None = None, \_caller_holds_lock: bool = False) → dict[str, Any]
 
 Send a command to the CAME Domotic server.
 
@@ -5110,7 +5076,7 @@ Return the decrypted username for the current session, or None.
 * **Return type:**
   str | None
 
-##### NOTE
+**NOTE:**
 Usernames are not secret — they appear in plaintext in all API
 payloads. This property is intended for internal comparisons
 (e.g. preventing deletion of the current user). Avoid logging
