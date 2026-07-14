@@ -1,3 +1,6 @@
+.. SPDX-FileCopyrightText: 2026 - GitHub user: fredericks1982
+.. SPDX-License-Identifier: Apache-2.0
+
 Getting started
 ===============
 
@@ -89,8 +92,9 @@ Let's go step by step:
 
         async def main():
             async with await CameDomoticAPI.async_create(
-            "192.168.x.x", "username", "password"
-        ) as api:
+                "192.168.x.x", "username", "password"
+            ) as api:
+                ...
 
    This command will raise a ``CameDomoticServerNotFoundError`` exception if the server
    is not found (typically, bad IP/hostname or other network issue). Notice that the

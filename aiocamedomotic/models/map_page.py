@@ -9,11 +9,6 @@ CAME Domotic map system. Maps are read-only — they provide positional
 information about devices overlaid on background images but do not support
 control commands. Device control is performed through the standard device
 command APIs (``light_switch_req``, ``opening_move_req``, etc.).
-
-.. note::
-    This module is based on reverse-engineered API documentation from the
-    CAME JS client and has not been verified against a real CAME Domotic
-    server. Behaviour may differ across firmware versions.
 """
 
 from __future__ import annotations
