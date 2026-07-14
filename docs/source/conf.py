@@ -53,6 +53,12 @@ exclude_patterns = exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 html_theme = "sphinx_rtd_theme"
 
+# Serve the LLM documentation files (generated in the repo root by
+# scripts/build_llms_docs.py) at the docs site root, so that the
+# conventional https://aiocamedomotic.readthedocs.io/latest/llms.txt
+# lookup works.
+html_extra_path = ["../../llms.txt", "../../llms-full.txt"]
+
 
 # -- Options for Markdown output -----------------------------------------------
 markdown_anchor_sections = True

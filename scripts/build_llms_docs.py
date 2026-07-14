@@ -5,7 +5,12 @@ This script uses sphinx-markdown-builder to render the project's Sphinx
 documentation (including autodoc-resolved API reference) into Markdown,
 then assembles two LLM-optimized documentation files:
 
-  - llms.txt      : Summary (overview + getting started)
+  - llms.txt      : Curated index per the llms.txt spec (https://llmstxt.org):
+                   key facts, a minimal quickstart, and links to the full
+                   documentation. Authored in this script, not extracted
+                   from the Sphinx output — keep its content (especially the
+                   quickstart snippet) in sync with the docs when the public
+                   API changes.
   - llms-full.txt : Full reference (overview + getting started + usage
                    examples + complete API reference)
 
@@ -78,6 +83,34 @@ def read_section(name: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def strip_badges(content: str) -> str:
+    """Remove badge images (linked or bare), e.g. [![alt](img)](url)."""
+    content = re.sub(r"\[!\[[^\]]*\]\([^)]*\)\]\([^)]*\)", "", content)
+    content = re.sub(r"!\[[^\]]*\]\([^)]*badge[^)]*\)", "", content)
+    return content
+
+
+def convert_admonition_headings(content: str) -> str:
+    """Turn admonition headings (e.g. '#### NOTE') into bold inline labels.
+
+    sphinx-markdown-builder renders admonitions as headings, which pollute
+    the document outline; '**NOTE:**' keeps the emphasis without the noise.
+    Lines inside fenced code blocks are left untouched.
+    """
+    keywords = "NOTE|IMPORTANT|WARNING|TIP|HINT|CAUTION|ATTENTION|DANGER|ERROR|SEE ALSO"
+    pattern = re.compile(rf"^#{{2,6}}\s+({keywords})\s*$")
+    lines = content.split("\n")
+    result = []
+    in_code_block = False
+    for line in lines:
+        if line.strip().startswith("```"):
+            in_code_block = not in_code_block
+        if not in_code_block:
+            line = pattern.sub(lambda m: f"**{m.group(1)}:**", line)
+        result.append(line)
+    return "\n".join(result)
+
+
 def clean_markdown(content: str) -> str:
     """Clean up sphinx-markdown-builder output artifacts."""
     # Remove empty anchor references like []() or [](...)
@@ -97,6 +130,12 @@ def clean_markdown(content: str) -> str:
         content,
         flags=re.MULTILINE,
     )
+    # Turn admonition headings into bold labels (after the autodoc NOTE
+    # removal above, which matches on the heading form)
+    content = convert_admonition_headings(content)
+    # Strip trailing whitespace (matches the repo's pre-commit policy, so
+    # generated files don't churn against locally committed ones)
+    content = re.sub(r"[ \t]+\n", "\n", content)
     # Normalize multiple consecutive blank lines to two
     content = re.sub(r"\n{3,}", "\n\n", content)
     return content.strip()
@@ -145,9 +184,18 @@ def fix_internal_links(content: str) -> str:
 
 
 def extract_overview(index_content: str) -> str:
-    """Extract the overview content from index.md, removing toctree/nav/contents."""
-    # Cut off everything from the "Contents" section onward (toctree + nav links)
-    content = re.split(r'<a id="contents"></a>', index_content, maxsplit=1)[0]
+    """Extract the overview content from index.md, keeping only what informs
+    an LLM: the intro and the key features.
+
+    Everything from "Quick Start" onward (doc navigation links,
+    acknowledgments, license section, toctree) is dropped: navigation is
+    pointless inside a single self-contained file, and the intro already
+    states the license.
+    """
+    content = re.split(r'<a id="quick-start"></a>', index_content, maxsplit=1)[0]
+    # Rename the marketing-style "Welcome!" heading to a descriptive one
+    content = re.sub(r"^# Welcome!\s*$", "# Overview", content, flags=re.MULTILINE)
+    content = strip_badges(content)
     # Remove anchor tags like <a id="welcome"></a>
     content = re.sub(r'<a id="[^"]*"></a>\s*', "", content)
     return content
@@ -162,25 +210,83 @@ def build_header() -> str:
     )
 
 
-def assemble_llms_md(overview: str, getting_started: str) -> str:
-    """Assemble the summary llms.txt file."""
-    parts = [
-        build_header(),
-        "",
-        overview,
-        "",
-        getting_started,
-        "",
-        "---",
-        "",
-        "For complete usage examples and full API reference, see "
-        "[llms-full.txt](llms-full.txt).",
-        "",
-    ]
-    content = "\n".join(parts)
-    content = fix_internal_links(content)
-    content = clean_markdown(content)
-    return content + "\n"
+DOCS_BASE_URL = "https://aiocamedomotic.readthedocs.io/latest"
+REPO_URL = "https://github.com/camedomotic-unofficial/aiocamedomotic"
+
+QUICKSTART_EXAMPLE = """```python
+import asyncio
+
+from aiocamedomotic import CameDomoticAPI
+from aiocamedomotic.models import LightStatus
+
+async def main():
+    async with await CameDomoticAPI.async_create(
+        "192.168.x.x", "username", "password"
+    ) as api:
+        lights = await api.async_get_lights()
+        lamp = next((l for l in lights if l.name == "Kitchen lamp"), None)
+        if lamp:
+            await lamp.async_set_status(LightStatus.ON)
+
+asyncio.run(main())
+```"""
+
+
+def assemble_llms_md(full_content: str) -> str:
+    """Assemble the llms.txt index file (see https://llmstxt.org).
+
+    Content is curated here rather than extracted from the Sphinx output;
+    ``full_content`` is only used to report the size of llms-full.txt.
+    """
+    full_tokens_approx = round(len(full_content) / 4 / 1000)
+    return f"""{build_header()}
+Key facts:
+
+- Install with `pip install aiocamedomotic`. Requires Python 3.12, 3.13, or 3.14.
+- Built on asyncio and aiohttp; every public method is async and prefixed
+  with `async_`.
+- Entry point: `CameDomoticAPI.async_create(host, username, password)`, used
+  as an async context manager.
+- Authentication is lazy: login happens on the first server call, not at
+  client creation. Sessions are kept alive and renewed automatically.
+- Supported device types: lights (on/off, dimmable, RGB), openings (covers),
+  scenarios, thermoregulation zones, analog sensors, digital inputs, analog
+  inputs, relays, timers, energy meters, loads control, and map pages.
+  Server users can be managed too.
+- Real-time device updates are available via long polling
+  (`api.async_get_updates()`) with typed update classes.
+- All exceptions inherit from `CameDomoticError`:
+  `CameDomoticServerNotFoundError` (host unreachable), `CameDomoticAuthError`
+  (bad credentials), `CameDomoticServerError` (other server errors).
+- Unofficial library, not affiliated with or endorsed by CAME.
+  Apache 2.0 license.
+
+## Quickstart
+
+{QUICKSTART_EXAMPLE}
+
+## Docs
+
+- [Full documentation (llms-full.txt)]({DOCS_BASE_URL}/llms-full.txt): the
+  complete documentation in a single Markdown file (~{full_tokens_approx}k
+  tokens) — getting started, usage examples for every device type, and the
+  full API reference
+- [Getting started]({DOCS_BASE_URL}/getting_started.html): installation and
+  a step-by-step first example
+- [Usage examples]({DOCS_BASE_URL}/usage_examples.html): task-oriented
+  examples for every supported device type and feature
+- [API reference]({DOCS_BASE_URL}/api_reference.html): reference for all
+  public classes and methods
+
+## Optional
+
+- [Source repository]({REPO_URL}): GitHub repository, issues, and releases
+- [Development roadmap]({REPO_URL}/blob/main/ROADMAP.md): planned features
+- [Security policy]({REPO_URL}/blob/main/SECURITY.md): how to report
+  vulnerabilities
+- [Contributing guide]({REPO_URL}/blob/main/CONTRIBUTING.md): how to
+  contribute to the project
+"""
 
 
 def assemble_llms_full_md(
@@ -259,17 +365,17 @@ def main():
     # Assemble output files
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    llms_path = args.output_dir / "llms.txt"
-    llms_content = assemble_llms_md(overview, getting_started)
-    llms_path.write_text(llms_content, encoding="utf-8")
-    print(f"Written: {llms_path} ({len(llms_content)} bytes)")
-
     llms_full_path = args.output_dir / "llms-full.txt"
     llms_full_content = assemble_llms_full_md(
         overview, getting_started, usage_examples, api_reference
     )
     llms_full_path.write_text(llms_full_content, encoding="utf-8")
     print(f"Written: {llms_full_path} ({len(llms_full_content)} bytes)")
+
+    llms_path = args.output_dir / "llms.txt"
+    llms_content = assemble_llms_md(llms_full_content)
+    llms_path.write_text(llms_content, encoding="utf-8")
+    print(f"Written: {llms_path} ({len(llms_content)} bytes)")
 
 
 if __name__ == "__main__":
