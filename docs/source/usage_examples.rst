@@ -28,8 +28,8 @@ and controlling devices, and monitoring real-time changes. For a minimal
             Timer, TimerTimeSlot, TimerUpdate,
             DeviceUpdate, LightUpdate, OpeningUpdate, RelayUpdate,
             ThermoZoneUpdate, ScenarioUpdate, DigitalInputUpdate,
-            EnergyMeterUpdate, LoadsCtrlMeterUpdate, LoadsCtrlRelayUpdate,
-            PlantUpdate, WEEKDAYS,
+            AnalogInUpdate, EnergyMeterUpdate, LoadsCtrlMeterUpdate,
+            LoadsCtrlRelayUpdate, PlantUpdate, WEEKDAYS,
         )
         from aiocamedomotic.errors import (
             CameDomoticError,
@@ -1269,6 +1269,58 @@ accepted state is echoed back as a ``loadsctrl_meter_ind`` push update:
     two profiles with the same grid are equal regardless of how they were
     built.
 
+Map pages
+^^^^^^^^^
+
+Map pages are the floor-plan views configured in the official CAME app: each
+page is a background image with positioned device elements (lights, openings,
+thermostats, scenarios, links to other pages) laid on top. Maps are
+**read-only** — they provide positional information for building a visual UI,
+while device control always goes through the standard device APIs shown in
+the previous sections.
+
+**Fetching and inspecting map pages:**
+
+.. code-block:: python
+
+    pages = await api.async_get_map_pages()
+
+    for page in pages:
+        print(
+            f"Page {page.page_id}: {page.page_label} "
+            f"(elements: {len(page.elements)}, background: {page.background})"
+        )
+
+Example output:
+
+.. code-block:: text
+
+    Page 0: Home (elements: 3, background: maps/maps_home.png)
+    Page 1: Ground Floor (elements: 12, background: maps/maps_ground floor.png)
+    Page 2: First Floor (elements: 8, background: maps/maps_first floor.png)
+
+Page ``0`` is the root/home page. The ``background`` property is the
+relative URL path of the background image on the CAME server (full URL:
+``http://<server_host>/<background>``); the path may contain spaces, so
+percent-encode it before making HTTP requests.
+
+Elements are raw dictionaries preserving the server response structure, with
+common keys such as ``x``, ``y``, ``width``, ``height``, ``type``, and
+``label``; additional keys depend on the element type (e.g. ``act_id`` for
+devices, ``page`` for page links, ``scenario_id`` for scenarios). The
+``x``/``y`` coordinates range from ``0`` to ``page_scale`` (typically
+``1024``):
+
+.. code-block:: python
+
+    ground_floor = next((p for p in pages if p.page_label == "Ground Floor"), None)
+    if ground_floor:
+        for element in ground_floor.elements:
+            print(
+                f"  {element.get('type')} '{element.get('label')}' "
+                f"at ({element.get('x')}, {element.get('y')})"
+            )
+
 
 Monitoring real-time updates
 ----------------------------
@@ -1392,6 +1444,9 @@ compatibility. For **typed** update objects with convenient properties, use
 
         elif isinstance(update, DigitalInputUpdate):
             print(f"Input '{update.name}': status={update.status}, addr={update.addr}")
+
+        elif isinstance(update, AnalogInUpdate):
+            print(f"Analog input '{update.name}': {update.value} {update.unit}")
 
         elif isinstance(update, RelayUpdate):
             print(f"Relay '{update.name}': {update.status.name}")
@@ -1605,6 +1660,121 @@ Example output (after enabling a load and swapping two priorities):
     Load 'Washing machine' (ID: 65600): enabled=True, priority=129, detached=False
     Load 'Dishwasher' (ID: 65601): enabled=True, priority=129, detached=False
     Load 'Washing machine' (ID: 65600): enabled=True, priority=130, detached=False
+
+
+Managing users
+--------------
+
+The library exposes the same user administration features available in the
+official CAME app: listing the users defined on the server, creating and
+deleting users, changing passwords, and switching the session to another
+user.
+
+Listing users
+^^^^^^^^^^^^^
+
+.. code-block:: python
+
+    users = await api.async_get_users()
+
+    for user in users:
+        print(f"User: {user.name}")
+
+Example output:
+
+.. code-block:: text
+
+    User: admin
+    User: family
+    User: guest
+
+Terminal groups
+^^^^^^^^^^^^^^^
+
+Terminal groups define the permission scope assigned to users at creation
+time. Fetch them with ``async_get_terminal_groups()`` **before** adding a
+user, to discover the group names available on your server:
+
+.. code-block:: python
+
+    groups = await api.async_get_terminal_groups()
+
+    for group in groups:
+        print(f"Group {group.id}: {group.name}")
+
+Example output:
+
+.. code-block:: text
+
+    Group 1: ETI/Domo
+
+Adding a user
+^^^^^^^^^^^^^
+
+Create a new user with ``async_add_user()``. The ``group`` parameter takes a
+group **name** (e.g. ``"ETI/Domo"``) as returned by
+``async_get_terminal_groups()`` — not its numeric ID. The special value
+``"*"`` (the default) may be used when fine-grained group assignment is not
+required:
+
+.. code-block:: python
+
+    new_user = await api.async_add_user("family", "s3cret_pwd")
+
+    # Or with an explicit permission group
+    new_user = await api.async_add_user("guest", "s3cret_pwd", group="ETI/Domo")
+
+Changing a password
+^^^^^^^^^^^^^^^^^^^
+
+Change a user's password with ``async_change_password()`` on the ``User``
+object:
+
+.. code-block:: python
+
+    users = await api.async_get_users()
+    guest = next((u for u in users if u.name == "guest"), None)
+
+    if guest:
+        await guest.async_change_password("old_pwd", "new_pwd")
+
+.. note::
+    Changing the password does not invalidate existing active sessions for
+    that user — they remain valid until they expire; the new password is
+    required at the next login. If the changed user is the currently
+    authenticated one, the stored credentials of the active session are
+    updated automatically — no additional action is required.
+
+Deleting a user
+^^^^^^^^^^^^^^^
+
+Delete a user from the server with ``async_delete()``:
+
+.. code-block:: python
+
+    if guest:
+        await guest.async_delete()
+
+The currently authenticated user cannot delete itself: calling
+``async_delete()`` on it raises a ``ValueError``.
+
+Switching the session user
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use ``async_set_as_current_user()`` to log out the current user and continue
+the session as another one:
+
+.. code-block:: python
+
+    users = await api.async_get_users()
+    admin = next((u for u in users if u.name == "admin"), None)
+
+    if admin:
+        await admin.async_set_as_current_user("admin_pwd")
+
+If the login with the new credentials fails, a ``CameDomoticAuthError`` is
+raised and the previous credentials are restored, so the API client remains
+connected as the original user.
 
 
 Advanced topics

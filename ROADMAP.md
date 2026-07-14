@@ -11,7 +11,7 @@ reflects our commitment to making home automation more accessible and manageable
 This roadmap is subject to change based on community feedback and ongoing development
 insights. We look forward to growing this library together with our users and contributors.
 
-## Current Features (Version 1.12)
+## Current Features (Version 1.13)
 
 - **Session management**: Automated handling of login, logout, and keep-alive processes
   for the API, with automatic session recovery.
@@ -72,16 +72,9 @@ insights. We look forward to growing this library together with our users and co
 
 ## Planned Features
 
-All planned features below are backed by real traffic captures from a domestic CAME
-Domotic plant and can be tested against a real server. Features that are only known from
-reverse-engineered sources (without real traffic verification) are listed separately
-under [Future considerations](#future-considerations).
-
-### Version 1.13 — Energy statistics
-
-- **Historical consumption**: Query historical consumption data per meter
-  (`energy_stat_req`, with instant/day/week/month scopes) for monitoring and dashboard
-  integration.
+Features that are only known from reverse-engineered sources (without real traffic
+verification) are listed separately under
+[Future considerations](#future-considerations).
 
 ### Version 1.14 — Thermostat profile writing
 

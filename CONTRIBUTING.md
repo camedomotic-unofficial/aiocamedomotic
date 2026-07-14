@@ -3,7 +3,7 @@ SPDX-License-Identifier: Apache-2.0 -->
 
 # Contributing to our project
 
-![Code formatter: black](https://img.shields.io/badge/code%20style-black-000000.svg)
+[![Code style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Linter: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](https://github.com/pylint-dev/pylint)
 ![Type checker: mypy](https://img.shields.io/badge/type%20checking-mypy-yellowgreen.svg)
 ![Security: Bandit](https://img.shields.io/badge/security-bandit-0cc.svg)
@@ -19,7 +19,7 @@ We welcome contributions from everyone. This document provides some guidelines f
 
 ## Development environment
 
-We use 4 spaces for indentation. Our code is formatted with [Black](https://black.readthedocs.io/en/stable/), linted with [Pylint](https://www.pylint.org/), and type-checked with [Mypy](http://mypy-lang.org/). We write tests with [pytest](https://docs.pytest.org/en/latest/).
+We use 4 spaces for indentation. Our code is formatted and linted with [Ruff](https://docs.astral.sh/ruff/) (Black-compatible style), also linted with [Pylint](https://www.pylint.org/), and type-checked with [Mypy](http://mypy-lang.org/). We write tests with [pytest](https://docs.pytest.org/en/latest/).
 
 Before submitting a pull request, please make sure your code is formatted, linted,
 type-checked, and all tests pass.
