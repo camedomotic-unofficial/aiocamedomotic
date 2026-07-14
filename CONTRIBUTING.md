@@ -24,6 +24,13 @@ We use 4 spaces for indentation. Our code is formatted with [Black](https://blac
 Before submitting a pull request, please make sure your code is formatted, linted,
 type-checked, and all tests pass.
 
+### Dev container
+
+The repository ships a ready-to-use dev container: open the folder in VS Code and
+choose **Reopen in Container** to get a fully configured development environment.
+The only manual step is the one-time SSH commit signing setup per machine — see
+[.devcontainer/README.md](.devcontainer/README.md) for instructions.
+
 ### AI-assisted development
 
 This project exposes [`llms.txt`](llms.txt) and [`llms-full.txt`](llms-full.txt) files
