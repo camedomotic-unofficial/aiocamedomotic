@@ -59,6 +59,9 @@ git reset --hard HEAD~1       # drop the test commit
 - **"key not found" / "failed to sign" on commit**: the key is missing on the
   host side of the mount, or the container was built before the key existed.
   Re-run step 1, then rebuild the container.
+- **"error: cannot run ssh-keygen: No such file or directory" on commit**: the
+  `openssh-client` package is missing from the container image. It's listed
+  in `Dockerfile.dev`; rebuild the container to pick it up.
 - **"No signature" from `git log --show-signature` (with an error about
   `gpg.ssh.allowedSignersFile`)**: the commit is usually signed just fine —
   git only lacks the allowed-signers file needed to *verify* it. Complete
