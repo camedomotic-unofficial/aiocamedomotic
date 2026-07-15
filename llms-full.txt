@@ -22,6 +22,11 @@ or supported by [CAME](https://www.came.com/). It may not be compatible with all
 CAME Domotic systems. While this library is stable and publicly released, it comes
 with no guarantees. Use at your own risk.
 
+**DANGER:**
+
+This library is not intended for use in critical systems, such as security or
+life-support systems. Always use official and supported tools for such applications.
+
 ### Key Features
 
 - **Simplicity**: Easy interaction with domotic entities.
@@ -2024,6 +2029,21 @@ Setting `aiocamedomotic` to `WARNING` and
 `aiocamedomotic.traffic` to `DEBUG` is a valid configuration —
 you will see only the HTTP traffic, without the library’s internal
 debug messages.
+
+**TIP:**
+
+To write the traffic log to a **file** for later analysis, add a
+dedicated `FileHandler`. Use `propagate = False` if you want the
+traffic to go *only* to the file and not to the console:
+
+```python
+import logging
+
+traffic_logger = logging.getLogger("aiocamedomotic.traffic")
+traffic_logger.setLevel(logging.DEBUG)
+traffic_logger.addHandler(logging.FileHandler("came_traffic.log"))
+traffic_logger.propagate = False  # file only, no console output
+```
 
 **SEE ALSO:**
 For full API details, see the [API Reference](#api-reference).
