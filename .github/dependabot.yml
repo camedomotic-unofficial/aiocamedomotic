@@ -12,6 +12,15 @@ updates:
     labels:
       - "chore"
 
+  # Docs build dependencies (requirements.in + pip-compiled requirements.txt),
+  # used by Read the Docs and the LLM docs generation workflow
+  - package-ecosystem: "pip"
+    directory: "/docs/source"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "chore"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
