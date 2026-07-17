@@ -195,6 +195,7 @@ class _CommandName(Enum):
     LOADSCTRL_METER_SET = "loadsctrl_meter_set_req"
     TERMINALS_GROUPS_LIST = "terminals_groups_list_req"
     MAP_DESCR = "map_descr_req"
+    DATETIME = "datetime_req"
 
 
 class _CommandNameResponse(Enum):
@@ -218,6 +219,7 @@ class _CommandNameResponse(Enum):
     TVCC_CAMERAS_LIST = "tvcc_cameras_list_resp"
     TERMINALS_GROUPS_LIST = "terminals_groups_list_resp"
     MAP_DESCR = "map_descr_resp"
+    DATETIME = "datetime_resp"
     # Status
     STATUS_UPDATE = "status_update_resp"
     # Actions

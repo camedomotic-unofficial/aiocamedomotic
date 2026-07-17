@@ -44,6 +44,7 @@ from .models import (
     RelayStatus,
     Room,
     Scenario,
+    ServerDateTime,
     ServerInfo,
     TerminalGroup,
     ThermoZone,
@@ -217,6 +218,34 @@ class CameDomoticAPI:
             serial=json_response.get("serial"),  # type: ignore[arg-type]
             features=json_response.get("list"),  # type: ignore[arg-type]
         )
+
+    async def async_get_server_datetime(self) -> ServerDateTime:
+        """Get the current date and time of the CAME Domotic server.
+
+        Reads the server clock, returned both as a Unix epoch (UTC) and as a
+        local wall-clock string, together with the server timezone and the
+        current daylight-saving-time flag. Useful for diagnosing the timestamps
+        carried by push updates.
+
+        Returns:
+            ServerDateTime: The server date/time information.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Fetching server date/time")
+        json_response = await self.auth.async_send_command(
+            {"cmd_name": _CommandName.DATETIME.value},
+            response_command=_CommandNameResponse.DATETIME.value,
+        )
+        LOGGER.info(
+            "Server date/time: epoch=%s, datetime=%s, timezone=%s",
+            json_response.get("epoch"),
+            json_response.get("datetime"),
+            json_response.get("server_timezone"),
+        )
+        return ServerDateTime(json_response)
 
     async def async_ping(self) -> float:
         """Ping the CAME Domotic server and measure round-trip latency.
