@@ -2058,6 +2058,28 @@ This module exposes the CAME Domotic API to the end-users.
 
 Main class, exposes all the public methods of the CAME Domotic API.
 
+##### *async* async_activate_scenario_by_name(name: str) → None
+
+Activate a scenario by its name, without fetching the scenario list.
+
+This is the plant-level counterpart to
+[`async_activate()`](#aiocamedomotic.models.Scenario.async_activate): the server
+resolves the scenario by `name` itself, so there is no need to first
+download the scenarios via [`async_get_scenarios()`](#aiocamedomotic.came_domotic_api.CameDomoticAPI.async_get_scenarios) just to trigger
+one — which is precisely the value of this command.
+
+The match is performed **server-side on the exact name**. Case
+sensitivity has not been verified, so pass the exact name as returned
+by [`async_get_scenarios()`](#aiocamedomotic.came_domotic_api.CameDomoticAPI.async_get_scenarios) (the `name` property of each
+[`Scenario`](#aiocamedomotic.models.Scenario)). If no scenario matches, the
+server silently performs no activation.
+
+* **Parameters:**
+  **name** (*str*) – The exact name of the scenario to activate.
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
 ##### *async* async_add_user(username: str, password: str, group: str = '\*') → [User](#aiocamedomotic.models.User)
 
 Add a new user to the CAME Domotic server.
@@ -2469,6 +2491,32 @@ expired, it transparently re-authenticates first.
   * [**CameDomoticServerNotFoundError**](#aiocamedomotic.errors.CameDomoticServerNotFoundError) – If the server is unreachable.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If authentication fails.
   * [**CameDomoticServerTimeoutError**](#aiocamedomotic.errors.CameDomoticServerTimeoutError) – If the request times out.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_set_relay_status_by_name(name: str, status: [RelayStatus](#aiocamedomotic.models.RelayStatus)) → None
+
+Set a relay’s status by its name, without fetching the relay list.
+
+This is the plant-level counterpart to
+[`async_set_status()`](#aiocamedomotic.models.Relay.async_set_status): the server
+resolves the relay by `name` itself, so there is no need to first
+download the relays via [`async_get_relays()`](#aiocamedomotic.came_domotic_api.CameDomoticAPI.async_get_relays).
+
+The match is performed **server-side on the exact name**; pass the
+exact name as returned by [`async_get_relays()`](#aiocamedomotic.came_domotic_api.CameDomoticAPI.async_get_relays) (the `name`
+property of each [`Relay`](#aiocamedomotic.models.Relay)).
+
+**NOTE:**
+The by-name variant has **not** been verified against a live
+plant (our relays have never been tested against a real server;
+see the ROADMAP). Behaviour may differ across firmware versions.
+
+* **Parameters:**
+  * **name** (*str*) – The exact name of the relay to control.
+  * **status** ([*RelayStatus*](#aiocamedomotic.models.RelayStatus)) – Desired relay status (ON or OFF).
+* **Raises:**
+  * **ValueError** – If `status` is `RelayStatus.UNKNOWN`.
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
 ##### *async* async_set_thermo_season(season: [ThermoZoneSeason](#aiocamedomotic.models.ThermoZoneSeason)) → None
