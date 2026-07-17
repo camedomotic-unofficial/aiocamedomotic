@@ -1707,6 +1707,9 @@ class TestOpening:
 
     def test_type_enum(self):
         assert OpeningType.SHUTTER.value == 0
+        assert OpeningType.AWNING.value == 1
+        assert OpeningType.VENETIAN_BLIND.value == 2
+        assert OpeningType.GATE.value == 3
         assert OpeningType.UNKNOWN.value == -1
 
     def test_unknown_type(self, auth_instance):
@@ -1767,7 +1770,7 @@ class TestOpening:
         assert opening.close_act_id == opening_data_awning_opening["close_act_id"]
         assert opening.name == opening_data_awning_opening["name"]
         assert opening.status == OpeningStatus.OPENING
-        assert opening.type == OpeningType.SHUTTER
+        assert opening.type == OpeningType.AWNING
         assert opening.floor_ind == opening_data_awning_opening["floor_ind"]
         assert opening.room_ind == opening_data_awning_opening["room_ind"]
         assert len(opening.partial_positions) == 0

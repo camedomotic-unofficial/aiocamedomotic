@@ -215,10 +215,10 @@ def opening_data_awning_opening():
         "open_act_id": 20,
         "close_act_id": 21,
         "floor_ind": 1,
-        "name": "Patio Shutter",
+        "name": "Patio Awning",
         "room_ind": 3,
         "status": 1,  # Corresponds to OpeningStatus.OPENING
-        "type": 0,  # OpeningType.SHUTTER
+        "type": 1,  # Corresponds to OpeningType.AWNING
         "partial": [],
     }
 
