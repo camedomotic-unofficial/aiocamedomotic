@@ -29,6 +29,7 @@ from aiocamedomotic.models import (
     Opening,
     PlantTopology,
     Relay,
+    RelayStatus,
     Room,
     Scenario,
     ServerInfo,
@@ -1059,6 +1060,96 @@ class TestAPIScenarios:
 
         with pytest.raises(ValueError, match="Data is missing required keys: name"):
             await api.async_get_scenarios()
+
+
+class TestAPIActivationByName:
+    # generic_reply ack, validated by the standard ack-check (no response_command)
+    GENERIC_REPLY = {
+        "cseq": 5,
+        "cmd_name": "generic_reply",
+        "sl_data_ack_reason": 0,
+    }
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_activate_scenario_by_name(self, mock_send_command, auth_instance):
+        mock_send_command.return_value = self.GENERIC_REPLY
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_activate_scenario_by_name("Movie night")
+
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["cmd_name"] == "scenario_activation_by_name_req"
+        assert call_payload["name"] == "Movie night"
+        # The standard ack-check suffices: no response_command is passed.
+        assert "response_command" not in mock_send_command.call_args.kwargs
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_activate_scenario_by_name_auth_error_propagates(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.side_effect = CameDomoticAuthError("bad auth")
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(CameDomoticAuthError):
+            await api.async_activate_scenario_by_name("Movie night")
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_activate_scenario_by_name_server_error_propagates(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.side_effect = CameDomoticServerError("server down")
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(CameDomoticServerError):
+            await api.async_activate_scenario_by_name("Movie night")
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_set_relay_status_by_name_on(self, mock_send_command, auth_instance):
+        mock_send_command.return_value = self.GENERIC_REPLY
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_set_relay_status_by_name("Garden pump", RelayStatus.ON)
+
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["cmd_name"] == "relay_activation_req"
+        assert call_payload["name"] == "Garden pump"
+        assert call_payload["wanted_status"] == 1
+        assert "response_command" not in mock_send_command.call_args.kwargs
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_set_relay_status_by_name_off(self, mock_send_command, auth_instance):
+        mock_send_command.return_value = self.GENERIC_REPLY
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_set_relay_status_by_name("Garden pump", RelayStatus.OFF)
+
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["wanted_status"] == 0
+
+    async def test_set_relay_status_by_name_unknown_raises(self, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        with pytest.raises(ValueError, match="Cannot set relay status to UNKNOWN"):
+            await api.async_set_relay_status_by_name("Garden pump", RelayStatus.UNKNOWN)
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_set_relay_status_by_name_auth_error_propagates(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.side_effect = CameDomoticAuthError("bad auth")
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(CameDomoticAuthError):
+            await api.async_set_relay_status_by_name("Garden pump", RelayStatus.ON)
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_set_relay_status_by_name_server_error_propagates(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.side_effect = CameDomoticServerError("server down")
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(CameDomoticServerError):
+            await api.async_set_relay_status_by_name("Garden pump", RelayStatus.ON)
 
 
 class TestAPITimers:

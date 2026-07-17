@@ -41,6 +41,7 @@ from .models import (
     Opening,
     PlantTopology,
     Relay,
+    RelayStatus,
     Room,
     Scenario,
     ServerInfo,
@@ -768,6 +769,76 @@ class CameDomoticAPI:
         scenarios_list = json_response.get("array", []) or []
         LOGGER.info("Retrieved %d scenario(s)", len(scenarios_list))
         return [Scenario(scenario_data, self.auth) for scenario_data in scenarios_list]
+
+    async def async_activate_scenario_by_name(self, name: str) -> None:
+        """Activate a scenario by its name, without fetching the scenario list.
+
+        This is the plant-level counterpart to
+        :meth:`~aiocamedomotic.models.Scenario.async_activate`: the server
+        resolves the scenario by ``name`` itself, so there is no need to first
+        download the scenarios via :meth:`async_get_scenarios` just to trigger
+        one — which is precisely the value of this command.
+
+        The match is performed **server-side on the exact name**. Case
+        sensitivity has not been verified, so pass the exact name as returned
+        by :meth:`async_get_scenarios` (the ``name`` property of each
+        :class:`~aiocamedomotic.models.Scenario`). If no scenario matches, the
+        server silently performs no activation.
+
+        Args:
+            name (str): The exact name of the scenario to activate.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Activating scenario by name '%s'", name)
+        payload = {
+            "cmd_name": _CommandName.SCENARIO_ACTIVATION_BY_NAME.value,
+            "name": name,
+        }
+        await self.auth.async_send_command(payload)
+        LOGGER.info("Scenario '%s' activated by name", name)
+
+    async def async_set_relay_status_by_name(
+        self, name: str, status: RelayStatus
+    ) -> None:
+        """Set a relay's status by its name, without fetching the relay list.
+
+        This is the plant-level counterpart to
+        :meth:`~aiocamedomotic.models.Relay.async_set_status`: the server
+        resolves the relay by ``name`` itself, so there is no need to first
+        download the relays via :meth:`async_get_relays`.
+
+        The match is performed **server-side on the exact name**; pass the
+        exact name as returned by :meth:`async_get_relays` (the ``name``
+        property of each :class:`~aiocamedomotic.models.Relay`).
+
+        .. note::
+            The by-name variant has **not** been verified against a live
+            plant (our relays have never been tested against a real server;
+            see the ROADMAP). Behaviour may differ across firmware versions.
+
+        Args:
+            name (str): The exact name of the relay to control.
+            status (RelayStatus): Desired relay status (ON or OFF).
+
+        Raises:
+            ValueError: If ``status`` is ``RelayStatus.UNKNOWN``.
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        if status == RelayStatus.UNKNOWN:
+            raise ValueError("Cannot set relay status to UNKNOWN")
+
+        LOGGER.debug("Setting relay '%s' status to %s by name", name, status.name)
+        payload = {
+            "cmd_name": _CommandName.RELAY_ACTIVATION.value,
+            "name": name,
+            "wanted_status": status.value,
+        }
+        await self.auth.async_send_command(payload)
+        LOGGER.info("Relay '%s' set to %s by name", name, status.name)
 
     async def async_get_timers(self) -> list[Timer]:
         """Get the list of all timers defined on the server.

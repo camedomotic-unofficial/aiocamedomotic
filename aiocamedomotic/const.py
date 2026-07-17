@@ -180,6 +180,7 @@ class _CommandName(Enum):
     LIGHT_SWITCH = "light_switch_req"
     OPENING_MOVE = "opening_move_req"
     SCENARIO_ACTIVATION = "scenario_activation_req"
+    SCENARIO_ACTIVATION_BY_NAME = "scenario_activation_by_name_req"
     RELAY_ACTIVATION = "relay_activation_req"
     THERMO_ZONE_CONFIG = "thermo_zone_config_req"
     THERMO_SEASON = "thermo_season_req"
