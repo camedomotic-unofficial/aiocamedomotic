@@ -2794,8 +2794,10 @@ or `None` if the `cmd_name` is not recognized.
 
 Digital input (binary sensor) entity in the CameDomotic API.
 
-Digital inputs are read-only devices that report their binary state
-(ACTIVE/IDLE). They cannot be controlled remotely.
+Digital inputs report their binary state (ACTIVE/IDLE) and cannot be
+switched remotely. Inputs that raise a technical alarm or keep a
+signalling counter can, however, be acknowledged via
+[`async_ack()`](#aiocamedomotic.models.DigitalInput.async_ack).
 
 * **Raises:**
   **ValueError** – If `name` or `act_id` keys are missing from the
@@ -2809,6 +2811,23 @@ ID of the digital input.
 ##### *property* addr *: int*
 
 Address of the digital input.
+
+##### *async* async_ack() → None
+
+Acknowledge the digital input.
+
+Some digital inputs raise a technical alarm or keep a signalling
+counter that stays latched until it is acknowledged. This command
+clears that pending signalling for the input; it has no effect on
+inputs that do not track one.
+
+The command is keyed on [`addr`](#aiocamedomotic.models.DigitalInput.addr) (not [`act_id`](#aiocamedomotic.models.DigitalInput.act_id)). The
+server replies with `digitalin_ack_resp` echoing the input record,
+which is validated.
+
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
 ##### *property* name *: str*
 
