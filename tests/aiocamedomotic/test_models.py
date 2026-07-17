@@ -2049,6 +2049,71 @@ class TestRelay:
             Relay(relay_data, {"fake": "auth"})
 
 
+class TestRelayTimed:
+    @pytest.mark.asyncio
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="my_session_id",
+    )
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_status_timed(
+        self,
+        mock_send_command,
+        mock_get_client_id,  # pylint: disable=unused-argument
+        relay_data_off,
+        auth_instance,
+    ):
+        relay = Relay(relay_data_off, auth_instance)
+
+        await relay.async_set_status_timed(30)
+
+        mock_send_command.assert_called_once()
+        payload = mock_send_command.call_args[0][0]
+        assert payload["act_id"] == relay_data_off["act_id"]
+        assert payload["cmd_name"] == "relay_timed_req"
+        assert payload["interval"] == 30
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("interval", [0, -1, -30])
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_status_timed_invalid_interval_raises(
+        self,
+        mock_send_command,
+        interval,
+        relay_data_on,
+        auth_instance,
+    ):
+        relay = Relay(relay_data_on, auth_instance)
+
+        with pytest.raises(ValueError, match="interval must be greater than 0"):
+            await relay.async_set_status_timed(interval)
+
+        mock_send_command.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="my_session_id",
+    )
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_status_timed_server_error_propagates(
+        self,
+        mock_send_command,
+        mock_get_client_id,  # pylint: disable=unused-argument
+        relay_data_off,
+        auth_instance,
+    ):
+        mock_send_command.side_effect = CameDomoticServerError("boom")
+        relay = Relay(relay_data_off, auth_instance)
+
+        with pytest.raises(CameDomoticServerError, match="boom"):
+            await relay.async_set_status_timed(30)
+
+
 class TestFloor:
     def test_initialization(self):
         floor_data = {"floor_ind": 1, "name": "Ground Floor"}

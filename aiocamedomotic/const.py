@@ -182,6 +182,7 @@ class _CommandName(Enum):
     SCENARIO_ACTIVATION = "scenario_activation_req"
     SCENARIO_ACTIVATION_BY_NAME = "scenario_activation_by_name_req"
     RELAY_ACTIVATION = "relay_activation_req"
+    RELAY_TIMED = "relay_timed_req"
     THERMO_ZONE_CONFIG = "thermo_zone_config_req"
     THERMO_SEASON = "thermo_season_req"
     TIMERS_ENABLE = "timers_enable_req"
