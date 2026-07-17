@@ -3583,6 +3583,9 @@ Type of an opening.
 
 Allowed values are:
 : - SHUTTER (0)
+  - AWNING (1)
+  - VENETIAN_BLIND (2)
+  - GATE (3)
 
 #### *class* aiocamedomotic.models.OpeningUpdate(raw_data: dict[str, Any])
 
