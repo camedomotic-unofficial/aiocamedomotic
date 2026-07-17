@@ -46,7 +46,7 @@ asyncio.run(main())
 ## Docs
 
 - [Full documentation (llms-full.txt)](https://aiocamedomotic.readthedocs.io/latest/llms-full.txt): the
-  complete documentation in a single Markdown file (~44k
+  complete documentation in a single Markdown file (~45k
   tokens) — getting started, usage examples for every device type, and the
   full API reference
 - [Getting started](https://aiocamedomotic.readthedocs.io/latest/getting_started.html): installation and
