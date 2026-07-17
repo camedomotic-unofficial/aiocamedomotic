@@ -52,9 +52,10 @@ insights. We look forward to growing this library together with our users and co
   name. Timed activation (switch on for a fixed interval, then auto-off) is available via
   `relay_timed_req`; the interval unit is undocumented (likely seconds) and not yet
   verified against a real server.
-- **Digital inputs (read-only)**: List binary sensors (door contacts, motion sensors, etc.)
+- **Digital inputs**: List binary sensors (door contacts, motion sensors, etc.)
   via `digitalin_list_req`. Each digital input exposes its current state and attributes.
-  Real-time updates are supported via `DigitalInputUpdate`.
+  Real-time updates are supported via `DigitalInputUpdate`. Inputs that latch a technical
+  alarm or signalling counter can be acknowledged via `digitalin_ack_req`.
 - **Analog inputs (read-only)**: List standalone analog sensors (hygrometers,
   thermometers, barometers) via `analogin_list_req`, independent of the
   thermoregulation sensors.

@@ -188,6 +188,7 @@ class _CommandName(Enum):
     TIMERS_ENABLE = "timers_enable_req"
     TIMERS_ENABLE_DAY = "timers_enable_day_req"
     TIMERS_SET = "timers_set_req"
+    DIGITALIN_ACK = "digitalin_ack_req"
     # Loadsctrl set commands: the server ack carries no cmd_name, so there is
     # no _CommandNameResponse counterpart for these two.
     LOADSCTRL_RELAY_SET = "loadsctrl_relay_set_req"
@@ -220,6 +221,7 @@ class _CommandNameResponse(Enum):
     # Status
     STATUS_UPDATE = "status_update_resp"
     # Actions
+    DIGITALIN_ACK = "digitalin_ack_resp"
 
 
 class _TopologicScope(Enum):
