@@ -49,7 +49,9 @@ insights. We look forward to growing this library together with our users and co
   immutable `LoadsCtrlProfile` API (verified against a real plant).
 - **Generic relays**: List and control simple on/off relay actuators via
   `relays_list_req` and `relay_activation_req`, either by relay object or directly by
-  name (documented API, not yet verified against a real server).
+  name. Timed activation (switch on for a fixed interval, then auto-off) is available via
+  `relay_timed_req`; the interval unit is undocumented (likely seconds) and not yet
+  verified against a real server.
 - **Digital inputs (read-only)**: List binary sensors (door contacts, motion sensors, etc.)
   via `digitalin_list_req`. Each digital input exposes its current state and attributes.
   Real-time updates are supported via `DigitalInputUpdate`.
