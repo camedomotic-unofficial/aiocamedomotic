@@ -18,7 +18,11 @@ insights. We look forward to growing this library together with our users and co
 - **Lights management**: List and control lights (on/off, dimmer brightness, RGB color).
 - **Openings management**: List and control shutters/blinds (open, close, stop, slat
   tilting).
-- **Scenarios management**: List available scenarios and trigger their activation.
+- **Scenarios management**: List available scenarios and trigger their activation, either
+  by scenario object or directly by name (`scenario_activation_by_name_req`) without
+  fetching the list first. Creating and deleting scenarios remains under
+  [Future considerations](#future-considerations), pending a real capture of the
+  registration flow.
 - **Thermoregulation (full control)**: List thermoregulation zones with their current
   state; set target temperature, operating mode (OFF, MANUAL, AUTO, JOLLY), and fan speed
   (OFF, SLOW, MEDIUM, FAST, AUTO) for individual zones via `thermo_zone_config_req`.
@@ -44,8 +48,8 @@ insights. We look forward to growing this library together with our users and co
   fraction of `max_power`) can be read, edited, and written back through the typed,
   immutable `LoadsCtrlProfile` API (verified against a real plant).
 - **Generic relays**: List and control simple on/off relay actuators via
-  `relays_list_req` and `relay_activation_req` (documented API, not yet verified against
-  a real server).
+  `relays_list_req` and `relay_activation_req`, either by relay object or directly by
+  name (documented API, not yet verified against a real server).
 - **Digital inputs (read-only)**: List binary sensors (door contacts, motion sensors, etc.)
   via `digitalin_list_req`. Each digital input exposes its current state and attributes.
   Real-time updates are supported via `DigitalInputUpdate`.
@@ -90,7 +94,10 @@ The following features are known from reverse-engineered sources (API_reference.
 API_MANUAL.md) but have not been verified with real traffic captures. They may be
 considered for future development once real-world testing is possible:
 
-- **Scenario management**: Create and delete scenarios (beyond the current list/activate).
+- **Scenario management**: Create and delete scenarios (beyond the current
+  list/activate/activate-by-name).
+- **Energy statistics**: Historical energy statistics per meter (`energy_stat_req`) and
+  plant-wide measurement history reset (`energy_reset_store_req`) — deferred until real traffic captures are available.
 - **Audio system**: Sound zone and source management (entirely unverified).
 - **Security system**: Area/scenario management and alarm control (entirely unverified).
 - **Infrastructure improvements**: Automated keep-alive scheduling, per-actuator scope
