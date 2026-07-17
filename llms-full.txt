@@ -2356,6 +2356,23 @@ Get the list of all scenarios defined on the server.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
+##### *async* async_get_server_datetime() → [ServerDateTime](#aiocamedomotic.models.ServerDateTime)
+
+Get the current date and time of the CAME Domotic server.
+
+Reads the server clock, returned both as a Unix epoch (UTC) and as a
+local wall-clock string, together with the server timezone and the
+current daylight-saving-time flag. Useful for diagnosing the timestamps
+carried by push updates.
+
+* **Returns:**
+  The server date/time information.
+* **Return type:**
+  [ServerDateTime](#aiocamedomotic.models.ServerDateTime)
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
 ##### *async* async_get_server_info() → [ServerInfo](#aiocamedomotic.models.ServerInfo)
 
 Get the server information.
@@ -3922,6 +3939,44 @@ Scenario ID.
 ##### *property* scenario_status *: [ScenarioStatus](#aiocamedomotic.models.ScenarioStatus)*
 
 Scenario status (OFF, TRIGGERED, ACTIVE).
+
+#### *class* aiocamedomotic.models.ServerDateTime(raw_data: dict[str, Any])
+
+Date and time reported by a CAME Domotic server.
+
+Returned by `CameDomoticAPI.async_get_server_datetime()`. Wraps the
+`datetime_req` response, which carries the server clock both as a Unix
+epoch (UTC) and as a local wall-clock string, plus the server timezone and
+the current daylight-saving-time flag.
+
+Useful for diagnosing the timestamps carried by push updates.
+
+##### *property* datetime_string *: str | None*
+
+Local wall-clock time as a `"YYYY-MM-DD HH:MM:SS"` string.
+
+Already offset for the server timezone and DST. `None` if the server
+response does not include it.
+
+##### *property* daylight_saving_time *: bool*
+
+Whether daylight saving time is currently in effect on the server.
+
+##### *property* epoch *: int*
+
+Server clock as a Unix epoch, in seconds (UTC).
+
+##### *property* timezone_name *: str | None*
+
+IANA timezone name of the server (e.g. `"Europe/Rome"`).
+
+`None` if the server response does not include it.
+
+##### *property* utc_datetime *: datetime*
+
+Server clock as a timezone-aware `datetime` (UTC).
+
+Derived from [`epoch`](#aiocamedomotic.models.ServerDateTime.epoch).
 
 #### *class* aiocamedomotic.models.ServerFeature(\*values)
 
