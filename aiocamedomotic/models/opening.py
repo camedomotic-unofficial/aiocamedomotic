@@ -49,17 +49,16 @@ class OpeningType(Enum):
 
     Allowed values are:
         - SHUTTER (0)
+        - AWNING (1)
+        - VENETIAN_BLIND (2)
+        - GATE (3)
     """
 
     SHUTTER = 0
+    AWNING = 1
+    VENETIAN_BLIND = 2
+    GATE = 3
     UNKNOWN = -1
-
-
-## Other types as guessed by AI chatbot, not tested yet.
-## If uncommented, update the docstring above and the unit test too.
-#    AWNING = 1
-#    VENETIAN_BLIND = 2
-#    GATE = 3
 
 
 @dataclass
