@@ -32,6 +32,7 @@ from aiocamedomotic.models import (
     RelayStatus,
     Room,
     Scenario,
+    ServerDateTime,
     ServerInfo,
     TerminalGroup,
     ThermoZone,
@@ -399,6 +400,104 @@ class TestAPIServerInfo:
 
         server_info = await api.async_get_server_info()
         assert len(server_info.features) == 0
+
+
+class TestAPIServerDatetime:
+    # Live capture (2026-07-17, plant 192.168.1.3): the response command name is
+    # "datetime_resp", following the standard "_resp" convention.
+    DATETIME_RESP = {
+        "cmd_name": "datetime_resp",
+        "cseq": 1,
+        "epoch": 1784321639,
+        "server_timezone": "Europe/Rome",
+        "datetime": "2026-07-17 22:53:59",
+        "daylight_saving_time": 1,
+        "sl_data_ack_reason": 0,
+    }
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_get_server_datetime(self, mock_send_command, auth_instance):
+        mock_send_command.return_value = self.DATETIME_RESP
+        api = CameDomoticAPI(auth_instance)
+
+        result = await api.async_get_server_datetime()
+
+        assert isinstance(result, ServerDateTime)
+        assert result.epoch == 1784321639
+        assert result.timezone_name == "Europe/Rome"
+        assert result.datetime_string == "2026-07-17 22:53:59"
+        assert result.daylight_saving_time is True
+        assert result.utc_datetime.isoformat() == "2026-07-17T20:53:59+00:00"
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_get_server_datetime_sends_request(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.return_value = self.DATETIME_RESP
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_get_server_datetime()
+
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["cmd_name"] == "datetime_req"
+        assert mock_send_command.call_args.kwargs["response_command"] == "datetime_resp"
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_get_server_datetime_minimal_payload(
+        self, mock_send_command, auth_instance
+    ):
+        # Only the required "epoch" is present: optional fields default gracefully.
+        mock_send_command.return_value = {
+            "cmd_name": "datetime_resp",
+            "cseq": 1,
+            "epoch": 1784321639,
+            "sl_data_ack_reason": 0,
+        }
+        api = CameDomoticAPI(auth_instance)
+
+        result = await api.async_get_server_datetime()
+
+        assert result.epoch == 1784321639
+        assert result.timezone_name is None
+        assert result.datetime_string is None
+        assert result.daylight_saving_time is False
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_get_server_datetime_missing_epoch_raises(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.return_value = {
+            "cmd_name": "datetime_resp",
+            "cseq": 1,
+            "server_timezone": "Europe/Rome",
+            "datetime": "2026-07-17 22:53:59",
+            "daylight_saving_time": 1,
+            "sl_data_ack_reason": 0,
+        }
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(ValueError):
+            await api.async_get_server_datetime()
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_get_server_datetime_auth_error_propagates(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.side_effect = CameDomoticAuthError("bad auth")
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(CameDomoticAuthError):
+            await api.async_get_server_datetime()
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_get_server_datetime_server_error_propagates(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.side_effect = CameDomoticServerError("server down")
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(CameDomoticServerError):
+            await api.async_get_server_datetime()
 
 
 class TestAPIFloors:

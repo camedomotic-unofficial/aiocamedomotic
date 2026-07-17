@@ -75,7 +75,9 @@ insights. We look forward to growing this library together with our users and co
   30 seconds) applies to all commands, with per-call `timeout` override on
   `async_get_updates()` for long-polling scenarios.
 - **Discovery**: Server info, feature detection, user listing, merged floor and room
-  topology, and a connectivity check with latency measurement (`async_ping`).
+  topology, a connectivity check with latency measurement (`async_ping`), and the
+  server date/time, timezone, and DST flag via `datetime_req`
+  (`async_get_server_datetime`), useful for diagnosing push-update timestamps.
 
 ## Planned Features
 
