@@ -5,9 +5,10 @@
 CAME Domotic digital input (binary sensor) entity models.
 
 This module implements the classes for working with digital inputs in a CAME
-Domotic system. Digital inputs represent read-only binary sensors such as
-physical buttons, contact sensors, and similar devices. They provide properties
-to access device attributes but do not support control commands.
+Domotic system. Digital inputs represent binary sensors such as physical
+buttons, contact sensors, and similar devices. They are read-only for their
+state, but inputs that raise a technical alarm or keep a signalling counter can
+be acknowledged via :meth:`DigitalInput.async_ack`.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from enum import Enum
 from typing import Any
 
 from ..auth import Auth
+from ..const import _CommandName, _CommandNameResponse
 from ..utils import (
     LOGGER,
     EntityValidator,
@@ -53,8 +55,10 @@ class DigitalInput(CameEntity):
     """
     Digital input (binary sensor) entity in the CameDomotic API.
 
-    Digital inputs are read-only devices that report their binary state
-    (ACTIVE/IDLE). They cannot be controlled remotely.
+    Digital inputs report their binary state (ACTIVE/IDLE) and cannot be
+    switched remotely. Inputs that raise a technical alarm or keep a
+    signalling counter can, however, be acknowledged via
+    :meth:`async_ack`.
 
     Raises:
         ValueError: If ``name`` or ``act_id`` keys are missing from the
@@ -148,3 +152,40 @@ class DigitalInput(CameEntity):
         Returns ``0`` if the digital input has never been triggered.
         """
         return self.raw_data.get("utc_time", 0)
+
+    async def async_ack(self) -> None:
+        """Acknowledge the digital input.
+
+        Some digital inputs raise a technical alarm or keep a signalling
+        counter that stays latched until it is acknowledged. This command
+        clears that pending signalling for the input; it has no effect on
+        inputs that do not track one.
+
+        The command is keyed on :attr:`addr` (not :attr:`act_id`). The
+        server replies with ``digitalin_ack_resp`` echoing the input record,
+        which is validated.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        await self.auth.async_get_valid_client_id()
+        LOGGER.debug(
+            "User authenticated, sending 'digitalin_ack_req' command to the API."
+        )
+
+        payload = {
+            "cmd_name": _CommandName.DIGITALIN_ACK.value,
+            "addr": self.addr,
+        }
+        await self.auth.async_send_command(
+            payload,
+            response_command=_CommandNameResponse.DIGITALIN_ACK.value,
+        )
+
+        LOGGER.info(
+            "Digital input '%s' (ID: %s, addr: %s) acknowledged",
+            self.name,
+            self.act_id,
+            self.addr,
+        )

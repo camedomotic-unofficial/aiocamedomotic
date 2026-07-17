@@ -2974,6 +2974,98 @@ class TestDigitalInput:
         assert di.type == DigitalInputType.UNKNOWN
 
 
+class TestDigitalInputAck:
+    @pytest.mark.asyncio
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="my_session_id",
+    )
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_ack(
+        self,
+        mock_send_command,
+        mock_get_client_id,  # pylint: disable=unused-argument
+        digital_input_data_with_status,
+        auth_instance,
+    ):
+        di = DigitalInput(digital_input_data_with_status, auth_instance)
+
+        await di.async_ack()
+
+        mock_send_command.assert_called_once()
+        payload = mock_send_command.call_args[0][0]
+        assert payload == {"cmd_name": "digitalin_ack_req", "addr": di.addr}
+        # The command is keyed on addr, not act_id.
+        assert payload["addr"] == 201
+        assert (
+            mock_send_command.call_args.kwargs["response_command"]
+            == "digitalin_ack_resp"
+        )
+
+    @pytest.mark.asyncio
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="my_session_id",
+    )
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_ack_default_addr(
+        self,
+        mock_send_command,
+        mock_get_client_id,  # pylint: disable=unused-argument
+        auth_instance,
+    ):
+        # An input without an explicit addr falls back to 0.
+        di = DigitalInput({"act_id": 5, "name": "Minimal Input"}, auth_instance)
+
+        await di.async_ack()
+
+        payload = mock_send_command.call_args[0][0]
+        assert payload["addr"] == 0
+
+    @pytest.mark.asyncio
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="my_session_id",
+    )
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_ack_server_error_propagates(
+        self,
+        mock_send_command,
+        mock_get_client_id,  # pylint: disable=unused-argument
+        digital_input_data_with_status,
+        auth_instance,
+    ):
+        mock_send_command.side_effect = CameDomoticServerError("boom")
+        di = DigitalInput(digital_input_data_with_status, auth_instance)
+
+        with pytest.raises(CameDomoticServerError, match="boom"):
+            await di.async_ack()
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_get_valid_client_id", new_callable=AsyncMock)
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_ack_auth_error_propagates(
+        self,
+        mock_send_command,
+        mock_get_client_id,
+        digital_input_data_with_status,
+        auth_instance,
+    ):
+        mock_get_client_id.side_effect = CameDomoticAuthError("auth failed")
+        di = DigitalInput(digital_input_data_with_status, auth_instance)
+
+        with pytest.raises(CameDomoticAuthError, match="auth failed"):
+            await di.async_ack()
+
+        mock_send_command.assert_not_called()
+
+
 class TestCamera:
     def test_init_valid_data(self, auth_instance, camera_data_flash):
         camera = Camera(camera_data_flash, auth_instance)
