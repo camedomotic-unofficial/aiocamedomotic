@@ -3736,6 +3736,34 @@ Control the relay.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
+##### *async* async_set_status_timed(interval: int) → None
+
+Activate the relay for a timed interval.
+
+The relay switches ON and the server automatically switches it back OFF
+once `interval` elapses. The subsequent OFF transition is reported
+asynchronously by the server via the usual status update, so this
+method does not update the local [`status`](#aiocamedomotic.models.Relay.status) (which momentarily
+becomes ON).
+
+* **Parameters:**
+  **interval** (*int*) –
+
+  Activation time, passed verbatim to the server.
+  Must be greater than 0.
+
+  #### WARNING
+  The unit of `interval` is **not documented** by the CAME
+  API nor by the reference implementations this method is
+  based on, and has not been verified against a real server.
+  Callers should confirm the
+  behaviour on their own plant before relying on a precise
+  duration.
+* **Raises:**
+  * **ValueError** – If `interval` is not greater than 0.
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
 ##### *property* floor_ind *: int*
 
 Floor index of the relay.
