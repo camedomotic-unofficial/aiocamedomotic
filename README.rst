@@ -92,6 +92,8 @@ Special thanks to Andrea Michielan for his foundational work with the
 facilitated the initial development of this library. We also found great inspiration in
 the Home Assistant document
 `Building a Python library for an API <https://developers.home-assistant.io/docs/api_lib_index>`_.
+We would also like to acknowledge the valuable work of Den901 in
+`ha_came <https://github.com/Den901/ha_came>`_, from which we took a lot of useful info.
 
 
 License
