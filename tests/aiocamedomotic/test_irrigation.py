@@ -113,7 +113,6 @@ class TestIrrigation:
 
 
 class TestIrrigationControl:
-    @pytest.mark.asyncio
     @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
     async def test_async_force(self, mock_send_command, auth_instance):
         irrigation = Irrigation(IRRIGATION_DATA, auth_instance)
@@ -127,7 +126,6 @@ class TestIrrigationControl:
             }
         )
 
-    @pytest.mark.asyncio
     @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
     async def test_async_set_enabled_true(self, mock_send_command, auth_instance):
         irrigation = Irrigation({"id": 3, "enabled": 0}, auth_instance)
@@ -144,7 +142,6 @@ class TestIrrigationControl:
         )
         assert irrigation.enabled is True
 
-    @pytest.mark.asyncio
     @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
     async def test_async_set_enabled_false(self, mock_send_command, auth_instance):
         irrigation = Irrigation({"id": 3, "enabled": 1}, auth_instance)
