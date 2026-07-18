@@ -25,7 +25,7 @@ from .const import (
     _CommandType,
     _TopologicScope,
 )
-from .errors import CameDomoticAuthError
+from .errors import CameDomoticAuthError, CameDomoticServerError
 from .models import (
     AnalogIn,
     AnalogSensor,
@@ -76,6 +76,10 @@ class CameDomoticAPI:
         """
         self.auth = auth
         self.auth.command_timeout = command_timeout
+        # Name of the custom scenario currently being recorded via
+        # async_start_scenario_recording, used by async_stop_scenario_recording
+        # to identify the newly created scenario in the scenarios list.
+        self._recording_scenario_name: str | None = None
         LOGGER.debug(
             "CameDomoticAPI initialized (command_timeout=%ds)", command_timeout
         )
@@ -854,6 +858,111 @@ class CameDomoticAPI:
         }
         await self.auth.async_send_command(payload)
         LOGGER.info("Scenario '%s' activated by name", name)
+
+    async def async_start_scenario_recording(self, name: str) -> None:
+        """Start recording a new custom (user-defined) scenario.
+
+        Puts the CAME server in scenario-recording mode: the actions performed
+        on the plant after this call (e.g. switching lights on/off) are
+        captured as the steps of a new scenario named ``name``. Call
+        :meth:`async_stop_scenario_recording` to finalize the recording and
+        save the scenario on the server.
+
+        .. note::
+            The recording verified against a real plant captures actions
+            performed via **physical switches**. Actions sent through the API
+            (e.g. :meth:`~aiocamedomotic.models.Light.async_set_status`) are
+            expected to be captured as well — the official CAME app records
+            its own commands this way — but this has not been verified yet.
+
+        Args:
+            name (str): The name of the new scenario.
+
+        Raises:
+            ValueError: If ``name`` is not a non-empty string.
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error or rejects
+                the recording request.
+        """
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("name must be a non-empty string")
+
+        LOGGER.debug("Starting recording of scenario '%s'", name)
+        payload = {
+            "cmd_name": _CommandName.SCENARIO_REGISTRATION_START.value,
+            "name": name,
+        }
+        json_response = await self.auth.async_send_command(
+            payload,
+            response_command=_CommandNameResponse.SCENARIO_REGISTRATION.value,
+        )
+
+        result = json_response.get("result")
+        if result != 1:
+            raise CameDomoticServerError(
+                f"The server rejected the recording of scenario '{name}' "
+                f"(result={result})"
+            )
+
+        self._recording_scenario_name = name
+        LOGGER.info("Recording of scenario '%s' started", name)
+
+    async def async_stop_scenario_recording(self) -> Scenario | None:
+        """Stop the ongoing scenario recording and save the new scenario.
+
+        Finalizes the recording started with
+        :meth:`async_start_scenario_recording`: the server stores the captured
+        actions as a new user-defined scenario.
+
+        Returns:
+            Scenario | None: The newly created scenario, retrieved from the
+            server by matching the name passed to
+            :meth:`async_start_scenario_recording` (if several user-defined
+            scenarios share that name, the one with the highest ID is
+            returned). Returns ``None`` if the recording was not started via
+            this API instance or if the new scenario cannot be identified.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error or rejects
+                the finalization request.
+        """
+        LOGGER.debug("Stopping scenario recording")
+        payload = {
+            "cmd_name": _CommandName.SCENARIO_REGISTRATION_DONE.value,
+        }
+        json_response = await self.auth.async_send_command(
+            payload,
+            response_command=_CommandNameResponse.SCENARIO_REGISTRATION_DONE.value,
+        )
+
+        result = json_response.get("result")
+        if result != 1:
+            raise CameDomoticServerError(
+                f"The server rejected the finalization of the scenario "
+                f"recording (result={result})"
+            )
+
+        name = self._recording_scenario_name
+        self._recording_scenario_name = None
+        LOGGER.info("Scenario recording stopped")
+
+        if name is None:
+            LOGGER.debug(
+                "No recording was started via this API instance: "
+                "cannot identify the newly created scenario"
+            )
+            return None
+
+        scenarios = await self.async_get_scenarios()
+        matches = [s for s in scenarios if s.user_defined and s.name == name]
+        if not matches:
+            LOGGER.warning(
+                "Newly recorded scenario '%s' not found in the scenarios list",
+                name,
+            )
+            return None
+        return max(matches, key=lambda s: s.id)
 
     async def async_set_relay_status_by_name(
         self, name: str, status: RelayStatus

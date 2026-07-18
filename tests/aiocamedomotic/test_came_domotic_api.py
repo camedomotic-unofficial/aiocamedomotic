@@ -1163,6 +1163,220 @@ class TestAPIScenarios:
             await api.async_get_scenarios()
 
 
+class TestAPIScenarioRecording:
+    REGISTRATION_RESP = {
+        "cseq": 18,
+        "cmd_name": "scenario_registration_resp",
+        "result": 1,
+        "sl_data_ack_reason": 0,
+    }
+    REGISTRATION_DONE_RESP = {
+        "cseq": 44,
+        "cmd_name": "scenario_registration_done_resp",
+        "result": 1,
+        "sl_data_ack_reason": 0,
+    }
+    SCENARIOS_LIST_WITH_CUSTOM_RESP = {
+        "cseq": 46,
+        "cmd_name": "scenarios_list_resp",
+        "array": [
+            {
+                "name": "Luci giorno accese",
+                "id": 1,
+                "status": 0,
+                "scenario_status": 0,
+                "icon_id": 14,
+                "user-defined": 0,
+            },
+            {
+                "name": "SCENARIO di prova",
+                "id": 65536,
+                "status": 0,
+                "scenario_status": 0,
+                "user-defined": 1,
+            },
+        ],
+        "sl_data_ack_reason": 0,
+    }
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_start_scenario_recording(self, mock_send_command, auth_instance):
+        mock_send_command.return_value = self.REGISTRATION_RESP
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_start_scenario_recording("SCENARIO di prova")
+
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["cmd_name"] == "scenario_registration_start"
+        assert call_payload["name"] == "SCENARIO di prova"
+        assert (
+            mock_send_command.call_args.kwargs["response_command"]
+            == "scenario_registration_resp"
+        )
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_start_scenario_recording_empty_name(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(ValueError, match="name must be a non-empty string"):
+            await api.async_start_scenario_recording("   ")
+        mock_send_command.assert_not_called()
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_start_scenario_recording_non_string_name(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(ValueError, match="name must be a non-empty string"):
+            await api.async_start_scenario_recording(42)
+        mock_send_command.assert_not_called()
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_start_scenario_recording_rejected(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.return_value = {
+            "cseq": 18,
+            "cmd_name": "scenario_registration_resp",
+            "result": 0,
+            "sl_data_ack_reason": 0,
+        }
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(CameDomoticServerError, match="result=0"):
+            await api.async_start_scenario_recording("SCENARIO di prova")
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_stop_scenario_recording(self, mock_send_command, auth_instance):
+        mock_send_command.side_effect = [
+            self.REGISTRATION_RESP,
+            self.REGISTRATION_DONE_RESP,
+            self.SCENARIOS_LIST_WITH_CUSTOM_RESP,
+        ]
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_start_scenario_recording("SCENARIO di prova")
+        scenario = await api.async_stop_scenario_recording()
+
+        done_payload = mock_send_command.call_args_list[1][0][0]
+        assert done_payload["cmd_name"] == "scenario_registration_done"
+        assert (
+            mock_send_command.call_args_list[1].kwargs["response_command"]
+            == "scenario_registration_done_resp"
+        )
+        assert isinstance(scenario, Scenario)
+        assert scenario.id == 65536
+        assert scenario.name == "SCENARIO di prova"
+        assert scenario.user_defined == 1
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_stop_scenario_recording_without_start(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.return_value = self.REGISTRATION_DONE_RESP
+        api = CameDomoticAPI(auth_instance)
+
+        scenario = await api.async_stop_scenario_recording()
+
+        # The done command is sent anyway, but the scenarios list is not
+        # fetched since the new scenario cannot be identified.
+        assert scenario is None
+        mock_send_command.assert_called_once()
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_stop_scenario_recording_rejected(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.side_effect = [
+            self.REGISTRATION_RESP,
+            {
+                "cseq": 44,
+                "cmd_name": "scenario_registration_done_resp",
+                "result": 0,
+                "sl_data_ack_reason": 0,
+            },
+        ]
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_start_scenario_recording("SCENARIO di prova")
+        with pytest.raises(CameDomoticServerError, match="result=0"):
+            await api.async_stop_scenario_recording()
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_stop_scenario_recording_scenario_not_found(
+        self, mock_send_command, auth_instance, caplog
+    ):
+        mock_send_command.side_effect = [
+            self.REGISTRATION_RESP,
+            self.REGISTRATION_DONE_RESP,
+            {
+                "cseq": 46,
+                "cmd_name": "scenarios_list_resp",
+                "array": [],
+                "sl_data_ack_reason": 0,
+            },
+        ]
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_start_scenario_recording("SCENARIO di prova")
+        scenario = await api.async_stop_scenario_recording()
+
+        assert scenario is None
+        assert "not found in the scenarios list" in caplog.text
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_stop_scenario_recording_duplicate_names(
+        self, mock_send_command, auth_instance
+    ):
+        list_resp = {
+            "cseq": 46,
+            "cmd_name": "scenarios_list_resp",
+            "array": [
+                {
+                    "name": "SCENARIO di prova",
+                    "id": 65536,
+                    "status": 0,
+                    "scenario_status": 0,
+                    "user-defined": 1,
+                },
+                {
+                    "name": "SCENARIO di prova",
+                    "id": 65537,
+                    "status": 0,
+                    "scenario_status": 0,
+                    "user-defined": 1,
+                },
+            ],
+            "sl_data_ack_reason": 0,
+        }
+        mock_send_command.side_effect = [
+            self.REGISTRATION_RESP,
+            self.REGISTRATION_DONE_RESP,
+            list_resp,
+        ]
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_start_scenario_recording("SCENARIO di prova")
+        scenario = await api.async_stop_scenario_recording()
+
+        # Among duplicates, the scenario with the highest ID is returned
+        assert scenario is not None
+        assert scenario.id == 65537
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_start_scenario_recording_auth_error_propagates(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.side_effect = CameDomoticAuthError("bad auth")
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(CameDomoticAuthError):
+            await api.async_start_scenario_recording("SCENARIO di prova")
+
+
 class TestAPIActivationByName:
     # generic_reply ack, validated by the standard ack-check (no response_command)
     GENERIC_REPLY = {
