@@ -35,6 +35,7 @@ from aiocamedomotic.models import (
     Scenario,
     ServerDateTime,
     ServerInfo,
+    SoundZone,
     TerminalGroup,
     ThermoZone,
     ThermoZoneSeason,
@@ -1452,6 +1453,143 @@ class TestAPIIrrigation:
 
         with pytest.raises(CameDomoticServerError):
             await api.async_get_irrigation_sectors()
+
+
+# Inline mock: sound zones are absent from the reference plant, so the response
+# is modelled on the field-tested third-party integration's data shape and is
+# not part of mocked_responses.py. The two zones cover both source formats
+# (array-based and flat source_N fields).
+SOUND_ROOM_LIST_RESP_INLINE = {
+    "array": [
+        {
+            "id": 1,
+            "name": "Living room",
+            "standby": 0,
+            "mute": 0,
+            "volume": 25,
+            "min_volume": 0,
+            "max_volume": 50,
+            "source_name": "Radio",
+            "sources": [
+                {"source": "Radio", "id": 0},
+                {"source_name": "Aux", "id": 1},
+            ],
+        },
+        {
+            "id": 2,
+            "name": "Kitchen",
+            "standby": 1,
+            "mute": 1,
+            "volume": 10,
+            "min_volume": 5,
+            "max_volume": 35,
+            "source": "Radio",
+            "source_1": "Radio",
+            "source_2": "Aux",
+            "id_source_2": 7,
+        },
+    ],
+    "cmd_name": "sound_room_list_resp",
+    "cseq": 5,
+    "sl_data_ack_reason": 0,
+}
+
+
+class TestAPISoundZones:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_sound_zones(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = SOUND_ROOM_LIST_RESP_INLINE
+
+        zones = await api.async_get_sound_zones()
+
+        mock_send_command.assert_called_once_with(
+            {"cmd_name": "sound_room_list_req"},
+            response_command="sound_room_list_resp",
+        )
+        assert len(zones) == 2
+        assert isinstance(zones[0], SoundZone)
+        assert isinstance(zones[1], SoundZone)
+        assert zones[0].id == 1
+        assert zones[0].name == "Living room"
+        assert zones[0].is_on is True
+        assert zones[0].sources == [
+            {"name": "Radio", "id": 0},
+            {"name": "Aux", "id": 1},
+        ]
+        assert zones[1].id == 2
+        assert zones[1].is_on is False
+        assert zones[1].is_muted is True
+        assert zones[1].sources == [
+            {"name": "Radio", "id": 0},
+            {"name": "Aux", "id": 7},
+        ]
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_sound_zones_empty_array(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [],
+            "cmd_name": "sound_room_list_resp",
+            "cseq": 5,
+            "sl_data_ack_reason": 0,
+        }
+
+        zones = await api.async_get_sound_zones()
+        assert zones == []
+        assert isinstance(zones, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_sound_zones_missing_array_key(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "cmd_name": "sound_room_list_resp",
+            "cseq": 5,
+            "sl_data_ack_reason": 0,
+        }
+
+        zones = await api.async_get_sound_zones()
+        assert zones == []
+        assert isinstance(zones, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_sound_zones_missing_id(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [{"name": "No id", "standby": 0}],
+            "cmd_name": "sound_room_list_resp",
+            "cseq": 5,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: id"):
+            await api.async_get_sound_zones()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_sound_zones_auth_error(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.side_effect = CameDomoticAuthError("auth failed")
+
+        with pytest.raises(CameDomoticAuthError):
+            await api.async_get_sound_zones()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_sound_zones_server_error(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.side_effect = CameDomoticServerError("server failed")
+
+        with pytest.raises(CameDomoticServerError):
+            await api.async_get_sound_zones()
 
 
 class TestAPIUpdates:

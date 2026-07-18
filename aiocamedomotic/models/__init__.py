@@ -48,6 +48,7 @@ from .profiles import (  # noqa: F401
 )
 from .relay import Relay, RelayStatus  # noqa: F401
 from .scenario import Scenario, ScenarioStatus  # noqa: F401
+from .sound_zone import SoundZone, SoundZoneAction  # noqa: F401
 from .thermo_zone import (  # noqa: F401
     AnalogSensor,
     AnalogSensorType,
@@ -124,6 +125,8 @@ __all__ = [
     "ServerDateTime",
     "ServerFeature",
     "ServerInfo",
+    "SoundZone",
+    "SoundZoneAction",
     "TerminalGroup",
     "ThermoProfile",
     "ThermoZone",

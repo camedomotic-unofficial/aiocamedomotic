@@ -65,6 +65,15 @@ insights. We look forward to growing this library together with our users and co
   a toggle) and enable/disable a sector's weekly schedule (`irrigation_set_req`). This
   feature is **not verified against a live plant** — it is implemented from the behaviour
   of an existing, field-tested third-party integration.
+- **Sound zones (experimental)**: List audio zones via `sound_room_list_req`, each
+  exposing its power state (standby), mute state, volume with its min/max range
+  (plus a normalized 0–1 volume level), and the available input sources (both the
+  array-based and the flat `source_N` firmware formats are normalized). Control
+  zones via `sound_switch_req` (on/off, mute, volume, source selection), send
+  advanced source commands via `suftif_cmd_req`, and refresh a single zone via
+  `sound_room_src_req`. This feature is **not verified against a live plant** — it
+  is implemented from the behaviour of an existing, field-tested third-party
+  integration.
 - **Cameras (TVCC, read-only)**: List IP cameras with their stream URIs.
 - **Maps (read-only)**: Retrieve floor-plan map pages with positioned device elements
   via `map_descr_req`.
@@ -109,7 +118,6 @@ considered for future development once real-world testing is possible:
   list/activate/activate-by-name).
 - **Energy statistics**: Historical energy statistics per meter (`energy_stat_req`) and
   plant-wide measurement history reset (`energy_reset_store_req`) — deferred until real traffic captures are available.
-- **Audio system**: Sound zone and source management (entirely unverified).
 - **Security system**: Area/scenario management and alarm control (entirely unverified).
 - **Infrastructure improvements**: Automated keep-alive scheduling, per-actuator scope
   queries, and connection resilience improvements.
