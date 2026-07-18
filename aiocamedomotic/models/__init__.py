@@ -29,6 +29,7 @@ from .digital_input import (  # noqa: F401
     DigitalInputType,
 )
 from .energy_meter import EnergyMeter, EnergyMeterType  # noqa: F401
+from .irrigation import Irrigation  # noqa: F401
 from .light import Light, LightStatus, LightType  # noqa: F401
 from .loads_ctrl import (  # noqa: F401
     LoadsCtrlMeter,
@@ -93,6 +94,7 @@ __all__ = [
     "EnergyMeterType",
     "EnergyMeterUpdate",
     "Floor",
+    "Irrigation",
     "Light",
     "LightStatus",
     "LightType",

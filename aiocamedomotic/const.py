@@ -169,6 +169,7 @@ class _CommandName(Enum):
     DIGITALIN_LIST = "digitalin_list_req"
     ANALOGIN_LIST = "analogin_list_req"
     TIMERS_LIST = "timers_list_req"
+    IRRIGATION_LIST = "irrigation_list_req"
     TVCC_CAMERAS_LIST = "tvcc_cameras_list_req"
     # Nested lists (topology-aware)
     NESTED_LIGHT_LIST = "nested_light_list_req"
@@ -189,6 +190,12 @@ class _CommandName(Enum):
     TIMERS_ENABLE_DAY = "timers_enable_day_req"
     TIMERS_SET = "timers_set_req"
     DIGITALIN_ACK = "digitalin_ack_req"
+    # Irrigation: the force/set/detail acks carry no reliable resp cmd_name
+    # (a generic_reply is returned), so only the list request has a
+    # _CommandNameResponse counterpart.
+    IRRIGATION_DETAIL = "irrigation_detail_req"
+    IRRIGATION_FORCE = "irrigation_force_req"
+    IRRIGATION_SET = "irrigation_set_req"
     # Loadsctrl set commands: the server ack carries no cmd_name, so there is
     # no _CommandNameResponse counterpart for these two.
     LOADSCTRL_RELAY_SET = "loadsctrl_relay_set_req"
@@ -216,6 +223,7 @@ class _CommandNameResponse(Enum):
     DIGITALIN_LIST = "digitalin_list_resp"
     ANALOGIN_LIST = "analogin_list_resp"
     TIMERS_LIST = "timers_list_resp"
+    IRRIGATION_LIST = "irrigation_list_resp"
     TVCC_CAMERAS_LIST = "tvcc_cameras_list_resp"
     TERMINALS_GROUPS_LIST = "terminals_groups_list_resp"
     MAP_DESCR = "map_descr_resp"

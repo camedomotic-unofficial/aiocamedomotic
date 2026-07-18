@@ -59,6 +59,12 @@ insights. We look forward to growing this library together with our users and co
 - **Analog inputs (read-only)**: List standalone analog sensors (hygrometers,
   thermometers, barometers) via `analogin_list_req`, independent of the
   thermoregulation sensors.
+- **Irrigation (experimental)**: List irrigation sectors via `irrigation_list_req`,
+  each exposing its schedule state (enabled, running, days, water percentage,
+  start/end windows, sprinklers). Force a watering cycle on/off (`irrigation_force_req`,
+  a toggle) and enable/disable a sector's weekly schedule (`irrigation_set_req`). This
+  feature is **not verified against a live plant** — it is implemented from the behaviour
+  of an existing, field-tested third-party integration.
 - **Cameras (TVCC, read-only)**: List IP cameras with their stream URIs.
 - **Maps (read-only)**: Retrieve floor-plan map pages with positioned device elements
   via `map_descr_req`.

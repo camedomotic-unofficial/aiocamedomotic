@@ -34,6 +34,7 @@ from .models import (
     DigitalInput,
     EnergyMeter,
     Floor,
+    Irrigation,
     Light,
     LoadsCtrlMeter,
     LoadsCtrlRelay,
@@ -895,6 +896,40 @@ class CameDomoticAPI:
         timers_list = json_response.get("array", []) or []
         LOGGER.info("Retrieved %d timer(s)", len(timers_list))
         return [Timer(timer_data, self.auth) for timer_data in timers_list]
+
+    async def async_get_irrigation_sectors(self) -> list[Irrigation]:
+        """Get the list of all irrigation sectors defined on the server.
+
+        Irrigation sectors are schedulable watering zones. Each can be forced
+        on/off and its weekly schedule enabled/disabled.
+
+        .. note::
+            Irrigation support is **not verified against a live plant**. See
+            :class:`~aiocamedomotic.models.Irrigation` for details.
+
+        Returns:
+            list[Irrigation]: List of irrigation sectors.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Fetching irrigation sectors list")
+        payload = {
+            "cmd_name": _CommandName.IRRIGATION_LIST.value,
+            "detailed": 1,
+        }
+
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.IRRIGATION_LIST.value
+        )
+
+        irrigation_list = json_response.get("array", []) or []
+        LOGGER.info("Retrieved %d irrigation sector(s)", len(irrigation_list))
+        return [
+            Irrigation(irrigation_data, self.auth)
+            for irrigation_data in irrigation_list
+        ]
 
     async def async_get_topology(self) -> PlantTopology:
         """Get the complete plant topology (floors and rooms).

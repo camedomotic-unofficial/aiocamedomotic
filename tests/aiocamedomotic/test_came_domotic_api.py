@@ -24,6 +24,7 @@ from aiocamedomotic.models import (
     Camera,
     DigitalInput,
     Floor,
+    Irrigation,
     Light,
     MapPage,
     Opening,
@@ -1325,6 +1326,132 @@ class TestAPITimers:
 
         with pytest.raises(ValueError, match="Data is missing required keys: name"):
             await api.async_get_timers()
+
+
+# Inline mock: irrigation is absent from the reference plant, so the response
+# is modelled on the field-tested third-party integration's data shape and is
+# not part of mocked_responses.py.
+IRRIGATION_LIST_RESP_INLINE = {
+    "array": [
+        {
+            "id": 1,
+            "name": "Front lawn",
+            "enabled": 1,
+            "status": 0,
+            "forced": 0,
+            "days": 42,
+            "perc": 80,
+            "start": {"hour": 6, "min": 0},
+            "end": {"hour": 6, "min": 30},
+            "sprinklers": [1, 2, 3],
+        },
+        {
+            "id": 2,
+            "name": "Back garden",
+            "enabled": 0,
+            "status": 1,
+            "forced": 0,
+            "days": 0,
+            "perc": 100,
+            "start": {"hour": 20, "min": 15},
+            "end": {"hour": 20, "min": 45},
+            "sprinklers": [4],
+        },
+    ],
+    "cmd_name": "irrigation_list_resp",
+    "cseq": 5,
+    "sl_data_ack_reason": 0,
+}
+
+
+class TestAPIIrrigation:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_irrigation_sectors(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = IRRIGATION_LIST_RESP_INLINE
+
+        sectors = await api.async_get_irrigation_sectors()
+
+        mock_send_command.assert_called_once_with(
+            {"cmd_name": "irrigation_list_req", "detailed": 1},
+            response_command="irrigation_list_resp",
+        )
+        assert len(sectors) == 2
+        assert isinstance(sectors[0], Irrigation)
+        assert isinstance(sectors[1], Irrigation)
+        assert sectors[0].id == 1
+        assert sectors[0].name == "Front lawn"
+        assert sectors[0].enabled is True
+        assert sectors[0].is_running is False
+        assert sectors[1].id == 2
+        assert sectors[1].enabled is False
+        assert sectors[1].is_running is True
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_irrigation_sectors_empty_array(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [],
+            "cmd_name": "irrigation_list_resp",
+            "cseq": 5,
+            "sl_data_ack_reason": 0,
+        }
+
+        sectors = await api.async_get_irrigation_sectors()
+        assert sectors == []
+        assert isinstance(sectors, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_irrigation_sectors_missing_array_key(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "cmd_name": "irrigation_list_resp",
+            "cseq": 5,
+            "sl_data_ack_reason": 0,
+        }
+
+        sectors = await api.async_get_irrigation_sectors()
+        assert sectors == []
+        assert isinstance(sectors, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_irrigation_sectors_missing_id(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [{"name": "No id", "enabled": 1}],
+            "cmd_name": "irrigation_list_resp",
+            "cseq": 5,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: id"):
+            await api.async_get_irrigation_sectors()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_irrigation_sectors_auth_error(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.side_effect = CameDomoticAuthError("auth failed")
+
+        with pytest.raises(CameDomoticAuthError):
+            await api.async_get_irrigation_sectors()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_irrigation_sectors_server_error(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.side_effect = CameDomoticServerError("server failed")
+
+        with pytest.raises(CameDomoticServerError):
+            await api.async_get_irrigation_sectors()
 
 
 class TestAPIUpdates:
