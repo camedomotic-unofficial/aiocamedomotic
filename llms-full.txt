@@ -576,6 +576,67 @@ if good_morning:
     await good_morning.async_activate()
 ```
 
+**Recording a new custom scenario:**
+
+Custom (user-defined) scenarios are created by *recording* them: you put
+the server in recording mode, perform the actions you want the scenario
+to replay (e.g. switching lights on/off), and then finalize the
+recording. This mirrors the recording feature of the official CAME app.
+
+```python
+# 1. Start recording a new scenario
+await api.async_start_scenario_recording("Movie night")
+
+# 2. Perform the actions to be captured, e.g. by pressing physical
+#    switches on the plant, or via API commands:
+lights = await api.async_get_lights()
+living_room = next(l for l in lights if l.name == "Living room")
+await living_room.async_set_status(LightStatus.OFF)
+
+# 3. Finalize the recording: the server saves the new scenario and
+#    the method returns it as a Scenario object
+movie_night = await api.async_stop_scenario_recording()
+print(f"Created scenario '{movie_night.name}' (ID: {movie_night.id})")
+
+# The new scenario can now be activated like any other one
+await movie_night.async_activate()
+```
+
+**NOTE:**
+Recording has been verified against a real plant with actions
+performed via **physical switches**. Actions sent through the API
+while recording are expected to be captured as well — the official
+CAME app records its own commands this way — but this has not been
+verified yet.
+
+`async_stop_scenario_recording()`
+identifies the new scenario by the name passed to
+`async_start_scenario_recording()`
+and returns `None` if it cannot be found (e.g. when finalizing a
+recording started by another client).
+
+**Renaming and deleting custom scenarios:**
+
+User-defined scenarios (`user_defined == 1`) can be renamed and
+deleted. System-defined scenarios are not meant to be modified: the
+command is sent anyway, but a warning is logged and the server behaviour
+is unverified.
+
+```python
+scenarios = await api.async_get_scenarios()
+movie_night = next(
+    (s for s in scenarios if s.name == "Movie night" and s.user_defined),
+    None,
+)
+
+if movie_night:
+    # Rename the scenario (the local object is updated too)
+    await movie_night.async_rename("Cinema mode")
+
+    # Delete the scenario (irreversible!)
+    await movie_night.async_delete()
+```
+
 #### Thermoregulation zones
 
 ```python
@@ -2632,6 +2693,53 @@ after changing the season.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
+##### *async* async_start_scenario_recording(name: str) → None
+
+Start recording a new custom (user-defined) scenario.
+
+Puts the CAME server in scenario-recording mode: the actions performed
+on the plant after this call (e.g. switching lights on/off) are
+captured as the steps of a new scenario named `name`. Call
+[`async_stop_scenario_recording()`](#aiocamedomotic.came_domotic_api.CameDomoticAPI.async_stop_scenario_recording) to finalize the recording and
+save the scenario on the server.
+
+**NOTE:**
+The recording verified against a real plant captures actions
+performed via **physical switches**. Actions sent through the API
+(e.g. [`async_set_status()`](#aiocamedomotic.models.Light.async_set_status)) are
+expected to be captured as well — the official CAME app records
+its own commands this way — but this has not been verified yet.
+
+* **Parameters:**
+  **name** (*str*) – The name of the new scenario.
+* **Raises:**
+  * **ValueError** – If `name` is not a non-empty string.
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error or rejects
+        the recording request.
+
+##### *async* async_stop_scenario_recording() → [Scenario](#aiocamedomotic.models.Scenario) | None
+
+Stop the ongoing scenario recording and save the new scenario.
+
+Finalizes the recording started with
+[`async_start_scenario_recording()`](#aiocamedomotic.came_domotic_api.CameDomoticAPI.async_start_scenario_recording): the server stores the captured
+actions as a new user-defined scenario.
+
+* **Returns:**
+  The newly created scenario, retrieved from the
+  server by matching the name passed to
+  [`async_start_scenario_recording()`](#aiocamedomotic.came_domotic_api.CameDomoticAPI.async_start_scenario_recording) (if several user-defined
+  scenarios share that name, the one with the highest ID is
+  returned). Returns `None` if the recording was not started via
+  this API instance or if the new scenario cannot be identified.
+* **Return type:**
+  [Scenario](#aiocamedomotic.models.Scenario) | None
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error or rejects
+        the finalization request.
+
 ### Entity models
 
 This module defines the Python representation of each of the entity types used by the
@@ -4050,6 +4158,44 @@ Activate the scenario.
 Sends the scenario activation command to the CAME Domotic server.
 
 * **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_delete() → None
+
+Delete the scenario from the CAME Domotic server.
+
+**WARNING:**
+The deletion is irreversible: the server discards the scenario
+and there is no way to restore it.
+
+**NOTE:**
+Deletion is meant for **user-defined** scenarios (see
+[`user_defined`](#aiocamedomotic.models.Scenario.user_defined)): the official CAME app does not allow
+deleting system-defined ones. The command is sent anyway, but the
+server behaviour on system-defined scenarios is unverified.
+
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_rename(name: str) → None
+
+Rename the scenario.
+
+Sends the scenario rename command to the CAME Domotic server and
+updates the local `name` accordingly.
+
+**NOTE:**
+Renaming is meant for **user-defined** scenarios (see
+[`user_defined`](#aiocamedomotic.models.Scenario.user_defined)): the official CAME app does not allow
+renaming system-defined ones. The command is sent anyway, but the
+server behaviour on system-defined scenarios is unverified.
+
+* **Parameters:**
+  **name** (*str*) – The new name of the scenario.
+* **Raises:**
+  * **ValueError** – If `name` is not a non-empty string.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
