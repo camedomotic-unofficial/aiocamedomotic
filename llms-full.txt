@@ -2235,6 +2235,25 @@ Get the list of all the floors defined on the server.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
+##### *async* async_get_irrigation_sectors() → list[[Irrigation](#aiocamedomotic.models.Irrigation)]
+
+Get the list of all irrigation sectors defined on the server.
+
+Irrigation sectors are schedulable watering zones. Each can be forced
+on/off and its weekly schedule enabled/disabled.
+
+**NOTE:**
+Irrigation support is **not verified against a live plant**. See
+[`Irrigation`](#aiocamedomotic.models.Irrigation) for details.
+
+* **Returns:**
+  List of irrigation sectors.
+* **Return type:**
+  list[[Irrigation](#aiocamedomotic.models.Irrigation)]
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
 ##### *async* async_get_lights() → list[[Light](#aiocamedomotic.models.Light)]
 
 Get the list of all the light devices defined on the server.
@@ -3052,6 +3071,104 @@ ID of the floor.
 ##### *property* name *: str*
 
 Name of the floor.
+
+#### *class* aiocamedomotic.models.Irrigation(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+
+Irrigation sector entity in the CameDomotic API.
+
+Represents a single schedulable watering zone. Sectors are keyed on their
+`id` (not `act_id`). They can be forced on/off via [`async_force()`](#aiocamedomotic.models.Irrigation.async_force)
+and their weekly schedule enabled/disabled via [`async_set_enabled()`](#aiocamedomotic.models.Irrigation.async_set_enabled).
+
+**NOTE:**
+Not verified against a live plant — see the module docstring.
+
+* **Raises:**
+  **ValueError** – If the `id` key is missing from the input data, or the
+      auth argument is not an instance of the expected `Auth` class.
+
+##### *async* async_force() → None
+
+Toggle a forced watering cycle for this sector.
+
+The command is a **toggle**: sending it starts a forced cycle if the
+sector is idle, and stops the running cycle otherwise. Callers that
+want explicit on/off semantics should check [`is_running`](#aiocamedomotic.models.Irrigation.is_running) before
+issuing the command.
+
+The server replies with a generic acknowledgement (no dedicated
+response command), so only the standard ack is validated.
+
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_set_enabled(enabled: bool) → None
+
+Enable or disable the sector’s weekly schedule.
+
+* **Parameters:**
+  **enabled** – `True` to enable the schedule, `False` to disable it.
+
+The server replies with a generic acknowledgement (no dedicated
+response command), so only the standard ack is validated.
+
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *property* days *: int*
+
+Bitmask of active days (bit 0 = Monday, …, bit 6 = Sunday).
+
+##### *property* enabled *: bool*
+
+Whether the sector’s weekly schedule is enabled.
+
+##### *property* end *: Any*
+
+Raw end-window value, or `None` if absent.
+
+The exact shape is firmware-dependent and passed through unchanged.
+
+##### *property* forced *: bool*
+
+Whether the sector is currently in a forced watering cycle.
+
+##### *property* id *: int*
+
+Unique irrigation sector identifier.
+
+##### *property* is_running *: bool*
+
+Whether the sector is currently watering.
+
+`True` when the sector reports a non-zero `status` or is in a
+forced cycle.
+
+##### *property* name *: str | None*
+
+Display name of the sector, or `None` if the server omits it.
+
+##### *property* perc *: int*
+
+Water percentage configured for the sector (`0` when absent).
+
+##### *property* sprinklers *: Any*
+
+Raw sprinkler configuration, or `None` if absent.
+
+The exact shape is firmware-dependent and passed through unchanged.
+
+##### *property* start *: Any*
+
+Raw start-window value, or `None` if absent.
+
+The exact shape is firmware-dependent and passed through unchanged.
+
+##### *property* status *: int*
+
+Raw running status reported by the server (`0` when absent).
 
 #### *class* aiocamedomotic.models.Light(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
 
