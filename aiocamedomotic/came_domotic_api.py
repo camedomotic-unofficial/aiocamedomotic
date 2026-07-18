@@ -47,6 +47,7 @@ from .models import (
     Scenario,
     ServerDateTime,
     ServerInfo,
+    SoundZone,
     TerminalGroup,
     ThermoZone,
     ThermoZoneSeason,
@@ -930,6 +931,37 @@ class CameDomoticAPI:
             Irrigation(irrigation_data, self.auth)
             for irrigation_data in irrigation_list
         ]
+
+    async def async_get_sound_zones(self) -> list[SoundZone]:
+        """Get the list of all sound zones defined on the server.
+
+        Sound zones are audio output rooms. Each can be powered on/off,
+        muted, adjusted in volume, and switched between the available input
+        sources.
+
+        .. note::
+            Sound zone support is **not verified against a live plant**. See
+            :class:`~aiocamedomotic.models.SoundZone` for details.
+
+        Returns:
+            list[SoundZone]: List of sound zones.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Fetching sound zones list")
+        payload = {
+            "cmd_name": _CommandName.SOUND_ROOM_LIST.value,
+        }
+
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.SOUND_ROOM_LIST.value
+        )
+
+        zones_list = json_response.get("array", []) or []
+        LOGGER.info("Retrieved %d sound zone(s)", len(zones_list))
+        return [SoundZone(zone_data, self.auth) for zone_data in zones_list]
 
     async def async_get_topology(self) -> PlantTopology:
         """Get the complete plant topology (floors and rooms).

@@ -170,6 +170,7 @@ class _CommandName(Enum):
     ANALOGIN_LIST = "analogin_list_req"
     TIMERS_LIST = "timers_list_req"
     IRRIGATION_LIST = "irrigation_list_req"
+    SOUND_ROOM_LIST = "sound_room_list_req"
     TVCC_CAMERAS_LIST = "tvcc_cameras_list_req"
     # Nested lists (topology-aware)
     NESTED_LIGHT_LIST = "nested_light_list_req"
@@ -196,6 +197,12 @@ class _CommandName(Enum):
     IRRIGATION_DETAIL = "irrigation_detail_req"
     IRRIGATION_FORCE = "irrigation_force_req"
     IRRIGATION_SET = "irrigation_set_req"
+    # Sound zones: the switch/suftif acks carry no reliable resp cmd_name
+    # (a generic_reply is returned), so only the list and single-zone
+    # refresh requests have _CommandNameResponse counterparts.
+    SOUND_ROOM_SRC = "sound_room_src_req"
+    SOUND_SWITCH = "sound_switch_req"
+    SUFTIF_CMD = "suftif_cmd_req"
     # Loadsctrl set commands: the server ack carries no cmd_name, so there is
     # no _CommandNameResponse counterpart for these two.
     LOADSCTRL_RELAY_SET = "loadsctrl_relay_set_req"
@@ -224,6 +231,8 @@ class _CommandNameResponse(Enum):
     ANALOGIN_LIST = "analogin_list_resp"
     TIMERS_LIST = "timers_list_resp"
     IRRIGATION_LIST = "irrigation_list_resp"
+    SOUND_ROOM_LIST = "sound_room_list_resp"
+    SOUND_ROOM_SRC = "sound_room_src_resp"
     TVCC_CAMERAS_LIST = "tvcc_cameras_list_resp"
     TERMINALS_GROUPS_LIST = "terminals_groups_list_resp"
     MAP_DESCR = "map_descr_resp"
