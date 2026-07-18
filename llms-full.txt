@@ -2407,6 +2407,26 @@ features supported by the CAME Domotic server.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
+##### *async* async_get_sound_zones() → list[[SoundZone](#aiocamedomotic.models.SoundZone)]
+
+Get the list of all sound zones defined on the server.
+
+Sound zones are audio output rooms. Each can be powered on/off,
+muted, adjusted in volume, and switched between the available input
+sources.
+
+**NOTE:**
+Sound zone support is **not verified against a live plant**. See
+[`SoundZone`](#aiocamedomotic.models.SoundZone) for details.
+
+* **Returns:**
+  List of sound zones.
+* **Return type:**
+  list[[SoundZone](#aiocamedomotic.models.SoundZone)]
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
 ##### *async* async_get_terminal_groups() → list[[TerminalGroup](#aiocamedomotic.models.TerminalGroup)]
 
 Get the list of terminal groups defined on the server.
@@ -4155,6 +4175,170 @@ Software version of the server.
 ##### type *: str | None* *= None*
 
 Type of the server.
+
+#### *class* aiocamedomotic.models.SoundZone(raw_data: dict[str, Any], auth: [Auth](#aiocamedomotic.auth.Auth))
+
+Sound zone entity in the CameDomotic API.
+
+Represents a single audio zone. Zones are keyed on their `id` (not
+`act_id`). They can be powered on/off, muted, adjusted in volume, and
+switched between the available input sources.
+
+**NOTE:**
+Not verified against a live plant — see the module docstring.
+
+* **Raises:**
+  **ValueError** – If the `id` key is missing from the input data, or the
+      auth argument is not an instance of the expected `Auth` class.
+
+##### *async* async_refresh() → None
+
+Refresh this zone’s state from the server (`sound_room_src_req`).
+
+Fetches the current state of this single zone and merges it into
+`raw_data`. The update is applied only if the response refers to
+this zone’s ID.
+
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_select_source(source_name: str) → None
+
+Select an input source by name.
+
+The name is matched against the normalized [`sources`](#aiocamedomotic.models.SoundZone.sources) list and
+the corresponding source ID is sent to the server.
+
+* **Parameters:**
+  **source_name** – Name of the source to select, as reported in
+  [`sources`](#aiocamedomotic.models.SoundZone.sources).
+* **Raises:**
+  * **ValueError** – If no source with the given name (and a valid ID) is
+        available on this zone.
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_send_source_command(source_id: int, action: str) → None
+
+Send an advanced command to an audio source (`suftif_cmd_req`).
+
+This is a low-level primitive: the set of supported actions depends on
+the source device (e.g. tuner or media player transport commands) and
+is passed through to the server unchanged.
+
+* **Parameters:**
+  * **source_id** – ID of the target source, as reported in [`sources`](#aiocamedomotic.models.SoundZone.sources).
+  * **action** – Action string understood by the source device.
+
+The server replies with a generic acknowledgement (no dedicated
+response command), so only the standard ack is validated.
+
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_set_mute(muted: bool) → None
+
+Mute or unmute the zone.
+
+* **Parameters:**
+  **muted** – `True` to mute the zone, `False` to unmute it.
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_set_volume_level(volume_level: float) → None
+
+Set the zone volume from a normalized 0.0–1.0 level.
+
+The level is denormalized onto the server-provided
+`min_volume`/`max_volume` range and rounded to the nearest raw
+value.
+
+* **Parameters:**
+  **volume_level** – Desired volume in the 0.0–1.0 range.
+* **Raises:**
+  * **ValueError** – If `volume_level` is outside the 0.0–1.0 range, or
+        the zone does not report its volume range.
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_turn_off() → None
+
+Put the zone in standby.
+
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *async* async_turn_on() → None
+
+Power on the zone (leave standby).
+
+* **Raises:**
+  * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
+
+##### *property* id *: int*
+
+Unique sound zone identifier.
+
+##### *property* is_muted *: bool*
+
+Whether the zone is muted.
+
+##### *property* is_on *: bool*
+
+Whether the zone is powered on (i.e. not in standby).
+
+##### *property* max_volume *: int | None*
+
+Upper bound of the raw volume range, or `None` if absent.
+
+##### *property* min_volume *: int | None*
+
+Lower bound of the raw volume range, or `None` if absent.
+
+##### *property* name *: str | None*
+
+Display name of the zone, or `None` if the server omits it.
+
+##### *property* source *: str | None*
+
+Name of the currently selected source, or `None` if unknown.
+
+##### *property* sources *: list[dict[str, Any]]*
+
+Available input sources, normalized to `{"name", "id"}` dicts.
+
+Depending on the firmware, the server reports sources either as a
+`sources` array (items carrying `source` or `source_name` plus
+`id`) or as flat `source_N` fields with an optional
+`id_source_N` companion (defaulting to `N - 1`). Both formats are
+merged and deduplicated by `(name, id)`.
+
+##### *property* volume *: int | None*
+
+Raw volume value reported by the server, or `None` if absent.
+
+##### *property* volume_level *: float | None*
+
+Volume normalized to the 0.0–1.0 range.
+
+Returns `None` when the raw volume or its range is unknown, and
+`0.0` when the server reports an empty range
+(`max_volume == min_volume`). Values are clamped to 0.0–1.0.
+
+#### *class* aiocamedomotic.models.SoundZoneAction(\*values)
+
+Actions accepted by the `sound_switch_req` command.
+
+Values:
+: - STANDBY (“standby”): power the zone on/off
+  - MUTE (“mute”): mute/unmute the zone
+  - VOLUME (“volume”): set the raw volume value
+  - SOURCE (“source”): select an input source by ID
 
 #### *class* aiocamedomotic.models.TerminalGroup(raw_data: dict[str, Any])
 
