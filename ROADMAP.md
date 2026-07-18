@@ -116,8 +116,10 @@ considered for future development once real-world testing is possible:
 
 - **Scenario management**: Create and delete scenarios (beyond the current
   list/activate/activate-by-name).
-- **Energy statistics**: Historical energy statistics per meter (`energy_stat_req`) and
-  plant-wide measurement history reset (`energy_reset_store_req`) — deferred until real traffic captures are available.
+- **Energy statistics**: Historical energy statistics per meter (`energy_stat_req`) —
+  deferred until real traffic captures are available. The plant-wide measurement
+  history reset (`energy_reset_store_req`) is already supported via
+  `async_reset_energy_counters()`.
 - **Security system**: Area/scenario management and alarm control (entirely unverified).
 - **Infrastructure improvements**: Automated keep-alive scheduling, per-actuator scope
   queries, and connection resilience improvements.

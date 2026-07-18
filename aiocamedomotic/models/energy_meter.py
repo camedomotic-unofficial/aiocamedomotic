@@ -11,7 +11,10 @@ line together with energy values. They have no ``act_id`` and
 no floor/room placement — the ``id`` field is their identifier, and it is
 also the matching key for ``meter_instant_power_ind`` push updates.
 
-Energy meters provide readings but do not support control commands.
+Energy meters provide readings but do not support per-meter control
+commands. The only related action is the plant-level
+:meth:`~aiocamedomotic.CameDomoticAPI.async_reset_energy_counters`, which
+clears the stored energy history of all meters at once.
 """
 
 from __future__ import annotations
