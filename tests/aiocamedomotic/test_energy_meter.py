@@ -120,3 +120,16 @@ class TestAPIEnergyMeters:
 
         meters = await api.async_get_energy_meters()
         assert meters == []
+
+
+class TestAPIEnergyResetCounters:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_reset_energy_counters(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {"cseq": 1, "sl_data_ack_reason": 0}
+
+        await api.async_reset_energy_counters()
+
+        mock_send_command.assert_called_once_with(
+            {"cmd_name": "energy_reset_store_req"}
+        )

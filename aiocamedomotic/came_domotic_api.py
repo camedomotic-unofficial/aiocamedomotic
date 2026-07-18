@@ -589,6 +589,30 @@ class CameDomoticAPI:
         LOGGER.info("Retrieved %d energy meter(s)", len(meters_list))
         return [EnergyMeter(meter_data) for meter_data in meters_list]
 
+    async def async_reset_energy_counters(self) -> None:
+        """Reset the stored energy measurement history on the server.
+
+        This is a plant-level command that clears the stored energy
+        consumption history of **all** energy meters at once (e.g. the
+        values behind ``last_24h_avg`` and ``last_month_avg``); it cannot
+        target a single meter. Instantaneous power readings are not
+        affected.
+
+        .. warning::
+            The reset is irreversible: the server discards the stored
+            energy history and there is no way to restore it.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Resetting energy counters")
+        payload = {
+            "cmd_name": _CommandName.ENERGY_RESET_STORE.value,
+        }
+        await self.auth.async_send_command(payload)
+        LOGGER.info("Energy counters reset")
+
     async def async_get_loadsctrl_meters(self) -> list[LoadsCtrlMeter]:
         """Get the list of all loads controllers defined on the server.
 

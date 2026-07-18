@@ -191,6 +191,9 @@ class _CommandName(Enum):
     TIMERS_ENABLE_DAY = "timers_enable_day_req"
     TIMERS_SET = "timers_set_req"
     DIGITALIN_ACK = "digitalin_ack_req"
+    # Energy: the reset ack carries no cmd_name, so there is no
+    # _CommandNameResponse counterpart.
+    ENERGY_RESET_STORE = "energy_reset_store_req"
     # Irrigation: the force/set/detail acks carry no reliable resp cmd_name
     # (a generic_reply is returned), so only the list request has a
     # _CommandNameResponse counterpart.

@@ -1018,6 +1018,17 @@ fields, expressed in ``energy_unit`` (typically ``Wh``):
 Real-time power readings are delivered as push updates — see
 :ref:`energy-meter-updates` in the monitoring section below.
 
+**Resetting the energy history:**
+
+The stored energy history can be cleared with a single plant-level
+command. The reset applies to **all** energy meters at once (it cannot
+target a single meter) and is **irreversible**; instantaneous power
+readings are not affected:
+
+.. code-block:: python
+
+    await api.async_reset_energy_counters()
+
 Loads control
 ^^^^^^^^^^^^^
 
