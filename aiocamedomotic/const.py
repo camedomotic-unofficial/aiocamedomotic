@@ -183,6 +183,13 @@ class _CommandName(Enum):
     OPENING_MOVE = "opening_move_req"
     SCENARIO_ACTIVATION = "scenario_activation_req"
     SCENARIO_ACTIVATION_BY_NAME = "scenario_activation_by_name_req"
+    # Custom scenario recording: note that the start/done commands carry no
+    # "_req" suffix. Rename/delete return a generic_reply, so only the
+    # start/done commands have a _CommandNameResponse counterpart.
+    SCENARIO_REGISTRATION_START = "scenario_registration_start"
+    SCENARIO_REGISTRATION_DONE = "scenario_registration_done"
+    SCENARIO_RENAME = "scenario_rename_req"
+    SCENARIO_DELETE = "scenario_delete_req"
     RELAY_ACTIVATION = "relay_activation_req"
     RELAY_TIMED = "relay_timed_req"
     THERMO_ZONE_CONFIG = "thermo_zone_config_req"
@@ -244,6 +251,8 @@ class _CommandNameResponse(Enum):
     STATUS_UPDATE = "status_update_resp"
     # Actions
     DIGITALIN_ACK = "digitalin_ack_resp"
+    SCENARIO_REGISTRATION = "scenario_registration_resp"
+    SCENARIO_REGISTRATION_DONE = "scenario_registration_done_resp"
 
 
 class _TopologicScope(Enum):

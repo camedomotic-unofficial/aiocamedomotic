@@ -385,6 +385,67 @@ activated (fire-and-forget); there is no bidirectional status control.
     if good_morning:
         await good_morning.async_activate()
 
+**Recording a new custom scenario:**
+
+Custom (user-defined) scenarios are created by *recording* them: you put
+the server in recording mode, perform the actions you want the scenario
+to replay (e.g. switching lights on/off), and then finalize the
+recording. This mirrors the recording feature of the official CAME app.
+
+.. code-block:: python
+
+    # 1. Start recording a new scenario
+    await api.async_start_scenario_recording("Movie night")
+
+    # 2. Perform the actions to be captured, e.g. by pressing physical
+    #    switches on the plant, or via API commands:
+    lights = await api.async_get_lights()
+    living_room = next(l for l in lights if l.name == "Living room")
+    await living_room.async_set_status(LightStatus.OFF)
+
+    # 3. Finalize the recording: the server saves the new scenario and
+    #    the method returns it as a Scenario object
+    movie_night = await api.async_stop_scenario_recording()
+    print(f"Created scenario '{movie_night.name}' (ID: {movie_night.id})")
+
+    # The new scenario can now be activated like any other one
+    await movie_night.async_activate()
+
+.. note::
+    Recording has been verified against a real plant with actions
+    performed via **physical switches**. Actions sent through the API
+    while recording are expected to be captured as well — the official
+    CAME app records its own commands this way — but this has not been
+    verified yet.
+
+:meth:`~aiocamedomotic.CameDomoticAPI.async_stop_scenario_recording`
+identifies the new scenario by the name passed to
+:meth:`~aiocamedomotic.CameDomoticAPI.async_start_scenario_recording`
+and returns ``None`` if it cannot be found (e.g. when finalizing a
+recording started by another client).
+
+**Renaming and deleting custom scenarios:**
+
+User-defined scenarios (``user_defined == 1``) can be renamed and
+deleted. System-defined scenarios are not meant to be modified: the
+command is sent anyway, but a warning is logged and the server behaviour
+is unverified.
+
+.. code-block:: python
+
+    scenarios = await api.async_get_scenarios()
+    movie_night = next(
+        (s for s in scenarios if s.name == "Movie night" and s.user_defined),
+        None,
+    )
+
+    if movie_night:
+        # Rename the scenario (the local object is updated too)
+        await movie_night.async_rename("Cinema mode")
+
+        # Delete the scenario (irreversible!)
+        await movie_night.async_delete()
+
 Thermoregulation zones
 ^^^^^^^^^^^^^^^^^^^^^^
 

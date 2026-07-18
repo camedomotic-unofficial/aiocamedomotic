@@ -20,9 +20,11 @@ insights. We look forward to growing this library together with our users and co
   tilting).
 - **Scenarios management**: List available scenarios and trigger their activation, either
   by scenario object or directly by name (`scenario_activation_by_name_req`) without
-  fetching the list first. Creating and deleting scenarios remains under
-  [Future considerations](#future-considerations), pending a real capture of the
-  registration flow.
+  fetching the list first. Record new custom scenarios (`scenario_registration_start` /
+  `scenario_registration_done`), rename them (`scenario_rename_req`), and delete them
+  (`scenario_delete_req`). The recording flow has been verified against a real plant
+  with actions performed via physical switches; capturing of API-issued commands during
+  recording is expected but not yet verified.
 - **Thermoregulation (full control)**: List thermoregulation zones with their current
   state; set target temperature, operating mode (OFF, MANUAL, AUTO, JOLLY), and fan speed
   (OFF, SLOW, MEDIUM, FAST, AUTO) for individual zones via `thermo_zone_config_req`.
@@ -114,8 +116,6 @@ The following features are known from reverse-engineered sources (API_reference.
 API_MANUAL.md) but have not been verified with real traffic captures. They may be
 considered for future development once real-world testing is possible:
 
-- **Scenario management**: Create and delete scenarios (beyond the current
-  list/activate/activate-by-name).
 - **Energy statistics**: Historical energy statistics per meter (`energy_stat_req`) —
   deferred until real traffic captures are available. The plant-wide measurement
   history reset (`energy_reset_store_req`) is already supported via

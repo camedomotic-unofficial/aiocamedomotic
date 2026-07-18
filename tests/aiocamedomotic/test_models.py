@@ -7,6 +7,7 @@
 # pylint: disable=protected-access
 
 
+import logging
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -2263,6 +2264,141 @@ class TestScenario:
             "id": scenario.id,
         }
         mock_send_command.assert_called_once_with(expected_payload)
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_rename(
+        self,
+        mock_send_command,
+        scenario_data_on,
+        auth_instance,
+    ):
+        scenario = Scenario(scenario_data_on, auth_instance)
+
+        await scenario.async_rename("New name")
+
+        expected_payload = {
+            "cmd_name": "scenario_rename_req",
+            "id": scenario.id,
+            "name": "New name",
+        }
+        mock_send_command.assert_called_once_with(expected_payload)
+        assert scenario.name == "New name"
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_rename_empty_name(
+        self,
+        mock_send_command,
+        scenario_data_on,
+        auth_instance,
+    ):
+        scenario = Scenario(scenario_data_on, auth_instance)
+
+        with pytest.raises(ValueError, match="name must be a non-empty string"):
+            await scenario.async_rename("   ")
+        mock_send_command.assert_not_called()
+        assert scenario.name == scenario_data_on["name"]
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_rename_non_string_name(
+        self,
+        mock_send_command,
+        scenario_data_on,
+        auth_instance,
+    ):
+        scenario = Scenario(scenario_data_on, auth_instance)
+
+        with pytest.raises(ValueError, match="name must be a non-empty string"):
+            await scenario.async_rename(42)
+        mock_send_command.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_rename_system_scenario_warns(
+        self,
+        mock_send_command,
+        scenario_data_off,
+        auth_instance,
+        caplog,
+    ):
+        # scenario_data_off is a system-defined scenario (user-defined == 0)
+        scenario = Scenario(scenario_data_off, auth_instance)
+
+        with caplog.at_level(logging.WARNING):
+            await scenario.async_rename("New name")
+
+        # The command is sent anyway, but a warning is logged
+        assert "not user-defined" in caplog.text
+        mock_send_command.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_rename_server_error_propagates(
+        self,
+        mock_send_command,
+        scenario_data_on,
+        auth_instance,
+    ):
+        mock_send_command.side_effect = CameDomoticServerError("server down")
+        scenario = Scenario(scenario_data_on, auth_instance)
+
+        with pytest.raises(CameDomoticServerError):
+            await scenario.async_rename("New name")
+        # The local name is not updated on failure
+        assert scenario.name == scenario_data_on["name"]
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_delete(
+        self,
+        mock_send_command,
+        scenario_data_on,
+        auth_instance,
+    ):
+        scenario = Scenario(scenario_data_on, auth_instance)
+
+        await scenario.async_delete()
+
+        expected_payload = {
+            "cmd_name": "scenario_delete_req",
+            "id": scenario.id,
+        }
+        mock_send_command.assert_called_once_with(expected_payload)
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_delete_system_scenario_warns(
+        self,
+        mock_send_command,
+        scenario_data_off,
+        auth_instance,
+        caplog,
+    ):
+        # scenario_data_off is a system-defined scenario (user-defined == 0)
+        scenario = Scenario(scenario_data_off, auth_instance)
+
+        with caplog.at_level(logging.WARNING):
+            await scenario.async_delete()
+
+        # The command is sent anyway, but a warning is logged
+        assert "not user-defined" in caplog.text
+        mock_send_command.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_delete_auth_error_propagates(
+        self,
+        mock_send_command,
+        scenario_data_on,
+        auth_instance,
+    ):
+        mock_send_command.side_effect = CameDomoticAuthError("bad auth")
+        scenario = Scenario(scenario_data_on, auth_instance)
+
+        with pytest.raises(CameDomoticAuthError):
+            await scenario.async_delete()
 
     def test_active_status(self, auth_instance):
         active_status_data = {

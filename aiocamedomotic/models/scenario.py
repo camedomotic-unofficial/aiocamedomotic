@@ -136,3 +136,99 @@ class Scenario(CameEntity):
             self.name,
             self.id,
         )
+
+    async def async_rename(self, name: str) -> None:
+        """Rename the scenario.
+
+        Sends the scenario rename command to the CAME Domotic server and
+        updates the local ``name`` accordingly.
+
+        .. note::
+            Renaming is meant for **user-defined** scenarios (see
+            :attr:`user_defined`): the official CAME app does not allow
+            renaming system-defined ones. The command is sent anyway, but the
+            server behaviour on system-defined scenarios is unverified.
+
+        Args:
+            name (str): The new name of the scenario.
+
+        Raises:
+            ValueError: If ``name`` is not a non-empty string.
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("name must be a non-empty string")
+
+        if not self.user_defined:
+            LOGGER.warning(
+                "Renaming scenario '%s' (ID: %s), which is not user-defined: "
+                "the server may ignore or reject the request.",
+                self.name,
+                self.id,
+            )
+
+        LOGGER.debug(
+            "Sending cmd 'scenario_rename_req' for scenario '%s' (ID: %s).",
+            self.name,
+            self.id,
+        )
+
+        payload = {
+            "cmd_name": _CommandName.SCENARIO_RENAME.value,
+            "id": self.id,
+            "name": name,
+        }
+
+        await self.auth.async_send_command(payload)
+        self.raw_data["name"] = name
+
+        LOGGER.info(
+            "Successfully renamed scenario (ID: %s) to '%s'.",
+            self.id,
+            name,
+        )
+
+    async def async_delete(self) -> None:
+        """Delete the scenario from the CAME Domotic server.
+
+        .. warning::
+            The deletion is irreversible: the server discards the scenario
+            and there is no way to restore it.
+
+        .. note::
+            Deletion is meant for **user-defined** scenarios (see
+            :attr:`user_defined`): the official CAME app does not allow
+            deleting system-defined ones. The command is sent anyway, but the
+            server behaviour on system-defined scenarios is unverified.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        if not self.user_defined:
+            LOGGER.warning(
+                "Deleting scenario '%s' (ID: %s), which is not user-defined: "
+                "the server may ignore or reject the request.",
+                self.name,
+                self.id,
+            )
+
+        LOGGER.debug(
+            "Sending cmd 'scenario_delete_req' for scenario '%s' (ID: %s).",
+            self.name,
+            self.id,
+        )
+
+        payload = {
+            "cmd_name": _CommandName.SCENARIO_DELETE.value,
+            "id": self.id,
+        }
+
+        await self.auth.async_send_command(payload)
+
+        LOGGER.info(
+            "Successfully deleted scenario '%s' (ID: %s).",
+            self.name,
+            self.id,
+        )
