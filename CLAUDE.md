@@ -39,24 +39,17 @@ AIOCameDomotic is a Python library that provides an asynchronous API for interac
 - **Error Handling**: Custom exceptions from base `CameDomoticError`, specific try/except blocks
 - **Documentation**: Docstrings for all public classes/methods with parameters, return values, and exceptions. When adding a new model module, export its public names in `aiocamedomotic/models/__init__.py` (imports plus sorted `__all__`): `docs/source/api_reference.rst` documents the models package through a single `.. automodule:: aiocamedomotic.models` directive, so do **not** add per-module `.. automodule::` entries
 - **Testing**: Pytest with mocks, fixtures, parameterization, and freezegun for time-dependent tests
-- **Comments**: never mention in comments of code, commits, PRs, etc. that have been generated with the help of Claude or any other AI tool
+- **Comments**: never mention Claude or any other AI tool in code comments, commits, PRs, etc.
 
 ## Project Architecture
 
 - **Core Components**:
-  - `CameDomoticAPI` (in came_domotic_api.py): Main interface for interacting with CAME Domotic systems
-  - `Auth` (in auth.py): Handles authentication and session management with the CAME API
-  - Device Models (in models/*.py): Represent different types of devices with their operations
-  - Error Classes (in errors.py): Custom exceptions for different failure scenarios
+  - `aiocamedomotic/came_domotic_api.py` — `CameDomoticAPI`: main interface for interacting with CAME Domotic systems
+  - `aiocamedomotic/auth.py` — `Auth`: handles authentication and session management with the CAME API
+  - `aiocamedomotic/models/*.py` — device models: represent different types of devices with their operations
+  - `aiocamedomotic/errors.py` — error classes: custom exceptions for different failure scenarios
 - **Asynchronous Design**: Library uses asyncio and aiohttp for non-blocking operations
 - **Data Flow**: API client authenticates via Auth module → interacts with devices via appropriate models
-
-## Project Structure
-
-- Core API: `aiocamedomotic/came_domotic_api.py`
-- Authentication: `aiocamedomotic/auth.py`
-- Models: `aiocamedomotic/models/*.py`
-- Error Classes: `aiocamedomotic/errors.py`
 
 ## Branch naming convention
 
@@ -125,6 +118,3 @@ When the user asks to publish a new release of the library, follow this process:
 ## Other notes
 
 - The `main` git branch is protected, to merge you must create a new branch and raise a PR
-- Never mention in comments (commits, PRs, etc.) Claude or any other AI tool
-- Python 3.12, 3.13 and 3.14 are supported
-- Library is available under Apache License 2.0
