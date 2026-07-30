@@ -10,9 +10,10 @@ controlled remotely. They provide binary state control without brightness,
 color, or position capabilities.
 
 .. note::
-    The relay API commands (``relays_list_req``, ``relay_activation_req``)
-    are documented in the CAME API specification but have not been verified
-    against a real server. Behaviour may differ across firmware versions.
+    The relay API commands (``relays_list_req``, ``relay_activation_req``,
+    ``relay_timed_req``) are documented in the CAME API specification but have
+    not been verified against a real server. Behaviour may differ across
+    firmware versions.
 """
 
 from __future__ import annotations
@@ -145,4 +146,52 @@ class Relay(CameEntity):
             self.name,
             self.act_id,
             status.name,
+        )
+
+    async def async_set_status_timed(self, interval: int) -> None:
+        """Activate the relay for a timed interval.
+
+        The relay switches ON and the server automatically switches it back OFF
+        once ``interval`` elapses. The subsequent OFF transition is reported
+        asynchronously by the server via the usual status update, so this
+        method does not update the local :attr:`status` (which momentarily
+        becomes ON).
+
+        Args:
+            interval (int): Activation time, passed verbatim to the server.
+                Must be greater than 0.
+
+                .. warning::
+                    The unit of ``interval`` is **not documented** by the CAME
+                    API nor by the reference implementations this method is
+                    based on, and has not been verified against a real server.
+                    Callers should confirm the
+                    behaviour on their own plant before relying on a precise
+                    duration.
+
+        Raises:
+            ValueError: If ``interval`` is not greater than 0.
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        if interval <= 0:
+            raise ValueError(f"interval must be greater than 0, got {interval}")
+
+        await self.auth.async_get_valid_client_id()
+        LOGGER.debug(
+            "User authenticated, sending 'relay_timed_req' command to the API."
+        )
+
+        payload = {
+            "act_id": self.act_id,
+            "cmd_name": _CommandName.RELAY_TIMED.value,
+            "interval": interval,
+        }
+        await self.auth.async_send_command(payload)
+
+        LOGGER.info(
+            "Relay '%s' (ID: %s) activated for a timed interval of %d",
+            self.name,
+            self.act_id,
+            interval,
         )

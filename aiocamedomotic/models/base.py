@@ -12,6 +12,7 @@ such as User and ServerInfo that are common across the API functionality.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 from ..auth import Auth
@@ -214,6 +215,59 @@ class ServerInfo(CameEntity):
             raise ValueError(
                 f"Missing required ServerInfo properties: {', '.join(missing)}"
             )
+
+
+@dataclass
+class ServerDateTime(CameEntity):
+    """Date and time reported by a CAME Domotic server.
+
+    Returned by :meth:`CameDomoticAPI.async_get_server_datetime`. Wraps the
+    ``datetime_req`` response, which carries the server clock both as a Unix
+    epoch (UTC) and as a local wall-clock string, plus the server timezone and
+    the current daylight-saving-time flag.
+
+    Useful for diagnosing the timestamps carried by push updates.
+    """
+
+    raw_data: dict[str, Any]
+
+    def __post_init__(self) -> None:
+        EntityValidator.validate_data(self.raw_data, required_keys=["epoch"])
+
+    @property
+    def epoch(self) -> int:
+        """Server clock as a Unix epoch, in seconds (UTC)."""
+        return self.raw_data["epoch"]
+
+    @property
+    def timezone_name(self) -> str | None:
+        """IANA timezone name of the server (e.g. ``"Europe/Rome"``).
+
+        ``None`` if the server response does not include it.
+        """
+        return self.raw_data.get("server_timezone")
+
+    @property
+    def datetime_string(self) -> str | None:
+        """Local wall-clock time as a ``"YYYY-MM-DD HH:MM:SS"`` string.
+
+        Already offset for the server timezone and DST. ``None`` if the server
+        response does not include it.
+        """
+        return self.raw_data.get("datetime")
+
+    @property
+    def daylight_saving_time(self) -> bool:
+        """Whether daylight saving time is currently in effect on the server."""
+        return bool(self.raw_data.get("daylight_saving_time", 0))
+
+    @property
+    def utc_datetime(self) -> datetime:
+        """Server clock as a timezone-aware :class:`~datetime.datetime` (UTC).
+
+        Derived from :attr:`epoch`.
+        """
+        return datetime.fromtimestamp(self.epoch, tz=timezone.utc)
 
 
 @dataclass

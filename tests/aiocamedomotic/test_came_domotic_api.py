@@ -24,14 +24,18 @@ from aiocamedomotic.models import (
     Camera,
     DigitalInput,
     Floor,
+    Irrigation,
     Light,
     MapPage,
     Opening,
     PlantTopology,
     Relay,
+    RelayStatus,
     Room,
     Scenario,
+    ServerDateTime,
     ServerInfo,
+    SoundZone,
     TerminalGroup,
     ThermoZone,
     ThermoZoneSeason,
@@ -398,6 +402,104 @@ class TestAPIServerInfo:
 
         server_info = await api.async_get_server_info()
         assert len(server_info.features) == 0
+
+
+class TestAPIServerDatetime:
+    # Live capture (2026-07-17, plant 192.168.1.3): the response command name is
+    # "datetime_resp", following the standard "_resp" convention.
+    DATETIME_RESP = {
+        "cmd_name": "datetime_resp",
+        "cseq": 1,
+        "epoch": 1784321639,
+        "server_timezone": "Europe/Rome",
+        "datetime": "2026-07-17 22:53:59",
+        "daylight_saving_time": 1,
+        "sl_data_ack_reason": 0,
+    }
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_get_server_datetime(self, mock_send_command, auth_instance):
+        mock_send_command.return_value = self.DATETIME_RESP
+        api = CameDomoticAPI(auth_instance)
+
+        result = await api.async_get_server_datetime()
+
+        assert isinstance(result, ServerDateTime)
+        assert result.epoch == 1784321639
+        assert result.timezone_name == "Europe/Rome"
+        assert result.datetime_string == "2026-07-17 22:53:59"
+        assert result.daylight_saving_time is True
+        assert result.utc_datetime.isoformat() == "2026-07-17T20:53:59+00:00"
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_get_server_datetime_sends_request(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.return_value = self.DATETIME_RESP
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_get_server_datetime()
+
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["cmd_name"] == "datetime_req"
+        assert mock_send_command.call_args.kwargs["response_command"] == "datetime_resp"
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_get_server_datetime_minimal_payload(
+        self, mock_send_command, auth_instance
+    ):
+        # Only the required "epoch" is present: optional fields default gracefully.
+        mock_send_command.return_value = {
+            "cmd_name": "datetime_resp",
+            "cseq": 1,
+            "epoch": 1784321639,
+            "sl_data_ack_reason": 0,
+        }
+        api = CameDomoticAPI(auth_instance)
+
+        result = await api.async_get_server_datetime()
+
+        assert result.epoch == 1784321639
+        assert result.timezone_name is None
+        assert result.datetime_string is None
+        assert result.daylight_saving_time is False
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_get_server_datetime_missing_epoch_raises(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.return_value = {
+            "cmd_name": "datetime_resp",
+            "cseq": 1,
+            "server_timezone": "Europe/Rome",
+            "datetime": "2026-07-17 22:53:59",
+            "daylight_saving_time": 1,
+            "sl_data_ack_reason": 0,
+        }
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(ValueError):
+            await api.async_get_server_datetime()
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_get_server_datetime_auth_error_propagates(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.side_effect = CameDomoticAuthError("bad auth")
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(CameDomoticAuthError):
+            await api.async_get_server_datetime()
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_get_server_datetime_server_error_propagates(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.side_effect = CameDomoticServerError("server down")
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(CameDomoticServerError):
+            await api.async_get_server_datetime()
 
 
 class TestAPIFloors:
@@ -1061,6 +1163,310 @@ class TestAPIScenarios:
             await api.async_get_scenarios()
 
 
+class TestAPIScenarioRecording:
+    REGISTRATION_RESP = {
+        "cseq": 18,
+        "cmd_name": "scenario_registration_resp",
+        "result": 1,
+        "sl_data_ack_reason": 0,
+    }
+    REGISTRATION_DONE_RESP = {
+        "cseq": 44,
+        "cmd_name": "scenario_registration_done_resp",
+        "result": 1,
+        "sl_data_ack_reason": 0,
+    }
+    SCENARIOS_LIST_WITH_CUSTOM_RESP = {
+        "cseq": 46,
+        "cmd_name": "scenarios_list_resp",
+        "array": [
+            {
+                "name": "Luci giorno accese",
+                "id": 1,
+                "status": 0,
+                "scenario_status": 0,
+                "icon_id": 14,
+                "user-defined": 0,
+            },
+            {
+                "name": "SCENARIO di prova",
+                "id": 65536,
+                "status": 0,
+                "scenario_status": 0,
+                "user-defined": 1,
+            },
+        ],
+        "sl_data_ack_reason": 0,
+    }
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_start_scenario_recording(self, mock_send_command, auth_instance):
+        mock_send_command.return_value = self.REGISTRATION_RESP
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_start_scenario_recording("SCENARIO di prova")
+
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["cmd_name"] == "scenario_registration_start"
+        assert call_payload["name"] == "SCENARIO di prova"
+        assert (
+            mock_send_command.call_args.kwargs["response_command"]
+            == "scenario_registration_resp"
+        )
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_start_scenario_recording_empty_name(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(ValueError, match="name must be a non-empty string"):
+            await api.async_start_scenario_recording("   ")
+        mock_send_command.assert_not_called()
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_start_scenario_recording_non_string_name(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(ValueError, match="name must be a non-empty string"):
+            await api.async_start_scenario_recording(42)
+        mock_send_command.assert_not_called()
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_start_scenario_recording_rejected(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.return_value = {
+            "cseq": 18,
+            "cmd_name": "scenario_registration_resp",
+            "result": 0,
+            "sl_data_ack_reason": 0,
+        }
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(CameDomoticServerError, match="result=0"):
+            await api.async_start_scenario_recording("SCENARIO di prova")
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_stop_scenario_recording(self, mock_send_command, auth_instance):
+        mock_send_command.side_effect = [
+            self.REGISTRATION_RESP,
+            self.REGISTRATION_DONE_RESP,
+            self.SCENARIOS_LIST_WITH_CUSTOM_RESP,
+        ]
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_start_scenario_recording("SCENARIO di prova")
+        scenario = await api.async_stop_scenario_recording()
+
+        done_payload = mock_send_command.call_args_list[1][0][0]
+        assert done_payload["cmd_name"] == "scenario_registration_done"
+        assert (
+            mock_send_command.call_args_list[1].kwargs["response_command"]
+            == "scenario_registration_done_resp"
+        )
+        assert isinstance(scenario, Scenario)
+        assert scenario.id == 65536
+        assert scenario.name == "SCENARIO di prova"
+        assert scenario.user_defined == 1
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_stop_scenario_recording_without_start(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.return_value = self.REGISTRATION_DONE_RESP
+        api = CameDomoticAPI(auth_instance)
+
+        scenario = await api.async_stop_scenario_recording()
+
+        # The done command is sent anyway, but the scenarios list is not
+        # fetched since the new scenario cannot be identified.
+        assert scenario is None
+        mock_send_command.assert_called_once()
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_stop_scenario_recording_rejected(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.side_effect = [
+            self.REGISTRATION_RESP,
+            {
+                "cseq": 44,
+                "cmd_name": "scenario_registration_done_resp",
+                "result": 0,
+                "sl_data_ack_reason": 0,
+            },
+        ]
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_start_scenario_recording("SCENARIO di prova")
+        with pytest.raises(CameDomoticServerError, match="result=0"):
+            await api.async_stop_scenario_recording()
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_stop_scenario_recording_scenario_not_found(
+        self, mock_send_command, auth_instance, caplog
+    ):
+        mock_send_command.side_effect = [
+            self.REGISTRATION_RESP,
+            self.REGISTRATION_DONE_RESP,
+            {
+                "cseq": 46,
+                "cmd_name": "scenarios_list_resp",
+                "array": [],
+                "sl_data_ack_reason": 0,
+            },
+        ]
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_start_scenario_recording("SCENARIO di prova")
+        scenario = await api.async_stop_scenario_recording()
+
+        assert scenario is None
+        assert "not found in the scenarios list" in caplog.text
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_stop_scenario_recording_duplicate_names(
+        self, mock_send_command, auth_instance
+    ):
+        list_resp = {
+            "cseq": 46,
+            "cmd_name": "scenarios_list_resp",
+            "array": [
+                {
+                    "name": "SCENARIO di prova",
+                    "id": 65536,
+                    "status": 0,
+                    "scenario_status": 0,
+                    "user-defined": 1,
+                },
+                {
+                    "name": "SCENARIO di prova",
+                    "id": 65537,
+                    "status": 0,
+                    "scenario_status": 0,
+                    "user-defined": 1,
+                },
+            ],
+            "sl_data_ack_reason": 0,
+        }
+        mock_send_command.side_effect = [
+            self.REGISTRATION_RESP,
+            self.REGISTRATION_DONE_RESP,
+            list_resp,
+        ]
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_start_scenario_recording("SCENARIO di prova")
+        scenario = await api.async_stop_scenario_recording()
+
+        # Among duplicates, the scenario with the highest ID is returned
+        assert scenario is not None
+        assert scenario.id == 65537
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_start_scenario_recording_auth_error_propagates(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.side_effect = CameDomoticAuthError("bad auth")
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(CameDomoticAuthError):
+            await api.async_start_scenario_recording("SCENARIO di prova")
+
+
+class TestAPIActivationByName:
+    # generic_reply ack, validated by the standard ack-check (no response_command)
+    GENERIC_REPLY = {
+        "cseq": 5,
+        "cmd_name": "generic_reply",
+        "sl_data_ack_reason": 0,
+    }
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_activate_scenario_by_name(self, mock_send_command, auth_instance):
+        mock_send_command.return_value = self.GENERIC_REPLY
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_activate_scenario_by_name("Movie night")
+
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["cmd_name"] == "scenario_activation_by_name_req"
+        assert call_payload["name"] == "Movie night"
+        # The standard ack-check suffices: no response_command is passed.
+        assert "response_command" not in mock_send_command.call_args.kwargs
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_activate_scenario_by_name_auth_error_propagates(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.side_effect = CameDomoticAuthError("bad auth")
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(CameDomoticAuthError):
+            await api.async_activate_scenario_by_name("Movie night")
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_activate_scenario_by_name_server_error_propagates(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.side_effect = CameDomoticServerError("server down")
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(CameDomoticServerError):
+            await api.async_activate_scenario_by_name("Movie night")
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_set_relay_status_by_name_on(self, mock_send_command, auth_instance):
+        mock_send_command.return_value = self.GENERIC_REPLY
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_set_relay_status_by_name("Garden pump", RelayStatus.ON)
+
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["cmd_name"] == "relay_activation_req"
+        assert call_payload["name"] == "Garden pump"
+        assert call_payload["wanted_status"] == 1
+        assert "response_command" not in mock_send_command.call_args.kwargs
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_set_relay_status_by_name_off(self, mock_send_command, auth_instance):
+        mock_send_command.return_value = self.GENERIC_REPLY
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_set_relay_status_by_name("Garden pump", RelayStatus.OFF)
+
+        call_payload = mock_send_command.call_args[0][0]
+        assert call_payload["wanted_status"] == 0
+
+    async def test_set_relay_status_by_name_unknown_raises(self, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        with pytest.raises(ValueError, match="Cannot set relay status to UNKNOWN"):
+            await api.async_set_relay_status_by_name("Garden pump", RelayStatus.UNKNOWN)
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_set_relay_status_by_name_auth_error_propagates(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.side_effect = CameDomoticAuthError("bad auth")
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(CameDomoticAuthError):
+            await api.async_set_relay_status_by_name("Garden pump", RelayStatus.ON)
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_set_relay_status_by_name_server_error_propagates(
+        self, mock_send_command, auth_instance
+    ):
+        mock_send_command.side_effect = CameDomoticServerError("server down")
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(CameDomoticServerError):
+            await api.async_set_relay_status_by_name("Garden pump", RelayStatus.ON)
+
+
 class TestAPITimers:
     @patch.object(Auth, "async_send_command")
     async def test_async_get_timers(self, mock_send_command, auth_instance):
@@ -1135,6 +1541,269 @@ class TestAPITimers:
 
         with pytest.raises(ValueError, match="Data is missing required keys: name"):
             await api.async_get_timers()
+
+
+# Inline mock: irrigation is absent from the reference plant, so the response
+# is modelled on the field-tested third-party integration's data shape and is
+# not part of mocked_responses.py.
+IRRIGATION_LIST_RESP_INLINE = {
+    "array": [
+        {
+            "id": 1,
+            "name": "Front lawn",
+            "enabled": 1,
+            "status": 0,
+            "forced": 0,
+            "days": 42,
+            "perc": 80,
+            "start": {"hour": 6, "min": 0},
+            "end": {"hour": 6, "min": 30},
+            "sprinklers": [1, 2, 3],
+        },
+        {
+            "id": 2,
+            "name": "Back garden",
+            "enabled": 0,
+            "status": 1,
+            "forced": 0,
+            "days": 0,
+            "perc": 100,
+            "start": {"hour": 20, "min": 15},
+            "end": {"hour": 20, "min": 45},
+            "sprinklers": [4],
+        },
+    ],
+    "cmd_name": "irrigation_list_resp",
+    "cseq": 5,
+    "sl_data_ack_reason": 0,
+}
+
+
+class TestAPIIrrigation:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_irrigation_sectors(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = IRRIGATION_LIST_RESP_INLINE
+
+        sectors = await api.async_get_irrigation_sectors()
+
+        mock_send_command.assert_called_once_with(
+            {"cmd_name": "irrigation_list_req", "detailed": 1},
+            response_command="irrigation_list_resp",
+        )
+        assert len(sectors) == 2
+        assert isinstance(sectors[0], Irrigation)
+        assert isinstance(sectors[1], Irrigation)
+        assert sectors[0].id == 1
+        assert sectors[0].name == "Front lawn"
+        assert sectors[0].enabled is True
+        assert sectors[0].is_running is False
+        assert sectors[1].id == 2
+        assert sectors[1].enabled is False
+        assert sectors[1].is_running is True
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_irrigation_sectors_empty_array(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [],
+            "cmd_name": "irrigation_list_resp",
+            "cseq": 5,
+            "sl_data_ack_reason": 0,
+        }
+
+        sectors = await api.async_get_irrigation_sectors()
+        assert sectors == []
+        assert isinstance(sectors, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_irrigation_sectors_missing_array_key(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "cmd_name": "irrigation_list_resp",
+            "cseq": 5,
+            "sl_data_ack_reason": 0,
+        }
+
+        sectors = await api.async_get_irrigation_sectors()
+        assert sectors == []
+        assert isinstance(sectors, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_irrigation_sectors_missing_id(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [{"name": "No id", "enabled": 1}],
+            "cmd_name": "irrigation_list_resp",
+            "cseq": 5,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: id"):
+            await api.async_get_irrigation_sectors()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_irrigation_sectors_auth_error(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.side_effect = CameDomoticAuthError("auth failed")
+
+        with pytest.raises(CameDomoticAuthError):
+            await api.async_get_irrigation_sectors()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_irrigation_sectors_server_error(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.side_effect = CameDomoticServerError("server failed")
+
+        with pytest.raises(CameDomoticServerError):
+            await api.async_get_irrigation_sectors()
+
+
+# Inline mock: sound zones are absent from the reference plant, so the response
+# is modelled on the field-tested third-party integration's data shape and is
+# not part of mocked_responses.py. The two zones cover both source formats
+# (array-based and flat source_N fields).
+SOUND_ROOM_LIST_RESP_INLINE = {
+    "array": [
+        {
+            "id": 1,
+            "name": "Living room",
+            "standby": 0,
+            "mute": 0,
+            "volume": 25,
+            "min_volume": 0,
+            "max_volume": 50,
+            "source_name": "Radio",
+            "sources": [
+                {"source": "Radio", "id": 0},
+                {"source_name": "Aux", "id": 1},
+            ],
+        },
+        {
+            "id": 2,
+            "name": "Kitchen",
+            "standby": 1,
+            "mute": 1,
+            "volume": 10,
+            "min_volume": 5,
+            "max_volume": 35,
+            "source": "Radio",
+            "source_1": "Radio",
+            "source_2": "Aux",
+            "id_source_2": 7,
+        },
+    ],
+    "cmd_name": "sound_room_list_resp",
+    "cseq": 5,
+    "sl_data_ack_reason": 0,
+}
+
+
+class TestAPISoundZones:
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_sound_zones(self, mock_send_command, auth_instance):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = SOUND_ROOM_LIST_RESP_INLINE
+
+        zones = await api.async_get_sound_zones()
+
+        mock_send_command.assert_called_once_with(
+            {"cmd_name": "sound_room_list_req"},
+            response_command="sound_room_list_resp",
+        )
+        assert len(zones) == 2
+        assert isinstance(zones[0], SoundZone)
+        assert isinstance(zones[1], SoundZone)
+        assert zones[0].id == 1
+        assert zones[0].name == "Living room"
+        assert zones[0].is_on is True
+        assert zones[0].sources == [
+            {"name": "Radio", "id": 0},
+            {"name": "Aux", "id": 1},
+        ]
+        assert zones[1].id == 2
+        assert zones[1].is_on is False
+        assert zones[1].is_muted is True
+        assert zones[1].sources == [
+            {"name": "Radio", "id": 0},
+            {"name": "Aux", "id": 7},
+        ]
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_sound_zones_empty_array(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [],
+            "cmd_name": "sound_room_list_resp",
+            "cseq": 5,
+            "sl_data_ack_reason": 0,
+        }
+
+        zones = await api.async_get_sound_zones()
+        assert zones == []
+        assert isinstance(zones, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_sound_zones_missing_array_key(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "cmd_name": "sound_room_list_resp",
+            "cseq": 5,
+            "sl_data_ack_reason": 0,
+        }
+
+        zones = await api.async_get_sound_zones()
+        assert zones == []
+        assert isinstance(zones, list)
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_sound_zones_missing_id(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.return_value = {
+            "array": [{"name": "No id", "standby": 0}],
+            "cmd_name": "sound_room_list_resp",
+            "cseq": 5,
+            "sl_data_ack_reason": 0,
+        }
+
+        with pytest.raises(ValueError, match="Data is missing required keys: id"):
+            await api.async_get_sound_zones()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_sound_zones_auth_error(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.side_effect = CameDomoticAuthError("auth failed")
+
+        with pytest.raises(CameDomoticAuthError):
+            await api.async_get_sound_zones()
+
+    @patch.object(Auth, "async_send_command")
+    async def test_async_get_sound_zones_server_error(
+        self, mock_send_command, auth_instance
+    ):
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.side_effect = CameDomoticServerError("server failed")
+
+        with pytest.raises(CameDomoticServerError):
+            await api.async_get_sound_zones()
 
 
 class TestAPIUpdates:

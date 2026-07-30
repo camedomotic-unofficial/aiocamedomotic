@@ -169,6 +169,8 @@ class _CommandName(Enum):
     DIGITALIN_LIST = "digitalin_list_req"
     ANALOGIN_LIST = "analogin_list_req"
     TIMERS_LIST = "timers_list_req"
+    IRRIGATION_LIST = "irrigation_list_req"
+    SOUND_ROOM_LIST = "sound_room_list_req"
     TVCC_CAMERAS_LIST = "tvcc_cameras_list_req"
     # Nested lists (topology-aware)
     NESTED_LIGHT_LIST = "nested_light_list_req"
@@ -180,18 +182,44 @@ class _CommandName(Enum):
     LIGHT_SWITCH = "light_switch_req"
     OPENING_MOVE = "opening_move_req"
     SCENARIO_ACTIVATION = "scenario_activation_req"
+    SCENARIO_ACTIVATION_BY_NAME = "scenario_activation_by_name_req"
+    # Custom scenario recording: note that the start/done commands carry no
+    # "_req" suffix. Rename/delete return a generic_reply, so only the
+    # start/done commands have a _CommandNameResponse counterpart.
+    SCENARIO_REGISTRATION_START = "scenario_registration_start"
+    SCENARIO_REGISTRATION_DONE = "scenario_registration_done"
+    SCENARIO_RENAME = "scenario_rename_req"
+    SCENARIO_DELETE = "scenario_delete_req"
     RELAY_ACTIVATION = "relay_activation_req"
+    RELAY_TIMED = "relay_timed_req"
     THERMO_ZONE_CONFIG = "thermo_zone_config_req"
     THERMO_SEASON = "thermo_season_req"
     TIMERS_ENABLE = "timers_enable_req"
     TIMERS_ENABLE_DAY = "timers_enable_day_req"
     TIMERS_SET = "timers_set_req"
+    DIGITALIN_ACK = "digitalin_ack_req"
+    # Energy: the reset ack carries no cmd_name, so there is no
+    # _CommandNameResponse counterpart.
+    ENERGY_RESET_STORE = "energy_reset_store_req"
+    # Irrigation: the force/set/detail acks carry no reliable resp cmd_name
+    # (a generic_reply is returned), so only the list request has a
+    # _CommandNameResponse counterpart.
+    IRRIGATION_DETAIL = "irrigation_detail_req"
+    IRRIGATION_FORCE = "irrigation_force_req"
+    IRRIGATION_SET = "irrigation_set_req"
+    # Sound zones: the switch/suftif acks carry no reliable resp cmd_name
+    # (a generic_reply is returned), so only the list and single-zone
+    # refresh requests have _CommandNameResponse counterparts.
+    SOUND_ROOM_SRC = "sound_room_src_req"
+    SOUND_SWITCH = "sound_switch_req"
+    SUFTIF_CMD = "suftif_cmd_req"
     # Loadsctrl set commands: the server ack carries no cmd_name, so there is
     # no _CommandNameResponse counterpart for these two.
     LOADSCTRL_RELAY_SET = "loadsctrl_relay_set_req"
     LOADSCTRL_METER_SET = "loadsctrl_meter_set_req"
     TERMINALS_GROUPS_LIST = "terminals_groups_list_req"
     MAP_DESCR = "map_descr_req"
+    DATETIME = "datetime_req"
 
 
 class _CommandNameResponse(Enum):
@@ -212,12 +240,19 @@ class _CommandNameResponse(Enum):
     DIGITALIN_LIST = "digitalin_list_resp"
     ANALOGIN_LIST = "analogin_list_resp"
     TIMERS_LIST = "timers_list_resp"
+    IRRIGATION_LIST = "irrigation_list_resp"
+    SOUND_ROOM_LIST = "sound_room_list_resp"
+    SOUND_ROOM_SRC = "sound_room_src_resp"
     TVCC_CAMERAS_LIST = "tvcc_cameras_list_resp"
     TERMINALS_GROUPS_LIST = "terminals_groups_list_resp"
     MAP_DESCR = "map_descr_resp"
+    DATETIME = "datetime_resp"
     # Status
     STATUS_UPDATE = "status_update_resp"
     # Actions
+    DIGITALIN_ACK = "digitalin_ack_resp"
+    SCENARIO_REGISTRATION = "scenario_registration_resp"
+    SCENARIO_REGISTRATION_DONE = "scenario_registration_done_resp"
 
 
 class _TopologicScope(Enum):

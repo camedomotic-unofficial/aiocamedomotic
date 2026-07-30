@@ -18,7 +18,13 @@ insights. We look forward to growing this library together with our users and co
 - **Lights management**: List and control lights (on/off, dimmer brightness, RGB color).
 - **Openings management**: List and control shutters/blinds (open, close, stop, slat
   tilting).
-- **Scenarios management**: List available scenarios and trigger their activation.
+- **Scenarios management**: List available scenarios and trigger their activation, either
+  by scenario object or directly by name (`scenario_activation_by_name_req`) without
+  fetching the list first. Record new custom scenarios (`scenario_registration_start` /
+  `scenario_registration_done`), rename them (`scenario_rename_req`), and delete them
+  (`scenario_delete_req`). The recording flow has been verified against a real plant
+  with actions performed via physical switches; capturing of API-issued commands during
+  recording is expected but not yet verified.
 - **Thermoregulation (full control)**: List thermoregulation zones with their current
   state; set target temperature, operating mode (OFF, MANUAL, AUTO, JOLLY), and fan speed
   (OFF, SLOW, MEDIUM, FAST, AUTO) for individual zones via `thermo_zone_config_req`.
@@ -44,14 +50,32 @@ insights. We look forward to growing this library together with our users and co
   fraction of `max_power`) can be read, edited, and written back through the typed,
   immutable `LoadsCtrlProfile` API (verified against a real plant).
 - **Generic relays**: List and control simple on/off relay actuators via
-  `relays_list_req` and `relay_activation_req` (documented API, not yet verified against
-  a real server).
-- **Digital inputs (read-only)**: List binary sensors (door contacts, motion sensors, etc.)
+  `relays_list_req` and `relay_activation_req`, either by relay object or directly by
+  name. Timed activation (switch on for a fixed interval, then auto-off) is available via
+  `relay_timed_req`; the interval unit is undocumented (likely seconds) and not yet
+  verified against a real server.
+- **Digital inputs**: List binary sensors (door contacts, motion sensors, etc.)
   via `digitalin_list_req`. Each digital input exposes its current state and attributes.
-  Real-time updates are supported via `DigitalInputUpdate`.
+  Real-time updates are supported via `DigitalInputUpdate`. Inputs that latch a technical
+  alarm or signalling counter can be acknowledged via `digitalin_ack_req`.
 - **Analog inputs (read-only)**: List standalone analog sensors (hygrometers,
   thermometers, barometers) via `analogin_list_req`, independent of the
   thermoregulation sensors.
+- **Irrigation (experimental)**: List irrigation sectors via `irrigation_list_req`,
+  each exposing its schedule state (enabled, running, days, water percentage,
+  start/end windows, sprinklers). Force a watering cycle on/off (`irrigation_force_req`,
+  a toggle) and enable/disable a sector's weekly schedule (`irrigation_set_req`). This
+  feature is **not verified against a live plant** — it is implemented from the behaviour
+  of an existing, field-tested third-party integration.
+- **Sound zones (experimental)**: List audio zones via `sound_room_list_req`, each
+  exposing its power state (standby), mute state, volume with its min/max range
+  (plus a normalized 0–1 volume level), and the available input sources (both the
+  array-based and the flat `source_N` firmware formats are normalized). Control
+  zones via `sound_switch_req` (on/off, mute, volume, source selection), send
+  advanced source commands via `suftif_cmd_req`, and refresh a single zone via
+  `sound_room_src_req`. This feature is **not verified against a live plant** — it
+  is implemented from the behaviour of an existing, field-tested third-party
+  integration.
 - **Cameras (TVCC, read-only)**: List IP cameras with their stream URIs.
 - **Maps (read-only)**: Retrieve floor-plan map pages with positioned device elements
   via `map_descr_req`.
@@ -68,7 +92,9 @@ insights. We look forward to growing this library together with our users and co
   30 seconds) applies to all commands, with per-call `timeout` override on
   `async_get_updates()` for long-polling scenarios.
 - **Discovery**: Server info, feature detection, user listing, merged floor and room
-  topology, and a connectivity check with latency measurement (`async_ping`).
+  topology, a connectivity check with latency measurement (`async_ping`), and the
+  server date/time, timezone, and DST flag via `datetime_req`
+  (`async_get_server_datetime`), useful for diagnosing push-update timestamps.
 
 ## Planned Features
 
@@ -90,8 +116,10 @@ The following features are known from reverse-engineered sources (API_reference.
 API_MANUAL.md) but have not been verified with real traffic captures. They may be
 considered for future development once real-world testing is possible:
 
-- **Scenario management**: Create and delete scenarios (beyond the current list/activate).
-- **Audio system**: Sound zone and source management (entirely unverified).
+- **Energy statistics**: Historical energy statistics per meter (`energy_stat_req`) —
+  deferred until real traffic captures are available. The plant-wide measurement
+  history reset (`energy_reset_store_req`) is already supported via
+  `async_reset_energy_counters()`.
 - **Security system**: Area/scenario management and alarm control (entirely unverified).
 - **Infrastructure improvements**: Automated keep-alive scheduling, per-actuator scope
   queries, and connection resilience improvements.

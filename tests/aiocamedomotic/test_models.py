@@ -7,6 +7,7 @@
 # pylint: disable=protected-access
 
 
+import logging
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -2049,6 +2050,71 @@ class TestRelay:
             Relay(relay_data, {"fake": "auth"})
 
 
+class TestRelayTimed:
+    @pytest.mark.asyncio
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="my_session_id",
+    )
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_status_timed(
+        self,
+        mock_send_command,
+        mock_get_client_id,  # pylint: disable=unused-argument
+        relay_data_off,
+        auth_instance,
+    ):
+        relay = Relay(relay_data_off, auth_instance)
+
+        await relay.async_set_status_timed(30)
+
+        mock_send_command.assert_called_once()
+        payload = mock_send_command.call_args[0][0]
+        assert payload["act_id"] == relay_data_off["act_id"]
+        assert payload["cmd_name"] == "relay_timed_req"
+        assert payload["interval"] == 30
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("interval", [0, -1, -30])
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_status_timed_invalid_interval_raises(
+        self,
+        mock_send_command,
+        interval,
+        relay_data_on,
+        auth_instance,
+    ):
+        relay = Relay(relay_data_on, auth_instance)
+
+        with pytest.raises(ValueError, match="interval must be greater than 0"):
+            await relay.async_set_status_timed(interval)
+
+        mock_send_command.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="my_session_id",
+    )
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_set_status_timed_server_error_propagates(
+        self,
+        mock_send_command,
+        mock_get_client_id,  # pylint: disable=unused-argument
+        relay_data_off,
+        auth_instance,
+    ):
+        mock_send_command.side_effect = CameDomoticServerError("boom")
+        relay = Relay(relay_data_off, auth_instance)
+
+        with pytest.raises(CameDomoticServerError, match="boom"):
+            await relay.async_set_status_timed(30)
+
+
 class TestFloor:
     def test_initialization(self):
         floor_data = {"floor_ind": 1, "name": "Ground Floor"}
@@ -2198,6 +2264,141 @@ class TestScenario:
             "id": scenario.id,
         }
         mock_send_command.assert_called_once_with(expected_payload)
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_rename(
+        self,
+        mock_send_command,
+        scenario_data_on,
+        auth_instance,
+    ):
+        scenario = Scenario(scenario_data_on, auth_instance)
+
+        await scenario.async_rename("New name")
+
+        expected_payload = {
+            "cmd_name": "scenario_rename_req",
+            "id": scenario.id,
+            "name": "New name",
+        }
+        mock_send_command.assert_called_once_with(expected_payload)
+        assert scenario.name == "New name"
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_rename_empty_name(
+        self,
+        mock_send_command,
+        scenario_data_on,
+        auth_instance,
+    ):
+        scenario = Scenario(scenario_data_on, auth_instance)
+
+        with pytest.raises(ValueError, match="name must be a non-empty string"):
+            await scenario.async_rename("   ")
+        mock_send_command.assert_not_called()
+        assert scenario.name == scenario_data_on["name"]
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_rename_non_string_name(
+        self,
+        mock_send_command,
+        scenario_data_on,
+        auth_instance,
+    ):
+        scenario = Scenario(scenario_data_on, auth_instance)
+
+        with pytest.raises(ValueError, match="name must be a non-empty string"):
+            await scenario.async_rename(42)
+        mock_send_command.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_rename_system_scenario_warns(
+        self,
+        mock_send_command,
+        scenario_data_off,
+        auth_instance,
+        caplog,
+    ):
+        # scenario_data_off is a system-defined scenario (user-defined == 0)
+        scenario = Scenario(scenario_data_off, auth_instance)
+
+        with caplog.at_level(logging.WARNING):
+            await scenario.async_rename("New name")
+
+        # The command is sent anyway, but a warning is logged
+        assert "not user-defined" in caplog.text
+        mock_send_command.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_rename_server_error_propagates(
+        self,
+        mock_send_command,
+        scenario_data_on,
+        auth_instance,
+    ):
+        mock_send_command.side_effect = CameDomoticServerError("server down")
+        scenario = Scenario(scenario_data_on, auth_instance)
+
+        with pytest.raises(CameDomoticServerError):
+            await scenario.async_rename("New name")
+        # The local name is not updated on failure
+        assert scenario.name == scenario_data_on["name"]
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_delete(
+        self,
+        mock_send_command,
+        scenario_data_on,
+        auth_instance,
+    ):
+        scenario = Scenario(scenario_data_on, auth_instance)
+
+        await scenario.async_delete()
+
+        expected_payload = {
+            "cmd_name": "scenario_delete_req",
+            "id": scenario.id,
+        }
+        mock_send_command.assert_called_once_with(expected_payload)
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_delete_system_scenario_warns(
+        self,
+        mock_send_command,
+        scenario_data_off,
+        auth_instance,
+        caplog,
+    ):
+        # scenario_data_off is a system-defined scenario (user-defined == 0)
+        scenario = Scenario(scenario_data_off, auth_instance)
+
+        with caplog.at_level(logging.WARNING):
+            await scenario.async_delete()
+
+        # The command is sent anyway, but a warning is logged
+        assert "not user-defined" in caplog.text
+        mock_send_command.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_delete_auth_error_propagates(
+        self,
+        mock_send_command,
+        scenario_data_on,
+        auth_instance,
+    ):
+        mock_send_command.side_effect = CameDomoticAuthError("bad auth")
+        scenario = Scenario(scenario_data_on, auth_instance)
+
+        with pytest.raises(CameDomoticAuthError):
+            await scenario.async_delete()
 
     def test_active_status(self, auth_instance):
         active_status_data = {
@@ -2907,6 +3108,98 @@ class TestDigitalInput:
         assert di.utc_time == 0
         assert di.status == DigitalInputStatus.UNKNOWN
         assert di.type == DigitalInputType.UNKNOWN
+
+
+class TestDigitalInputAck:
+    @pytest.mark.asyncio
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="my_session_id",
+    )
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_ack(
+        self,
+        mock_send_command,
+        mock_get_client_id,  # pylint: disable=unused-argument
+        digital_input_data_with_status,
+        auth_instance,
+    ):
+        di = DigitalInput(digital_input_data_with_status, auth_instance)
+
+        await di.async_ack()
+
+        mock_send_command.assert_called_once()
+        payload = mock_send_command.call_args[0][0]
+        assert payload == {"cmd_name": "digitalin_ack_req", "addr": di.addr}
+        # The command is keyed on addr, not act_id.
+        assert payload["addr"] == 201
+        assert (
+            mock_send_command.call_args.kwargs["response_command"]
+            == "digitalin_ack_resp"
+        )
+
+    @pytest.mark.asyncio
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="my_session_id",
+    )
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_ack_default_addr(
+        self,
+        mock_send_command,
+        mock_get_client_id,  # pylint: disable=unused-argument
+        auth_instance,
+    ):
+        # An input without an explicit addr falls back to 0.
+        di = DigitalInput({"act_id": 5, "name": "Minimal Input"}, auth_instance)
+
+        await di.async_ack()
+
+        payload = mock_send_command.call_args[0][0]
+        assert payload["addr"] == 0
+
+    @pytest.mark.asyncio
+    @patch.object(
+        Auth,
+        "async_get_valid_client_id",
+        new_callable=AsyncMock,
+        return_value="my_session_id",
+    )
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_ack_server_error_propagates(
+        self,
+        mock_send_command,
+        mock_get_client_id,  # pylint: disable=unused-argument
+        digital_input_data_with_status,
+        auth_instance,
+    ):
+        mock_send_command.side_effect = CameDomoticServerError("boom")
+        di = DigitalInput(digital_input_data_with_status, auth_instance)
+
+        with pytest.raises(CameDomoticServerError, match="boom"):
+            await di.async_ack()
+
+    @pytest.mark.asyncio
+    @patch.object(Auth, "async_get_valid_client_id", new_callable=AsyncMock)
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_ack_auth_error_propagates(
+        self,
+        mock_send_command,
+        mock_get_client_id,
+        digital_input_data_with_status,
+        auth_instance,
+    ):
+        mock_get_client_id.side_effect = CameDomoticAuthError("auth failed")
+        di = DigitalInput(digital_input_data_with_status, auth_instance)
+
+        with pytest.raises(CameDomoticAuthError, match="auth failed"):
+            await di.async_ack()
+
+        mock_send_command.assert_not_called()
 
 
 class TestCamera:

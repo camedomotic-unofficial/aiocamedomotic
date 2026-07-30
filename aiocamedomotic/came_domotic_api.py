@@ -25,7 +25,7 @@ from .const import (
     _CommandType,
     _TopologicScope,
 )
-from .errors import CameDomoticAuthError
+from .errors import CameDomoticAuthError, CameDomoticServerError
 from .models import (
     AnalogIn,
     AnalogSensor,
@@ -34,6 +34,7 @@ from .models import (
     DigitalInput,
     EnergyMeter,
     Floor,
+    Irrigation,
     Light,
     LoadsCtrlMeter,
     LoadsCtrlRelay,
@@ -41,9 +42,12 @@ from .models import (
     Opening,
     PlantTopology,
     Relay,
+    RelayStatus,
     Room,
     Scenario,
+    ServerDateTime,
     ServerInfo,
+    SoundZone,
     TerminalGroup,
     ThermoZone,
     ThermoZoneSeason,
@@ -72,6 +76,10 @@ class CameDomoticAPI:
         """
         self.auth = auth
         self.auth.command_timeout = command_timeout
+        # Name of the custom scenario currently being recorded via
+        # async_start_scenario_recording, used by async_stop_scenario_recording
+        # to identify the newly created scenario in the scenarios list.
+        self._recording_scenario_name: str | None = None
         LOGGER.debug(
             "CameDomoticAPI initialized (command_timeout=%ds)", command_timeout
         )
@@ -216,6 +224,34 @@ class CameDomoticAPI:
             serial=json_response.get("serial"),  # type: ignore[arg-type]
             features=json_response.get("list"),  # type: ignore[arg-type]
         )
+
+    async def async_get_server_datetime(self) -> ServerDateTime:
+        """Get the current date and time of the CAME Domotic server.
+
+        Reads the server clock, returned both as a Unix epoch (UTC) and as a
+        local wall-clock string, together with the server timezone and the
+        current daylight-saving-time flag. Useful for diagnosing the timestamps
+        carried by push updates.
+
+        Returns:
+            ServerDateTime: The server date/time information.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Fetching server date/time")
+        json_response = await self.auth.async_send_command(
+            {"cmd_name": _CommandName.DATETIME.value},
+            response_command=_CommandNameResponse.DATETIME.value,
+        )
+        LOGGER.info(
+            "Server date/time: epoch=%s, datetime=%s, timezone=%s",
+            json_response.get("epoch"),
+            json_response.get("datetime"),
+            json_response.get("server_timezone"),
+        )
+        return ServerDateTime(json_response)
 
     async def async_ping(self) -> float:
         """Ping the CAME Domotic server and measure round-trip latency.
@@ -557,6 +593,30 @@ class CameDomoticAPI:
         LOGGER.info("Retrieved %d energy meter(s)", len(meters_list))
         return [EnergyMeter(meter_data) for meter_data in meters_list]
 
+    async def async_reset_energy_counters(self) -> None:
+        """Reset the stored energy measurement history on the server.
+
+        This is a plant-level command that clears the stored energy
+        consumption history of **all** energy meters at once (e.g. the
+        values behind ``last_24h_avg`` and ``last_month_avg``); it cannot
+        target a single meter. Instantaneous power readings are not
+        affected.
+
+        .. warning::
+            The reset is irreversible: the server discards the stored
+            energy history and there is no way to restore it.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Resetting energy counters")
+        payload = {
+            "cmd_name": _CommandName.ENERGY_RESET_STORE.value,
+        }
+        await self.auth.async_send_command(payload)
+        LOGGER.info("Energy counters reset")
+
     async def async_get_loadsctrl_meters(self) -> list[LoadsCtrlMeter]:
         """Get the list of all loads controllers defined on the server.
 
@@ -769,6 +829,181 @@ class CameDomoticAPI:
         LOGGER.info("Retrieved %d scenario(s)", len(scenarios_list))
         return [Scenario(scenario_data, self.auth) for scenario_data in scenarios_list]
 
+    async def async_activate_scenario_by_name(self, name: str) -> None:
+        """Activate a scenario by its name, without fetching the scenario list.
+
+        This is the plant-level counterpart to
+        :meth:`~aiocamedomotic.models.Scenario.async_activate`: the server
+        resolves the scenario by ``name`` itself, so there is no need to first
+        download the scenarios via :meth:`async_get_scenarios` just to trigger
+        one — which is precisely the value of this command.
+
+        The match is performed **server-side on the exact name**. Case
+        sensitivity has not been verified, so pass the exact name as returned
+        by :meth:`async_get_scenarios` (the ``name`` property of each
+        :class:`~aiocamedomotic.models.Scenario`). If no scenario matches, the
+        server silently performs no activation.
+
+        Args:
+            name (str): The exact name of the scenario to activate.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Activating scenario by name '%s'", name)
+        payload = {
+            "cmd_name": _CommandName.SCENARIO_ACTIVATION_BY_NAME.value,
+            "name": name,
+        }
+        await self.auth.async_send_command(payload)
+        LOGGER.info("Scenario '%s' activated by name", name)
+
+    async def async_start_scenario_recording(self, name: str) -> None:
+        """Start recording a new custom (user-defined) scenario.
+
+        Puts the CAME server in scenario-recording mode: the actions performed
+        on the plant after this call (e.g. switching lights on/off) are
+        captured as the steps of a new scenario named ``name``. Call
+        :meth:`async_stop_scenario_recording` to finalize the recording and
+        save the scenario on the server.
+
+        .. note::
+            The recording verified against a real plant captures actions
+            performed via **physical switches**. Actions sent through the API
+            (e.g. :meth:`~aiocamedomotic.models.Light.async_set_status`) are
+            expected to be captured as well — the official CAME app records
+            its own commands this way — but this has not been verified yet.
+
+        Args:
+            name (str): The name of the new scenario.
+
+        Raises:
+            ValueError: If ``name`` is not a non-empty string.
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error or rejects
+                the recording request.
+        """
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("name must be a non-empty string")
+
+        LOGGER.debug("Starting recording of scenario '%s'", name)
+        payload = {
+            "cmd_name": _CommandName.SCENARIO_REGISTRATION_START.value,
+            "name": name,
+        }
+        json_response = await self.auth.async_send_command(
+            payload,
+            response_command=_CommandNameResponse.SCENARIO_REGISTRATION.value,
+        )
+
+        result = json_response.get("result")
+        if result != 1:
+            raise CameDomoticServerError(
+                f"The server rejected the recording of scenario '{name}' "
+                f"(result={result})"
+            )
+
+        self._recording_scenario_name = name
+        LOGGER.info("Recording of scenario '%s' started", name)
+
+    async def async_stop_scenario_recording(self) -> Scenario | None:
+        """Stop the ongoing scenario recording and save the new scenario.
+
+        Finalizes the recording started with
+        :meth:`async_start_scenario_recording`: the server stores the captured
+        actions as a new user-defined scenario.
+
+        Returns:
+            Scenario | None: The newly created scenario, retrieved from the
+            server by matching the name passed to
+            :meth:`async_start_scenario_recording` (if several user-defined
+            scenarios share that name, the one with the highest ID is
+            returned). Returns ``None`` if the recording was not started via
+            this API instance or if the new scenario cannot be identified.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error or rejects
+                the finalization request.
+        """
+        LOGGER.debug("Stopping scenario recording")
+        payload = {
+            "cmd_name": _CommandName.SCENARIO_REGISTRATION_DONE.value,
+        }
+        json_response = await self.auth.async_send_command(
+            payload,
+            response_command=_CommandNameResponse.SCENARIO_REGISTRATION_DONE.value,
+        )
+
+        result = json_response.get("result")
+        if result != 1:
+            raise CameDomoticServerError(
+                f"The server rejected the finalization of the scenario "
+                f"recording (result={result})"
+            )
+
+        name = self._recording_scenario_name
+        self._recording_scenario_name = None
+        LOGGER.info("Scenario recording stopped")
+
+        if name is None:
+            LOGGER.debug(
+                "No recording was started via this API instance: "
+                "cannot identify the newly created scenario"
+            )
+            return None
+
+        scenarios = await self.async_get_scenarios()
+        matches = [s for s in scenarios if s.user_defined and s.name == name]
+        if not matches:
+            LOGGER.warning(
+                "Newly recorded scenario '%s' not found in the scenarios list",
+                name,
+            )
+            return None
+        return max(matches, key=lambda s: s.id)
+
+    async def async_set_relay_status_by_name(
+        self, name: str, status: RelayStatus
+    ) -> None:
+        """Set a relay's status by its name, without fetching the relay list.
+
+        This is the plant-level counterpart to
+        :meth:`~aiocamedomotic.models.Relay.async_set_status`: the server
+        resolves the relay by ``name`` itself, so there is no need to first
+        download the relays via :meth:`async_get_relays`.
+
+        The match is performed **server-side on the exact name**; pass the
+        exact name as returned by :meth:`async_get_relays` (the ``name``
+        property of each :class:`~aiocamedomotic.models.Relay`).
+
+        .. note::
+            The by-name variant has **not** been verified against a live
+            plant (our relays have never been tested against a real server;
+            see the ROADMAP). Behaviour may differ across firmware versions.
+
+        Args:
+            name (str): The exact name of the relay to control.
+            status (RelayStatus): Desired relay status (ON or OFF).
+
+        Raises:
+            ValueError: If ``status`` is ``RelayStatus.UNKNOWN``.
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        if status == RelayStatus.UNKNOWN:
+            raise ValueError("Cannot set relay status to UNKNOWN")
+
+        LOGGER.debug("Setting relay '%s' status to %s by name", name, status.name)
+        payload = {
+            "cmd_name": _CommandName.RELAY_ACTIVATION.value,
+            "name": name,
+            "wanted_status": status.value,
+        }
+        await self.auth.async_send_command(payload)
+        LOGGER.info("Relay '%s' set to %s by name", name, status.name)
+
     async def async_get_timers(self) -> list[Timer]:
         """Get the list of all timers defined on the server.
 
@@ -795,6 +1030,71 @@ class CameDomoticAPI:
         timers_list = json_response.get("array", []) or []
         LOGGER.info("Retrieved %d timer(s)", len(timers_list))
         return [Timer(timer_data, self.auth) for timer_data in timers_list]
+
+    async def async_get_irrigation_sectors(self) -> list[Irrigation]:
+        """Get the list of all irrigation sectors defined on the server.
+
+        Irrigation sectors are schedulable watering zones. Each can be forced
+        on/off and its weekly schedule enabled/disabled.
+
+        .. note::
+            Irrigation support is **not verified against a live plant**. See
+            :class:`~aiocamedomotic.models.Irrigation` for details.
+
+        Returns:
+            list[Irrigation]: List of irrigation sectors.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Fetching irrigation sectors list")
+        payload = {
+            "cmd_name": _CommandName.IRRIGATION_LIST.value,
+            "detailed": 1,
+        }
+
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.IRRIGATION_LIST.value
+        )
+
+        irrigation_list = json_response.get("array", []) or []
+        LOGGER.info("Retrieved %d irrigation sector(s)", len(irrigation_list))
+        return [
+            Irrigation(irrigation_data, self.auth)
+            for irrigation_data in irrigation_list
+        ]
+
+    async def async_get_sound_zones(self) -> list[SoundZone]:
+        """Get the list of all sound zones defined on the server.
+
+        Sound zones are audio output rooms. Each can be powered on/off,
+        muted, adjusted in volume, and switched between the available input
+        sources.
+
+        .. note::
+            Sound zone support is **not verified against a live plant**. See
+            :class:`~aiocamedomotic.models.SoundZone` for details.
+
+        Returns:
+            list[SoundZone]: List of sound zones.
+
+        Raises:
+            CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerError: If the server returns an error.
+        """
+        LOGGER.debug("Fetching sound zones list")
+        payload = {
+            "cmd_name": _CommandName.SOUND_ROOM_LIST.value,
+        }
+
+        json_response = await self.auth.async_send_command(
+            payload, response_command=_CommandNameResponse.SOUND_ROOM_LIST.value
+        )
+
+        zones_list = json_response.get("array", []) or []
+        LOGGER.info("Retrieved %d sound zone(s)", len(zones_list))
+        return [SoundZone(zone_data, self.auth) for zone_data in zones_list]
 
     async def async_get_topology(self) -> PlantTopology:
         """Get the complete plant topology (floors and rooms).

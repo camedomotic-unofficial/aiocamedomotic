@@ -15,6 +15,7 @@ from .base import (  # noqa: F401
     Floor,
     PlantTopology,
     Room,
+    ServerDateTime,
     ServerInfo,
     TerminalGroup,
     TopologyFloor,
@@ -28,6 +29,7 @@ from .digital_input import (  # noqa: F401
     DigitalInputType,
 )
 from .energy_meter import EnergyMeter, EnergyMeterType  # noqa: F401
+from .irrigation import Irrigation  # noqa: F401
 from .light import Light, LightStatus, LightType  # noqa: F401
 from .loads_ctrl import (  # noqa: F401
     LoadsCtrlMeter,
@@ -46,6 +48,7 @@ from .profiles import (  # noqa: F401
 )
 from .relay import Relay, RelayStatus  # noqa: F401
 from .scenario import Scenario, ScenarioStatus  # noqa: F401
+from .sound_zone import SoundZone, SoundZoneAction  # noqa: F401
 from .thermo_zone import (  # noqa: F401
     AnalogSensor,
     AnalogSensorType,
@@ -92,6 +95,7 @@ __all__ = [
     "EnergyMeterType",
     "EnergyMeterUpdate",
     "Floor",
+    "Irrigation",
     "Light",
     "LightStatus",
     "LightType",
@@ -118,8 +122,11 @@ __all__ = [
     "Scenario",
     "ScenarioStatus",
     "ScenarioUpdate",
+    "ServerDateTime",
     "ServerFeature",
     "ServerInfo",
+    "SoundZone",
+    "SoundZoneAction",
     "TerminalGroup",
     "ThermoProfile",
     "ThermoZone",
