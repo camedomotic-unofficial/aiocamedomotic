@@ -39,6 +39,11 @@ RUN npm config set prefix '/home/vscode/.npm-global'
 # Add npm global bin to PATH
 ENV PATH="/home/vscode/.npm-global/bin:$PATH"
 
+# Upgrade npm: the Alpine-packaged npm 11.12.1 wrongly rejects the
+# `npm install --allow-git=root git+file://...` command that pre-commit uses to
+# install node-based hooks (e.g. prettier), failing with EALLOWGIT
+RUN npm install -g npm@11
+
 # Install Claude Code globally
 RUN npm install -g @anthropic-ai/claude-code
 
