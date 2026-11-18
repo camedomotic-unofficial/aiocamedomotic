@@ -17,7 +17,12 @@ import aiohttp
 from .auth import Auth
 from .const import (
     _DEFAULT_COMMAND_TIMEOUT,
+    _DEFAULT_LONG_POLL_SERVER_TIMEOUT,
     _FEATURE_TO_NESTED_CMD,
+    _LONG_POLL_HTTP_MARGIN,
+    _LONG_POLL_MIN_HTTP_MARGIN,
+    _LONG_POLL_SERVER_TIMEOUT_MAX,
+    _LONG_POLL_SERVER_TIMEOUT_MIN,
     _NESTED_3LEVEL_FEATURES,
     ServerFeature,
     _CommandName,
@@ -70,9 +75,9 @@ class CameDomoticAPI:
             auth (Auth): the authentication object used to interact with
                 the CAME Domotic API.
             command_timeout (int, optional): the default timeout in seconds
-                for all commands sent to the server (default: 30s). This
-                applies to all methods unless overridden per-call (e.g. via
-                the ``timeout`` parameter in ``async_get_updates``).
+                for all commands sent to the server (default: 30s). It does
+                not apply to ``async_get_updates``, which derives its timeout
+                from the long-poll window.
         """
         self.auth = auth
         self.auth.command_timeout = command_timeout
@@ -80,6 +85,8 @@ class CameDomoticAPI:
         # async_start_scenario_recording, used by async_stop_scenario_recording
         # to identify the newly created scenario in the scenarios list.
         self._recording_scenario_name: str | None = None
+        # True while an async_get_updates call is in progress (one at a time).
+        self._updates_in_progress = False
         LOGGER.debug(
             "CameDomoticAPI initialized (command_timeout=%ds)", command_timeout
         )
@@ -465,37 +472,111 @@ class CameDomoticAPI:
         await self.auth.async_send_command(payload)
         LOGGER.info("Global thermo season set to '%s'", season.value)
 
-    async def async_get_updates(self, timeout: int | None = None) -> UpdateList:
+    async def async_get_updates(
+        self,
+        timeout: int | None = None,
+        *,
+        server_timeout: int = _DEFAULT_LONG_POLL_SERVER_TIMEOUT,
+    ) -> UpdateList:
         """Get status updates from the server using long polling.
 
-        This method performs a long-polling request: it blocks until the server
-        sends one or more real-time status updates (e.g., a light turned on, a
-        scenario activated), then returns them all at once.
+        The server holds the request open for up to ``server_timeout`` seconds
+        and answers as soon as at least one update is available. If nothing
+        changes within the window, an **empty** ``UpdateList`` is returned:
+        this is the normal outcome on a quiet plant, not an error.
+
+        Usage notes:
+
+        - Call it in a loop and keep the pause between two calls short (well
+          under ~25 seconds): the server discards unread updates after about
+          30 seconds.
+        - Only one call at a time per ``CameDomoticAPI`` instance.
+        - Updates are state snapshots: if a device changes several times,
+          only its latest state may be reported.
+        - A ``CameDomoticServerTimeoutError`` means the server did not answer
+          at all: treat it as an anomaly and reload the device lists before
+          polling again, since updates may have been lost.
 
         Args:
-            timeout (int | None, optional): the timeout in seconds for the
-                long-polling request. If None, uses the instance-level
-                ``command_timeout`` (default: 30s). Since this method uses
-                long polling, a longer timeout (e.g. 120s) is recommended
-                to avoid premature disconnections.
+            timeout (int | None, optional): the HTTP timeout in seconds. If
+                None, it is set to ``server_timeout + 15``. If given, it must
+                be at least ``server_timeout + 5``.
+            server_timeout (int, optional): how long, in seconds, the server
+                waits for updates before returning an empty list (default:
+                25s, allowed range: 1-120s). The upper limit is a library
+                choice: longer windows bring no benefit, since updates are
+                delivered as soon as they occur, and make a stalled server or
+                an expired session slower to detect.
 
         Returns:
-            UpdateList: List of status updates received from the server.
+            UpdateList: the status updates received, possibly empty.
 
         Raises:
+            ValueError: if ``server_timeout`` is out of range or ``timeout``
+                is too short for it.
+            RuntimeError: if another ``async_get_updates`` call is already in
+                progress on this instance.
             CameDomoticAuthError: If the authentication fails.
+            CameDomoticServerTimeoutError: If the server does not answer
+                within ``timeout``.
             CameDomoticServerError: If the server returns an error.
         """
 
-        LOGGER.debug("Fetching status updates (timeout=%s)", timeout)
-        payload = {
-            "cmd_name": _CommandName.STATUS_UPDATE.value,
-        }
-        json_response = await self.auth.async_send_command(
-            payload,
-            response_command=_CommandNameResponse.STATUS_UPDATE.value,
-            timeout=timeout,
-        )
+        if (
+            isinstance(server_timeout, bool)
+            or not isinstance(server_timeout, int)
+            or not (
+                _LONG_POLL_SERVER_TIMEOUT_MIN
+                <= server_timeout
+                <= _LONG_POLL_SERVER_TIMEOUT_MAX
+            )
+        ):
+            raise ValueError(
+                "server_timeout must be an integer between "
+                f"{_LONG_POLL_SERVER_TIMEOUT_MIN} and "
+                f"{_LONG_POLL_SERVER_TIMEOUT_MAX} seconds, got {server_timeout!r}"
+            )
+
+        if timeout is None:
+            http_timeout = server_timeout + _LONG_POLL_HTTP_MARGIN
+        elif timeout < server_timeout + _LONG_POLL_MIN_HTTP_MARGIN:
+            raise ValueError(
+                f"timeout ({timeout}s) must be at least server_timeout "
+                f"({server_timeout}s) + {_LONG_POLL_MIN_HTTP_MARGIN}s, otherwise "
+                "the request may expire before the server answers"
+            )
+        else:
+            http_timeout = timeout
+
+        if self._updates_in_progress:
+            raise RuntimeError(
+                "Another async_get_updates call is already in progress: "
+                "only one long poll at a time is supported"
+            )
+
+        self._updates_in_progress = True
+        try:
+            LOGGER.debug(
+                "Fetching status updates (server_timeout=%ds, http_timeout=%ds)",
+                server_timeout,
+                http_timeout,
+            )
+            payload = {
+                "cmd_name": _CommandName.STATUS_UPDATE.value,
+                "timeout": server_timeout,
+            }
+            start = time.monotonic()
+            json_response = await self.auth.async_send_command(
+                payload,
+                response_command=_CommandNameResponse.STATUS_UPDATE.value,
+                timeout=http_timeout,
+            )
+            LOGGER.debug(
+                "Status update request completed in %.2fs", time.monotonic() - start
+            )
+        finally:
+            self._updates_in_progress = False
+
         updates = UpdateList((json_response or {}).get("result", []))
         LOGGER.info(
             "Received %d status update(s)%s",

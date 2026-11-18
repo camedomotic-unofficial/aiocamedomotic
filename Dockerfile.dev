@@ -1,5 +1,24 @@
 FROM python:3.14-alpine
 
+# Optionally trust an extra root CA (e.g. a local HTTPS-inspecting filter or
+# proxy). Put it in PEM format at .devcontainer/extra-ca.pem (git-ignored);
+# if the file is absent this step does nothing. The CA is appended to the
+# system bundle right away so that `apk` can already use it, and copied to
+# /usr/local/share/ca-certificates so that `update-ca-certificates` keeps it.
+RUN --mount=type=bind,source=.devcontainer,target=/tmp/devcontainer \
+    if [ -f /tmp/devcontainer/extra-ca.pem ]; then \
+        mkdir -p /usr/local/share/ca-certificates && \
+        cp /tmp/devcontainer/extra-ca.pem \
+            /usr/local/share/ca-certificates/extra-ca.crt && \
+        cat /tmp/devcontainer/extra-ca.pem >> /etc/ssl/certs/ca-certificates.crt; \
+    fi
+
+# Make Python (requests/poetry/pip) and Node use the system CA bundle, so any
+# extra CA installed above is honored by them too
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+    REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
+    NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+
 # Update certificates and install necessary packages
 RUN apk update && \
     apk add --no-cache ca-certificates && \
