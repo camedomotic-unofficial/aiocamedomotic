@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import contextlib
 import functools
+import itertools
 import json
 import time
 from asyncio import Lock
@@ -86,9 +87,9 @@ def handle_came_domotic_errors(func: _F) -> _F:
                 f"HTTP POST resulted in an HTTP {e.status} error ({e.message})"
             ) from e
         except TimeoutError as e:
-            # Handle timeouts specifically. aiohttp raises a plain
-            # asyncio.TimeoutError (builtin TimeoutError on Python 3.11+)
-            # when the total ClientTimeout expires, e.g. on a long poll.
+            # aiohttp raises a plain asyncio.TimeoutError (builtin TimeoutError
+            # on Python 3.11+) when the total ClientTimeout expires. The server
+            # did not answer in time: this is an anomaly, also on a long poll.
             LOGGER.error("Timeout in %s: %s", func.__name__, e)
             raise CameDomoticServerTimeoutError(
                 f"HTTP POST resulted in a timeout error ({e})"
@@ -202,7 +203,6 @@ class Auth:
     session_expiration_timestamp: float
     client_id: str
     keep_alive_timeout_sec: int
-    cseq: int
 
     def __init__(
         self,
@@ -266,7 +266,7 @@ class Auth:
 
         self.client_id = ""
         self.keep_alive_timeout_sec = 0
-        self.cseq = 0
+        self._cseq_counter = itertools.count(1)
         self.command_timeout = _DEFAULT_COMMAND_TIMEOUT
 
         self._lock = Lock()
@@ -402,7 +402,9 @@ class Auth:
 
         if is_data_request:
             appl_msg = command.copy()
-            appl_msg["cseq"] = self.cseq + 1
+            # Assigned at send time. The /domo endpoint replaces it with its own
+            # per-session counter: the received cseq must not be used to correlate.
+            appl_msg["cseq"] = next(self._cseq_counter)
             appl_msg["client"] = client_id
 
             request_payload = {
@@ -455,11 +457,10 @@ class Auth:
 
             # Refresh session state only after a successful response (2xx + ACK 0)
             if 200 <= response.status < 300:
-                self.cseq += 1
                 self.session_expiration_timestamp = time.monotonic() + max(
                     0, self.keep_alive_timeout_sec - Auth._DEFAULT_SAFE_ZONE_SEC
                 )
-                LOGGER.debug("Session refreshed, cseq=%d", self.cseq)
+                LOGGER.debug("Session refreshed")
 
             # Parse JSON response
             try:
@@ -511,7 +512,8 @@ class Auth:
         except TimeoutError as e:
             # aiohttp raises a plain asyncio.TimeoutError (builtin
             # TimeoutError on Python 3.11+) when the total ClientTimeout
-            # expires, e.g. on a long poll with no pending updates.
+            # expires. A long poll with no updates returns an empty result
+            # instead, so a timeout always means the server did not answer.
             cmd_name = (command or {}).get("cmd_name")
             LOGGER.error("Timeout sending command '%s': %s", cmd_name, e)
             raise CameDomoticServerTimeoutError(
@@ -660,6 +662,8 @@ class Auth:
 
             # ACK is ok, store the login data
             self.client_id = data.get("sl_client_id", "")
+            # cseq is replaced server-side; reset per session to mirror the official app
+            self._cseq_counter = itertools.count(1)
             raw_timeout: int = data.get("sl_keep_alive_timeout_sec", 0)
             # Clamp server-supplied keep-alive to a safe range.
             # A value of 0 would trigger re-login on every command (re-login storm).
@@ -806,7 +810,7 @@ class Auth:
 
     def backup_auth_credentials(
         self,
-    ) -> tuple[bytes | None, bytes | None, str, float, int, int]:
+    ) -> tuple[bytes | None, bytes | None, str, float, int]:
         """Backup the current authentication credentials."""
         result = (
             self.username,
@@ -814,14 +818,13 @@ class Auth:
             self.client_id,
             self.session_expiration_timestamp,
             self.keep_alive_timeout_sec,
-            self.cseq,
         )
         LOGGER.debug("Auth credentials backed up")
         return result
 
     def restore_auth_credentials(
         self,
-        backup_state: tuple[bytes | None, bytes | None, str, float, int, int],
+        backup_state: tuple[bytes | None, bytes | None, str, float, int],
     ) -> None:
         """Restore authentication credentials from a backup.
 
@@ -834,7 +837,6 @@ class Auth:
             self.client_id,
             self.session_expiration_timestamp,
             self.keep_alive_timeout_sec,
-            self.cseq,
         ) = backup_state
         LOGGER.debug("Auth credentials restored from backup")
 

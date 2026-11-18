@@ -4,6 +4,7 @@
 # pylint: disable=missing-module-docstring
 # pylint: disable=missing-function-docstring
 # pylint: disable=redefined-outer-name
+import asyncio
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -1833,21 +1834,141 @@ class TestAPIUpdates:
 
         assert isinstance(result, UpdateList)
         mock_send_command.assert_called_once()
-        _, kwargs = mock_send_command.call_args
-        assert kwargs["timeout"] is None
 
-    @patch.object(Auth, "async_send_command")
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock, return_value={})
+    async def test_async_get_updates_default_timeouts(
+        self, mock_send_command, auth_instance
+    ):
+        """Default call asks a 25s server window and uses a 40s HTTP timeout."""
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_get_updates()
+
+        mock_send_command.assert_called_once_with(
+            {"cmd_name": "status_update_req", "timeout": 25},
+            response_command="status_update_resp",
+            timeout=40,
+        )
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock, return_value={})
+    async def test_async_get_updates_ignores_command_timeout(
+        self, mock_send_command, auth_instance
+    ):
+        """The instance-level command_timeout does not apply to the long poll."""
+        api = CameDomoticAPI(auth_instance, command_timeout=5)
+
+        await api.async_get_updates()
+
+        _, kwargs = mock_send_command.call_args
+        assert kwargs["timeout"] == 40
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock, return_value={})
+    async def test_async_get_updates_custom_server_timeout(
+        self, mock_send_command, auth_instance
+    ):
+        """The HTTP timeout is derived from a custom server_timeout."""
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_get_updates(server_timeout=10)
+
+        mock_send_command.assert_called_once_with(
+            {"cmd_name": "status_update_req", "timeout": 10},
+            response_command="status_update_resp",
+            timeout=25,
+        )
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock, return_value={})
     async def test_async_get_updates_custom_timeout(
         self, mock_send_command, auth_instance
     ):
-        """Test that a custom timeout is passed to async_send_command."""
+        """An explicit, long enough HTTP timeout is used as is."""
         api = CameDomoticAPI(auth_instance)
-        mock_send_command.return_value = {}
 
         await api.async_get_updates(timeout=120)
 
+        mock_send_command.assert_called_once_with(
+            {"cmd_name": "status_update_req", "timeout": 25},
+            response_command="status_update_resp",
+            timeout=120,
+        )
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock, return_value={})
+    async def test_async_get_updates_minimum_timeout_accepted(
+        self, mock_send_command, auth_instance
+    ):
+        """timeout == server_timeout + 5 is the smallest accepted value."""
+        api = CameDomoticAPI(auth_instance)
+
+        await api.async_get_updates(timeout=30)
+
         _, kwargs = mock_send_command.call_args
-        assert kwargs["timeout"] == 120
+        assert kwargs["timeout"] == 30
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_get_updates_timeout_too_short(
+        self, mock_send_command, auth_instance
+    ):
+        """An HTTP timeout shorter than the server window plus margin is refused."""
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(ValueError, match="at least server_timeout"):
+            await api.async_get_updates(timeout=29)
+
+        mock_send_command.assert_not_called()
+
+    @pytest.mark.parametrize("server_timeout", [0, 121, True, "25", 25.0])
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_get_updates_invalid_server_timeout(
+        self, mock_send_command, server_timeout, auth_instance
+    ):
+        """server_timeout must be an int in the allowed range."""
+        api = CameDomoticAPI(auth_instance)
+
+        with pytest.raises(ValueError, match="server_timeout must be an integer"):
+            await api.async_get_updates(server_timeout=server_timeout)
+
+        mock_send_command.assert_not_called()
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_get_updates_concurrent_call_raises(
+        self, mock_send_command, auth_instance
+    ):
+        """A second call while one is in progress raises RuntimeError."""
+        api = CameDomoticAPI(auth_instance)
+        release = asyncio.Event()
+
+        async def slow_send(*_args, **_kwargs):
+            await release.wait()
+            return {"result": []}
+
+        mock_send_command.side_effect = slow_send
+        first = asyncio.create_task(api.async_get_updates())
+        while mock_send_command.call_count < 1:
+            await asyncio.sleep(0)
+
+        with pytest.raises(RuntimeError, match="already in progress"):
+            await api.async_get_updates()
+
+        release.set()
+        assert isinstance(await first, UpdateList)
+        mock_send_command.assert_called_once()
+
+    @patch.object(Auth, "async_send_command", new_callable=AsyncMock)
+    async def test_async_get_updates_guard_released_after_error(
+        self, mock_send_command, auth_instance
+    ):
+        """A failed call does not block the following ones."""
+        api = CameDomoticAPI(auth_instance)
+        mock_send_command.side_effect = [
+            CameDomoticServerTimeoutError("timed out"),
+            {"result": []},
+        ]
+
+        with pytest.raises(CameDomoticServerTimeoutError):
+            await api.async_get_updates()
+        result = await api.async_get_updates()
+
+        assert len(result) == 0
 
     @patch.object(
         Auth,
@@ -1877,6 +1998,27 @@ class TestAPIUpdates:
 
         with pytest.raises(CameDomoticServerError, match="Server error"):
             await api.async_get_updates()
+
+    @patch.object(
+        Auth,
+        "async_send_command",
+        new_callable=AsyncMock,
+        return_value={
+            "cmd_name": "status_update_resp",
+            "sl_data_ack_reason": 0,
+            "result": [],
+        },
+    )
+    async def test_async_get_updates_empty_result(
+        self, mock_send_command, auth_instance
+    ):
+        """An empty result (server window expired) is a normal empty list."""
+        api = CameDomoticAPI(auth_instance)
+
+        result = await api.async_get_updates()
+
+        assert isinstance(result, UpdateList)
+        assert len(result) == 0
 
     @patch.object(Auth, "async_send_command", new_callable=AsyncMock, return_value={})
     async def test_async_get_updates_empty_response(

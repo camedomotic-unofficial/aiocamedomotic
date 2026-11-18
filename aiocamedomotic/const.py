@@ -73,6 +73,25 @@ CAME_MAC_PREFIXES: tuple[str, ...] = ("00:1C:B2",)
 # Default timeout in seconds for commands sent to the CAME server.
 _DEFAULT_COMMAND_TIMEOUT: int = 30
 
+# Long-poll window requested to the server (status_update_req "timeout" field).
+# The firmware uses 10 s when the field is omitted.
+_DEFAULT_LONG_POLL_SERVER_TIMEOUT: int = 25
+_LONG_POLL_SERVER_TIMEOUT_MIN: int = 1
+# Library policy, not a firmware limit: the server keeps the request open for the
+# whole window. The cap exists because:
+# - the session TTL is renewed only when the request starts, so very long windows
+#   risk the session expiring mid-poll;
+# - a stalled server is detected only after the window plus the HTTP margin;
+# - a poll abandoned by the client stays open server-side until the window ends
+#   and can swallow an event meant for the next poll;
+# - longer windows gain nothing, since events are delivered as soon as they arrive.
+_LONG_POLL_SERVER_TIMEOUT_MAX: int = 120
+# HTTP timeout of the long poll = server window + margin. The margin covers the
+# 1 s server tick, the web server latency and its occasional 10 s stalls.
+_LONG_POLL_HTTP_MARGIN: int = 15
+# Minimum margin accepted when the caller passes an explicit HTTP timeout.
+_LONG_POLL_MIN_HTTP_MARGIN: int = 5
+
 # Bounds for the server-supplied keep-alive timeout (applied in auth.py).
 # Prevents re-login storms on zero/very-low values and runaway sessions on huge values.
 _KEEP_ALIVE_MIN_SEC: int = 30

@@ -1792,7 +1792,6 @@ class TestOpening:
         auth_instance,
     ):
         opening = Opening(opening_data_shutter_stopped, auth_instance)
-        initial_cseq = auth_instance.cseq  # noqa: F841
 
         # Test setting status to OPENING
         await opening.async_set_status(OpeningStatus.OPENING)
