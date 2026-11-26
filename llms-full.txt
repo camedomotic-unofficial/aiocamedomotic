@@ -1568,29 +1568,41 @@ if ground_floor:
 ### Monitoring real-time updates
 
 The CAME Domotic server supports **long polling** for real-time status updates.
-When you call `async_get_updates()`, the request **blocks on the server**
-until one or more device state changes are detected, then returns an
-[`UpdateList`](#aiocamedomotic.models.UpdateList) containing all pending
-updates. This is the recommended mechanism for monitoring devices in real time
-without repeatedly fetching full device lists.
+When you call `async_get_updates()`, the server holds the request open for
+up to `server_timeout` seconds (default: **25**) and answers as soon as at
+least one device changes state, returning an
+[`UpdateList`](#aiocamedomotic.models.UpdateList) with all pending updates. If
+nothing changes within that window, the list is simply **empty**: this is the
+normal outcome on a quiet plant, not an error. This is the recommended
+mechanism for monitoring devices in real time without repeatedly fetching full
+device lists.
 
 #### Basic polling loop
 
 A typical polling loop continuously calls `async_get_updates()` and
-processes each batch of updates as it arrives:
+processes each batch of updates as it arrives. A timeout or any other error
+means the server did not deliver updates as expected, so some may have been
+lost: after a short pause, reload the device state before polling again.
 
 ```python
 import asyncio
-from aiocamedomotic.errors import CameDomoticServerTimeoutError
+from aiocamedomotic.errors import CameDomoticError
+
+async def reload_state(api):
+    # Re-read whatever your application tracks
+    return await api.async_get_lights()
 
 async with await CameDomoticAPI.async_create(
     "192.168.x.x", "username", "password"
 ) as api:
+    lights = await reload_state(api)
     while True:
         try:
-            updates = await api.async_get_updates(timeout=120)
-        except CameDomoticServerTimeoutError:
-            # Long poll timed out with no updates; simply retry
+            updates = await api.async_get_updates()
+        except CameDomoticError as err:
+            print(f"Polling failed ({err}), resyncing")
+            await asyncio.sleep(5)
+            lights = await reload_state(api)
             continue
 
         for update in updates.get_typed_updates():
@@ -1609,10 +1621,22 @@ Example output:
 ```
 
 **NOTE:**
-The `asyncio.sleep(1)` acts as a safety throttle in case the server
-returns immediately (e.g. errors or rapid update bursts). If you need to
-run the polling loop alongside other logic, wrap it in
-`asyncio.create_task()`.
+Keep in mind how the server queues updates:
+
+- **Poll again promptly.** Updates not read within about 30 seconds may be
+  discarded, so the total pause between two calls (throttling, processing,
+  error back-off) must stay well under 25 seconds. The `asyncio.sleep(1)`
+  above is a safety throttle in case the server returns immediately; the
+  duration of the poll itself does not matter, since updates are
+  delivered as soon as they occur.
+- **Updates are snapshots.** If a device changes several times in a row,
+  only its latest state may be reported: apply each update as the
+  current state of the device rather than as an event in a sequence.
+- **One poll at a time.** Run a single polling loop per API instance:
+  a concurrent call to `async_get_updates()` raises `RuntimeError`.
+  If you need to run the loop alongside other logic, wrap it in
+  `asyncio.create_task()`; other commands can be sent while a poll is
+  open.
 
 #### Configuring timeouts
 
@@ -1626,24 +1650,35 @@ async with await CameDomoticAPI.async_create(
     lights = await api.async_get_lights()  # uses 15s timeout
 ```
 
-`async_get_updates()` is the only method that accepts its own `timeout`
-parameter, allowing it to use a different timeout than the rest of the API.
-This is because `async_get_updates()` uses **long polling** — the server
-holds the connection open until updates are available, which can take
-much longer than a regular command round-trip. A longer timeout
-(e.g. 60–120 seconds) is **strongly recommended** to avoid premature
-disconnections:
+`async_get_updates()` does not use `command_timeout`. It has two
+parameters of its own:
+
+- `server_timeout` (default: 25s, range 1–120s): how long the server waits
+  for updates before returning an empty list.
+- `timeout`: the HTTP timeout. When omitted it is derived as
+  `server_timeout + 15` seconds (40s by default), which leaves room for
+  the server’s own latency. If you pass it explicitly, it must be at least
+  `server_timeout + 5` seconds, otherwise a `ValueError` is raised.
+
+The defaults suit most use cases, so there is usually no need to pass either
+parameter:
 
 ```python
-# Instance-level timeout is 15s for regular commands,
-# but async_get_updates uses its own 120s timeout
+# Server window 25s, HTTP timeout 40s
+updates = await api.async_get_updates()
+
+# Shorter server window (10s), HTTP timeout derived as 25s
+updates = await api.async_get_updates(server_timeout=10)
+
+# Explicit HTTP timeout: accepted because 120 >= 25 + 5
 updates = await api.async_get_updates(timeout=120)
 ```
 
 **NOTE:**
-If no `timeout` is passed to `async_get_updates()`, it falls back to
-the instance-level `command_timeout` (default: 30s). For most real-time
-monitoring use cases, a timeout of **60–120 seconds** is recommended.
+A `CameDomoticServerTimeoutError` from `async_get_updates()` does
+**not** mean that nothing happened: an idle plant returns an empty list.
+It means the server did not answer in time, so reload the device state
+before resuming the polling loop.
 
 #### Typed updates and filtering
 
@@ -1762,8 +1797,11 @@ timers_cache = {t.id: t for t in await api.async_get_timers()}
 
 while True:
     try:
-        updates = await api.async_get_updates(timeout=120)
-    except CameDomoticServerTimeoutError:
+        updates = await api.async_get_updates()
+    except CameDomoticError:
+        # Updates may have been lost: pause, then rebuild the cache
+        await asyncio.sleep(5)
+        timers_cache = {t.id: t for t in await api.async_get_timers()}
         continue
 
     for update in updates.get_typed_updates():
@@ -1820,8 +1858,10 @@ instead of repeatedly calling `async_get_energy_meters()`:
 ```python
 while True:
     try:
-        updates = await api.async_get_updates(timeout=120)
-    except CameDomoticServerTimeoutError:
+        updates = await api.async_get_updates()
+    except CameDomoticError:
+        # Pause and reload the state (see "Basic polling loop")
+        await asyncio.sleep(5)
         continue
 
     for update in updates.get_typed_updates():
@@ -1863,8 +1903,10 @@ overwrite any cached data).
 ```python
 while True:
     try:
-        updates = await api.async_get_updates(timeout=120)
-    except CameDomoticServerTimeoutError:
+        updates = await api.async_get_updates()
+    except CameDomoticError:
+        # Pause and reload the state (see "Basic polling loop")
+        await asyncio.sleep(5)
         continue
 
     for update in updates.get_typed_updates():
@@ -2569,26 +2611,49 @@ Only nested commands for features supported by the server are sent.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
-##### *async* async_get_updates(timeout: int | None = None) → [UpdateList](#aiocamedomotic.models.UpdateList)
+##### *async* async_get_updates(timeout: int | None = None, \*, server_timeout: int = 25) → [UpdateList](#aiocamedomotic.models.UpdateList)
 
 Get status updates from the server using long polling.
 
-This method performs a long-polling request: it blocks until the server
-sends one or more real-time status updates (e.g., a light turned on, a
-scenario activated), then returns them all at once.
+The server holds the request open for up to `server_timeout` seconds
+and answers as soon as at least one update is available. If nothing
+changes within the window, an **empty** `UpdateList` is returned:
+this is the normal outcome on a quiet plant, not an error.
+
+Usage notes:
+
+- Call it in a loop and keep the pause between two calls short (well
+  under ~25 seconds): the server discards unread updates after about
+  30 seconds.
+- Only one call at a time per `CameDomoticAPI` instance.
+- Updates are state snapshots: if a device changes several times,
+  only its latest state may be reported.
+- A `CameDomoticServerTimeoutError` means the server did not answer
+  at all: treat it as an anomaly and reload the device lists before
+  polling again, since updates may have been lost.
 
 * **Parameters:**
-  **timeout** (*int* *|* *None* *,* *optional*) – the timeout in seconds for the
-  long-polling request. If None, uses the instance-level
-  `command_timeout` (default: 30s). Since this method uses
-  long polling, a longer timeout (e.g. 120s) is recommended
-  to avoid premature disconnections.
+  * **timeout** (*int* *|* *None* *,* *optional*) – the HTTP timeout in seconds. If
+    None, it is set to `server_timeout + 15`. If given, it must
+    be at least `server_timeout + 5`.
+  * **server_timeout** (*int* *,* *optional*) – how long, in seconds, the server
+    waits for updates before returning an empty list (default:
+    25s, allowed range: 1-120s). The upper limit is a library
+    choice: longer windows bring no benefit, since updates are
+    delivered as soon as they occur, and make a stalled server or
+    an expired session slower to detect.
 * **Returns:**
-  List of status updates received from the server.
+  the status updates received, possibly empty.
 * **Return type:**
   [UpdateList](#aiocamedomotic.models.UpdateList)
 * **Raises:**
+  * **ValueError** – if `server_timeout` is out of range or `timeout`
+        is too short for it.
+  * **RuntimeError** – if another `async_get_updates` call is already in
+        progress on this instance.
   * [**CameDomoticAuthError**](#aiocamedomotic.errors.CameDomoticAuthError) – If the authentication fails.
+  * [**CameDomoticServerTimeoutError**](#aiocamedomotic.errors.CameDomoticServerTimeoutError) – If the server does not answer
+        within `timeout`.
   * [**CameDomoticServerError**](#aiocamedomotic.errors.CameDomoticServerError) – If the server returns an error.
 
 ##### *async* async_get_users() → list[[User](#aiocamedomotic.models.User)]
@@ -5707,7 +5772,7 @@ Validate the host asynchronously using aiohttp.
   [**CameDomoticServerNotFoundError**](#aiocamedomotic.errors.CameDomoticServerNotFoundError) – if the host doesn’t respond to an HTTP
       request or doesn’t expose the CAME Domotic API endopoint.
 
-##### backup_auth_credentials() → tuple[bytes | None, bytes | None, str, float, int, int]
+##### backup_auth_credentials() → tuple[bytes | None, bytes | None, str, float, int]
 
 Backup the current authentication credentials.
 
@@ -5744,7 +5809,7 @@ Get the CAME Domotic endpoint URL.
 
 Check whether the session is still valid or not.
 
-##### restore_auth_credentials(backup_state: tuple[bytes | None, bytes | None, str, float, int, int]) → None
+##### restore_auth_credentials(backup_state: tuple[bytes | None, bytes | None, str, float, int]) → None
 
 Restore authentication credentials from a backup.
 
