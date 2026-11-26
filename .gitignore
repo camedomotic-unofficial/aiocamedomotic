@@ -183,3 +183,6 @@ tests/aiocamedomotic/test_config.ini
 # Local data
 tmp/
 local_only/
+
+# Optional local root CA for the dev container (see Dockerfile.dev)
+.devcontainer/extra-ca.pem

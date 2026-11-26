@@ -135,7 +135,7 @@ class TestAuthInit:
         assert auth.session_expiration_timestamp < time.monotonic()
         assert auth.client_id == ""
         assert auth.keep_alive_timeout_sec == 0
-        assert auth.cseq == 0
+        assert not hasattr(auth, "cseq")
         assert auth.close_websession_on_disposal is False
         assert isinstance(auth._lock, asyncio.Lock)  # pylint: disable=protected-access
         assert isinstance(auth.cipher_suite, Fernet)
@@ -164,7 +164,6 @@ class TestAuthInit:
         )
         assert auth_init.client_id == auth_create.client_id
         assert auth_init.keep_alive_timeout_sec == auth_create.keep_alive_timeout_sec
-        assert auth_init.cseq == auth_create.cseq
         assert (
             auth_init.close_websession_on_disposal
             == auth_create.close_websession_on_disposal
@@ -269,7 +268,6 @@ class TestAuthSendCommand:
                 response = await auth_instance.async_send_command(payload)
 
                 assert response == mock_response.json.return_value
-                assert auth_instance.cseq == 1
                 assert (
                     auth_instance.session_expiration_timestamp
                     == time.monotonic() + auth_instance.keep_alive_timeout_sec - 30
@@ -324,7 +322,6 @@ class TestAuthSendCommand:
                     await auth_instance.async_send_command(payload)
 
                 # Session state should NOT be refreshed on ACK error
-                assert auth_instance.cseq == 0
                 assert (
                     auth_instance.session_expiration_timestamp
                     == previous_session_expiration_timestamp
@@ -391,7 +388,7 @@ class TestAuthSendCommand:
             auth_instance.websession, "post", new_callable=AsyncMock
         ) as mock_post:
             # aiohttp raises a plain asyncio.TimeoutError when the total
-            # ClientTimeout expires (e.g. long poll with no updates)
+            # ClientTimeout expires
             mock_post.side_effect = asyncio.TimeoutError()
 
             with patch.object(
@@ -483,7 +480,6 @@ class TestAuthSendCommand:
                 timeout=aiohttp.ClientTimeout(total=_DEFAULT_COMMAND_TIMEOUT),
             )
             mock_raise_for_status_and_ack.assert_called_once()
-            assert auth_instance.cseq == 0
             assert (
                 auth_instance.session_expiration_timestamp
                 == previous_session_expiration_timestamp
@@ -1255,26 +1251,33 @@ class TestAuthCredentials:
         auth.client_id = "test_client_123"
         auth.session_expiration_timestamp = 1234567890
         auth.keep_alive_timeout_sec = 300
-        auth.cseq = 42
 
         backup = auth.backup_auth_credentials()
         assert isinstance(backup, tuple)
-        assert len(backup) == 6
+        assert len(backup) == 5
         assert backup[2] == "test_client_123"
         assert backup[3] == 1234567890
         assert backup[4] == 300
-        assert backup[5] == 42
 
         auth.client_id = "modified_client"
         auth.session_expiration_timestamp = 9876543210
         auth.keep_alive_timeout_sec = 600
-        auth.cseq = 99
 
         auth.restore_auth_credentials(backup)
         assert auth.client_id == "test_client_123"
         assert auth.session_expiration_timestamp == 1234567890
         assert auth.keep_alive_timeout_sec == 300
-        assert auth.cseq == 42
+
+    def test_restore_does_not_touch_cseq_counter(self):
+        """The cseq counter is not session state: restore leaves it alone."""
+        mock_session = AsyncMock()
+        auth = Auth(mock_session, "192.168.1.100", "user", "password")
+        backup = auth.backup_auth_credentials()
+        counter = auth._cseq_counter  # pylint: disable=protected-access
+
+        auth.restore_auth_credentials(backup)
+
+        assert auth._cseq_counter is counter  # pylint: disable=protected-access
 
 
 class TestAuthConcurrency:
@@ -1570,3 +1573,91 @@ class TestTrafficLogging:
             # Command should succeed despite _log_traffic raising
             result = await auth_instance.async_send_command({"cmd_name": "test"})
             assert result == {"sl_data_ack_reason": 0}
+
+
+class TestAuthCseq:
+    """Tests for the cseq value sent in data requests."""
+
+    @staticmethod
+    def _ok_response(body: dict | None = None) -> AsyncMock:
+        response = AsyncMock()
+        response.status = 200
+        response.raise_for_status = Mock()
+        response.json.return_value = body or {"sl_data_ack_reason": 0}
+        return response
+
+    @staticmethod
+    def _sent_cseqs(mock_post: AsyncMock) -> list[int]:
+        """cseq values of data requests only (login requests carry none)."""
+        payloads = [
+            json.loads(call.kwargs["data"]["command"])
+            for call in mock_post.call_args_list
+        ]
+        return [p["sl_appl_msg"]["cseq"] for p in payloads if "sl_appl_msg" in p]
+
+    async def test_concurrent_commands_send_distinct_cseq(self, auth_instance):
+        release = asyncio.Event()
+
+        async def slow_post(*_args, **_kwargs):
+            await release.wait()
+            return self._ok_response()
+
+        with patch.object(
+            auth_instance.websession, "post", new_callable=AsyncMock
+        ) as mock_post:
+            mock_post.side_effect = slow_post
+            tasks = [
+                asyncio.create_task(auth_instance.async_send_command({"cmd_name": n}))
+                for n in ("a_req", "b_req")
+            ]
+            # Let both requests reach the (blocked) HTTP call before answering
+            while mock_post.call_count < 2:
+                await asyncio.sleep(0)
+            release.set()
+            await asyncio.gather(*tasks)
+
+        assert sorted(self._sent_cseqs(mock_post)) == [1, 2]
+
+    async def test_counter_advances_on_ack_error(self, auth_instance):
+        previous_expiration = auth_instance.session_expiration_timestamp
+
+        with patch.object(
+            auth_instance.websession, "post", new_callable=AsyncMock
+        ) as mock_post:
+            mock_post.return_value = self._ok_response({"sl_data_ack_reason": 11})
+            with pytest.raises(CameDomoticServerError):
+                await auth_instance.async_send_command({"cmd_name": "a_req"})
+
+            # The failed request does not refresh the session...
+            assert auth_instance.session_expiration_timestamp == previous_expiration
+
+            mock_post.return_value = self._ok_response()
+            await auth_instance.async_send_command({"cmd_name": "b_req"})
+
+        # ...but its cseq was consumed anyway
+        assert self._sent_cseqs(mock_post) == [1, 2]
+
+    async def test_cseq_restarts_from_one_after_login(
+        self, auth_instance_not_logged_in: Auth
+    ):
+        auth = auth_instance_not_logged_in
+        login_response = self._ok_response(
+            {
+                "sl_data_ack_reason": 0,
+                "sl_client_id": "new_client_id",
+                "sl_keep_alive_timeout_sec": 900,
+            }
+        )
+
+        with patch.object(auth.websession, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = login_response
+            await auth.async_send_command({"cmd_name": "a_req"})  # logs in first
+            await auth.async_send_command({"cmd_name": "b_req"})
+            assert self._sent_cseqs(mock_post) == [1, 2]
+
+            # Force a new session: the next command triggers a fresh login
+            auth.session_expiration_timestamp = 0
+            mock_post.reset_mock()
+            await auth.async_send_command({"cmd_name": "c_req"})
+
+        assert self._sent_cseqs(mock_post) == [1]

@@ -13,6 +13,7 @@ variable to True.
 # pylint: disable=redefined-outer-name
 
 import asyncio
+import time
 
 import pytest
 
@@ -472,6 +473,40 @@ async def test_listen_for_updates(api_instance_real: CameDomoticAPI):
     )
 
 
+async def _assert_long_poll_window(api: CameDomoticAPI, server_timeout: int) -> None:
+    """Poll once and check the answer arrives within the server window.
+
+    The plant is rarely idle (e.g. temperature sensors report continuously), so
+    the call may return early with updates. Only an empty answer proves the
+    server honoured the requested window, so the lower bound is checked only
+    in that case.
+    """
+    start = time.monotonic()
+    updates = await api.async_get_updates(server_timeout=server_timeout)
+    elapsed = time.monotonic() - start
+    print(
+        f"\nserver_timeout={server_timeout}s: {len(updates)} update(s) "
+        f"in {elapsed:.2f}s"
+    )
+
+    # Server tick (1s) plus network/web server latency
+    assert elapsed < server_timeout + 3
+    if len(updates) == 0:
+        assert elapsed >= server_timeout
+
+
+@pytest.mark.timeout(30)
+async def test_long_poll_short_server_window(api_instance_real: CameDomoticAPI):
+    """A 3s server window must return (empty or not) within ~5s."""
+    await _assert_long_poll_window(api_instance_real, 3)
+
+
+@pytest.mark.timeout(60)
+async def test_long_poll_default_server_window(api_instance_real: CameDomoticAPI):
+    """The default 25s server window must return (empty or not) within ~27s."""
+    await _assert_long_poll_window(api_instance_real, 25)
+
+
 def _get_thermo_zone_name(real_server_config) -> str:
     """Return the thermo zone name from config or a default."""
     if (
@@ -774,7 +809,7 @@ async def test_thermo_zone_updates_after_setpoint_change(
         print("  Listening for ThermoZoneUpdate...")
         thermo_update_found = False
         while not thermo_update_found:
-            updates = await api_instance_real.async_get_updates(timeout=10)
+            updates = await api_instance_real.async_get_updates(server_timeout=5)
             for update in updates.get_typed_updates():
                 if isinstance(update, ThermoZoneUpdate):
                     thermo_update_found = True

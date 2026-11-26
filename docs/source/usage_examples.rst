@@ -1398,31 +1398,43 @@ Monitoring real-time updates
 ----------------------------
 
 The CAME Domotic server supports **long polling** for real-time status updates.
-When you call ``async_get_updates()``, the request **blocks on the server**
-until one or more device state changes are detected, then returns an
-:class:`~aiocamedomotic.models.update.UpdateList` containing all pending
-updates. This is the recommended mechanism for monitoring devices in real time
-without repeatedly fetching full device lists.
+When you call ``async_get_updates()``, the server holds the request open for
+up to ``server_timeout`` seconds (default: **25**) and answers as soon as at
+least one device changes state, returning an
+:class:`~aiocamedomotic.models.update.UpdateList` with all pending updates. If
+nothing changes within that window, the list is simply **empty**: this is the
+normal outcome on a quiet plant, not an error. This is the recommended
+mechanism for monitoring devices in real time without repeatedly fetching full
+device lists.
 
 Basic polling loop
 ^^^^^^^^^^^^^^^^^^
 
 A typical polling loop continuously calls ``async_get_updates()`` and
-processes each batch of updates as it arrives:
+processes each batch of updates as it arrives. A timeout or any other error
+means the server did not deliver updates as expected, so some may have been
+lost: after a short pause, reload the device state before polling again.
 
 .. code-block:: python
 
     import asyncio
-    from aiocamedomotic.errors import CameDomoticServerTimeoutError
+    from aiocamedomotic.errors import CameDomoticError
+
+    async def reload_state(api):
+        # Re-read whatever your application tracks
+        return await api.async_get_lights()
 
     async with await CameDomoticAPI.async_create(
         "192.168.x.x", "username", "password"
     ) as api:
+        lights = await reload_state(api)
         while True:
             try:
-                updates = await api.async_get_updates(timeout=120)
-            except CameDomoticServerTimeoutError:
-                # Long poll timed out with no updates; simply retry
+                updates = await api.async_get_updates()
+            except CameDomoticError as err:
+                print(f"Polling failed ({err}), resyncing")
+                await asyncio.sleep(5)
+                lights = await reload_state(api)
                 continue
 
             for update in updates.get_typed_updates():
@@ -1440,10 +1452,22 @@ Example output:
     [THERMOSTAT] Living Room (ID: 1)
 
 .. note::
-    The ``asyncio.sleep(1)`` acts as a safety throttle in case the server
-    returns immediately (e.g. errors or rapid update bursts). If you need to
-    run the polling loop alongside other logic, wrap it in
-    ``asyncio.create_task()``.
+    Keep in mind how the server queues updates:
+
+    - **Poll again promptly.** Updates not read within about 30 seconds may be
+      discarded, so the total pause between two calls (throttling, processing,
+      error back-off) must stay well under 25 seconds. The ``asyncio.sleep(1)``
+      above is a safety throttle in case the server returns immediately; the
+      duration of the poll itself does not matter, since updates are
+      delivered as soon as they occur.
+    - **Updates are snapshots.** If a device changes several times in a row,
+      only its latest state may be reported: apply each update as the
+      current state of the device rather than as an event in a sequence.
+    - **One poll at a time.** Run a single polling loop per API instance:
+      a concurrent call to ``async_get_updates()`` raises ``RuntimeError``.
+      If you need to run the loop alongside other logic, wrap it in
+      ``asyncio.create_task()``; other commands can be sent while a poll is
+      open.
 
 Configuring timeouts
 ^^^^^^^^^^^^^^^^^^^^
@@ -1458,24 +1482,35 @@ the ``command_timeout`` parameter when creating the API instance:
     ) as api:
         lights = await api.async_get_lights()  # uses 15s timeout
 
-``async_get_updates()`` is the only method that accepts its own ``timeout``
-parameter, allowing it to use a different timeout than the rest of the API.
-This is because ``async_get_updates()`` uses **long polling** — the server
-holds the connection open until updates are available, which can take
-much longer than a regular command round-trip. A longer timeout
-(e.g. 60--120 seconds) is **strongly recommended** to avoid premature
-disconnections:
+``async_get_updates()`` does not use ``command_timeout``. It has two
+parameters of its own:
+
+- ``server_timeout`` (default: 25s, range 1--120s): how long the server waits
+  for updates before returning an empty list.
+- ``timeout``: the HTTP timeout. When omitted it is derived as
+  ``server_timeout + 15`` seconds (40s by default), which leaves room for
+  the server's own latency. If you pass it explicitly, it must be at least
+  ``server_timeout + 5`` seconds, otherwise a ``ValueError`` is raised.
+
+The defaults suit most use cases, so there is usually no need to pass either
+parameter:
 
 .. code-block:: python
 
-    # Instance-level timeout is 15s for regular commands,
-    # but async_get_updates uses its own 120s timeout
+    # Server window 25s, HTTP timeout 40s
+    updates = await api.async_get_updates()
+
+    # Shorter server window (10s), HTTP timeout derived as 25s
+    updates = await api.async_get_updates(server_timeout=10)
+
+    # Explicit HTTP timeout: accepted because 120 >= 25 + 5
     updates = await api.async_get_updates(timeout=120)
 
 .. note::
-    If no ``timeout`` is passed to ``async_get_updates()``, it falls back to
-    the instance-level ``command_timeout`` (default: 30s). For most real-time
-    monitoring use cases, a timeout of **60--120 seconds** is recommended.
+    A ``CameDomoticServerTimeoutError`` from ``async_get_updates()`` does
+    **not** mean that nothing happened: an idle plant returns an empty list.
+    It means the server did not answer in time, so reload the device state
+    before resuming the polling loop.
 
 Typed updates and filtering
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1598,8 +1633,11 @@ a ``timer_info_ind`` arrives:
 
     while True:
         try:
-            updates = await api.async_get_updates(timeout=120)
-        except CameDomoticServerTimeoutError:
+            updates = await api.async_get_updates()
+        except CameDomoticError:
+            # Updates may have been lost: pause, then rebuild the cache
+            await asyncio.sleep(5)
+            timers_cache = {t.id: t for t in await api.async_get_timers()}
             continue
 
         for update in updates.get_typed_updates():
@@ -1659,8 +1697,10 @@ instead of repeatedly calling ``async_get_energy_meters()``:
 
     while True:
         try:
-            updates = await api.async_get_updates(timeout=120)
-        except CameDomoticServerTimeoutError:
+            updates = await api.async_get_updates()
+        except CameDomoticError:
+            # Pause and reload the state (see "Basic polling loop")
+            await asyncio.sleep(5)
             continue
 
         for update in updates.get_typed_updates():
@@ -1705,8 +1745,10 @@ a **complete snapshot** of the affected entity, parsed into
 
     while True:
         try:
-            updates = await api.async_get_updates(timeout=120)
-        except CameDomoticServerTimeoutError:
+            updates = await api.async_get_updates()
+        except CameDomoticError:
+            # Pause and reload the state (see "Basic polling loop")
+            await asyncio.sleep(5)
             continue
 
         for update in updates.get_typed_updates():
